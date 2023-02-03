@@ -1596,9 +1596,10 @@ var _listAssetPublishJobs = function (server, repositoryName) {
 							}
 						}
 
-						var duration = serverUtils.timeUsed(new Date(job.jobStartedDate.value), new Date(job.jobCompletedDate.value));
+						var endDate = job.jobCompletedDate ? new Date(job.jobCompletedDate.value) : new Date();
+						var duration = serverUtils.timeUsed(new Date(job.jobStartedDate.value), endDate);
 
-						console.log(sprintf(format, job.id, job.publishStatus, job.jobCompletedDate.value, duration, job.owner, channelStr.toString()));
+						console.log(sprintf(format, job.id, job.publishStatus, job.jobCompletedDate ? job.jobCompletedDate.value : '', duration, job.owner, channelStr.toString()));
 
 					});
 

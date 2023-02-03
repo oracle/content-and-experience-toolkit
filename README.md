@@ -15,6 +15,17 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.2.1
+
+**Updated**
+
+- `editorial-permission` and `editorial-role` now support `createSite` permission in a category
+- `cec share-repository` - now supports editorial role
+- `cec update-taxonomy` - can now enable a taxonomy for Site Security management
+- `cec create-site` - now supports creation of a site that uses Site Security Taxonomy
+- local server now supports locale fallbacks and aliases in URL when running a template
+
+
 # New in Release 23.1.2
 
 **Updated**

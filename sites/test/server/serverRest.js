@@ -4666,6 +4666,32 @@ module.exports.getTaxonomiesWithName = function (args) {
 	});
 };
 
+module.exports.getCategory = function (args) {
+	return new Promise(function (resolve, reject) {
+		var taxonomyId = args.taxonomyId,
+			parentCategoryId = args.parentCategoryId,
+			categoryName = args.categoryName;
+
+		var url = '/content/management/api/v1.1/taxonomies/' + taxonomyId + '/categories';
+		url += '?q=(parentId eq "' + parentCategoryId + '" and name eq "' + categoryName + '")';
+		url += '&fields=ancestors,name,isSiteCategory&links=none';
+
+		var noMsg = true;
+		_executeGet(args.server, url, noMsg)
+			.then(function (result) {
+				var data;
+				try {
+					data = JSON.parse(result);
+				} catch (e) {
+					// in case result is no json
+				}
+
+				resolve({
+					categories: (data && data.items || [])
+				});
+			});
+	});
+};
 
 /**
  * Get all categories of a taxonomy on server
@@ -5077,7 +5103,7 @@ module.exports.updateRepository = function (args) {
 		args.editorialRoles);
 };
 
-var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users, groups) {
+var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users, groups, roleId) {
 	return new Promise(function (resolve, reject) {
 		if (users.length === 0 && groups.length === 0) {
 			return resolve({});
@@ -5120,10 +5146,20 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 					resource: resource
 				};
 				if (operation === 'share') {
-					operations[operation]['roles'] = [{
-						name: role,
-						users: userArr
-					}];
+					// Role is not a default role. Assume the tyoe is 'editorial'.
+					if (['manager','contributor','viewer'].indexOf(role) === -1) {
+						operations[operation]['roles'] = [{
+							id: roleId,
+							name: role,
+							users: userArr,
+							type: 'editorial'
+						}];
+					} else {
+						operations[operation]['roles'] = [{
+							name: role,
+							users: userArr
+						}];
+					}
 				} else {
 					operations[operation]['users'] = userArr;
 				}
@@ -5211,7 +5247,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
  */
 module.exports.performPermissionOperation = function (args) {
 	return _performPermissionOperation(args.server,
-		args.operation, args.resourceId, args.resourceName, args.resourceType, args.role, args.users || [], args.groups || []);
+		args.operation, args.resourceId, args.resourceName, args.resourceType, args.role, args.users || [], args.groups || [], args.roleId);
 };
 
 /**
@@ -6300,7 +6336,7 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
 				var payload = {};
 				if (action === 'promote') {
 					payload.isPublishable = isPublishable;
-				} else {
+				} else if (action !== 'createDraft') {
 					payload.channels = channels;
 				}
 
@@ -8780,6 +8816,7 @@ var _executePost = function (args) {
  */
 module.exports.executePut = function (args) {
 	return new Promise(function (resolve, reject) {
+		var showDetail = args.noMsg ? false : true;
 		var endpoint = args.endpoint;
 		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
 		var isSystem = endpoint.indexOf('/system/api/') === 0;
@@ -8817,7 +8854,9 @@ module.exports.executePut = function (args) {
 				}
 				serverUtils.showRequestOptions(postData);
 
-				console.info(' - executing endpoint: PUT ' + endpoint);
+				if (showDetail) {
+					console.info(' - executing endpoint: PUT ' + endpoint);
+				}
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
@@ -8834,9 +8873,11 @@ module.exports.executePut = function (args) {
 						// in case result is not json
 					}
 
-					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
-					if (response.location || response.url) {
-						console.log('Result URL: ' + (response.location || response.url));
+					if (showDetail) {
+						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
+						if (response.location || response.url) {
+							console.log('Result URL: ' + (response.location || response.url));
+						}
 					}
 					// console.log(response);
 					return resolve(data);

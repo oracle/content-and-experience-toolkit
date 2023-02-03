@@ -11,6 +11,7 @@ const fs = require('fs');
 const yargs = require('yargs');
 const os = require('os');
 const sprintf = require('sprintf-js').sprintf;
+const { ADDRCONFIG } = require('dns');
 
 
 /**************************
@@ -304,7 +305,7 @@ var getAssetEditorialPermissions = function () {
 };
 
 var getTaxonomyEditorialPermissions = function () {
-	const permissions = ['none', 'view', 'categorize'];
+	const permissions = ['none', 'view', 'categorize', 'createSite'];
 	return permissions;
 };
 
@@ -316,6 +317,16 @@ var getRepositoryTypes = function () {
 var getPublishingJobTypes = function () {
 	const types = ['asset', 'component', 'theme', 'site'];
 	return types;
+};
+
+var getImportSitePolicies = function () {
+	const policies = ['createSite', 'updateSite', 'duplicateSite'];
+	return policies;
+};
+
+var getImportSiteAssetPolicies = function () {
+	const policies = ['createOrUpdate', 'createOrUpdateIfOutdated', 'duplicate'];
+	return policies;
 };
 
 var getLoggerLevels = function () {
@@ -1092,6 +1103,7 @@ const controlContent = {
 	example: [
 		['cec control-content publish -c Channel1', 'Publish all items in channel Channel1 on the server specified in cec.properties file'],
 		['cec control-content publish -c Channel1 -a GUID1,GUID2', 'Publish asset GUID1 and GUID2 in channel Channel1'],
+		['cec control-content publish -c Channel1 -q \'createdDate ge "2023-01-01" and createdDate lt "2024-01-01"\'', 'Publish asset created in 2023 in channel Channel1'],
 		['cec control-content publish -c Channel1 -s SampleServer1', 'Publish all items in channel Channel1 on the registered server SampleServer1'],
 		['cec control-content unpublish -c Channel1 -s SampleServer1', 'Unpublish all items in channel Channel1 on the registered server SampleServer1'],
 		['cec control-content add -c Channel1 -r Repo1 -s SampleServer1', 'Add all items in repository Repo1 to channel Channel1 on the registered server SampleServer1'],
@@ -1277,6 +1289,25 @@ const uploadTaxonomy = {
 		['cec upload-taxonomy Taxonomy1 -c', 'Create a new taxonomy on upload'],
 		['cec upload-taxonomy Taxonomy1 -c -n Taxonomy1_2 -a t12 -d "Taxonomy1 copy"', 'Create a new taxonomy on upload with given name, abbreviation and description'],
 		['cec upload-taxonomy ~/Documents/6A6DC736572C468B90F2A1C17B7CE5E4.json -f ', 'Create a new taxonomy or a draft of existing taxonomy on upload the JSON file']
+	]
+};
+
+const updateTaxonomy = {
+	command: 'update-taxonomy <name>',
+	alias: 'utx',
+	name: 'update-taxonomy',
+	usage: {
+		'short': 'Update taxonomy on OCM server.',
+		'long': (function () {
+			let desc = 'Update taxonomy on OCM server.'
+			return desc;
+		})()
+	},
+	example: [
+		['cec update-taxonomy Taxonomy1 -m', 'Enable Taxonomy1 taxonomy for Site security management use'],
+		['cec update-taxonomy Taxonomy1 -m false', 'Disable Taxonomy1 taxonomy for Site security management use'],
+		['cec update-taxonomy Taxonomy1 -p', 'Enable Taxonomy1 taxonomy for publishing'],
+		['cec update-taxonomy Taxonomy1 -p false', 'Disable Taxonomy1 taxonomy for publishing'],
 	]
 };
 
@@ -1495,7 +1526,8 @@ const createSite = {
 		['cec create-site Site1 -t Template1 -r Repository1 -d en-US', 'Creates an enterprise site and uses the localization policy in Template1'],
 		['cec create-site Site1 -t Template1 -r Repository1 -d en-US -s SampleServer1', 'Creates an enterprise site on server SampleServer1'],
 		['cec create-site Site1 -t Template1 -u -r Repository1 -d en-US -s SampleServer1', 'Creates an enterprise site on server SampleServer1 and keep the existing id for assets'],
-		['cec create-site Site1 -t Template1 -e -r Repository1 -d en-US -s SampleServer1', 'Creates an enterprise site on server SampleServer1 and keep the existing id for assets and only update the assets that are older than those from the template']
+		['cec create-site Site1 -t Template1 -e -r Repository1 -d en-US -s SampleServer1', 'Creates an enterprise site on server SampleServer1 and keep the existing id for assets and only update the assets that are older than those from the template'],
+		['cec create-site SiteSharingRepo -t Template1 -r SharedRepo -l L10NPolicy1 -d en-US -c "Org:Department/Marketing"', 'Create a site whose assets are categorized by a site category under the specified taxonomy and category.']
 	]
 };
 
@@ -1754,7 +1786,7 @@ const exportSite = {
 	usage: {
 		'short': 'Export Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Export Enterprise Site on OCM server to a folder. Specify the server with -s <server> or use the one specified in cec.properties file. '
+			let desc = 'Export Enterprise Site on OCM server to a folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'Specify the folder with -f <folder> and specify the export name with -n <export-name>. '
 			desc = desc + 'NOTE: This command is not available for production use.';
 			return desc;
@@ -1775,8 +1807,12 @@ const importSite = {
 	usage: {
 		'short': 'Import Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Import site to OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. '
-			desc = desc + 'NOTE: This command is not available for production use.';
+			let desc = 'Import site to OCM server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			desc = desc + ' The valid policies for <sitepolicy> are:\n\n';
+			desc = getImportSitePolicies().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'The valid policies for <assetpolicy> are:' + os.EOL + os.EOL;
+			desc = getImportSiteAssetPolicies().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'NOTE: This command is not available for production use.';
 			return desc;
 		})()
 	},
@@ -1784,9 +1820,8 @@ const importSite = {
 		['cec import-site Site1 -r repository', 'Import site in src/siteExport/Site1 to the OCM server'],
 		['cec import-site Site1 -r repository -p /dev/folder', 'Import site in /dev/folder to the OCM server'],
 		['cec import-site Site1 -e ImportName -r repository', 'Import src/siteExport/Site1 to the OCM server with ImportName as name'],
-		['cec import-site Site1 -i duplicateSite -n Site2 -r repository', 'Import site in /dev/folder to the OCM server as Site2'],
+		['cec import-site Site1 -i duplicateSite -n Site1Copy -r repository -x site1copy -l EnglishPolicy', 'Import site to the OCM server by duplicating it as Site1Copy'],
 		['cec import-site Site1 -a createOrUpdate -r repository', 'Import src/siteExport/Site1 to the OCM server with createOrUpdate assets policy'],
-		['cec import-site Site1 -t createOrUpdate -r repository', 'Import src/siteExport/Site1 to the OCM server with createOrUpdate theme custom components policy'],
 		['cec import-site Site1 -f Site1_72D365DB55C94BF1BB023299B4AB64B0 -r repository', 'Import from the given folder on the OCM server']
 	]
 };
@@ -2247,7 +2282,7 @@ const shareRepository = {
 				'Optionally specify -y <typerole> to share the types with different role. ' +
 				'The valid roles for a repository are' + os.EOL + os.EOL;
 			desc = getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + 'The valid roles for a type are ' + os.EOL + os.EOL;
+			desc = desc + os.EOL + 'or an editorial role. The valid roles for a type are ' + os.EOL + os.EOL;
 			desc = getContentTypeRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 		})()
@@ -2325,7 +2360,8 @@ const setEditorialPermission = {
 		['cec set-editorial-permission Repo1 -u user1,user2 -c -t none', 'User user1 and user2 cannot see any categorized assets'],
 		['cec set-editorial-permission Repo1 -u user1,user2 -c "Region:Asia" -t categorize', 'User user1 and user2 User can see and add assets to Asia category and its children in taxonomy Region'],
 		['cec set-editorial-permission Repo1 -u user1,user2 -c "Region:Asia/East" -t categorize', 'User user1 and user2 User can see and add assets to Asia\'s child category East and its children in taxonomy Region'],
-		['cec set-editorial-permission Repo1 -u user1,user2 -c "Region:Asia" -t', 'Remove category Region|Asia from user1 and user2']
+		['cec set-editorial-permission Repo1 -u user1,user2 -c "Region:Asia" -t', 'Remove category Region|Asia from user1 and user2'],
+		['cec set-editorial-permission Repo1 -u user1 -c "Region:Asia/West" -t createSite', 'User user1 can create sites using West category as the parent category for site content']
 	]
 };
 
@@ -2410,7 +2446,8 @@ const setEditorialRole = {
 		['cec set-editorial-role Role1 -c -t none', 'Role1 cannot see any categorized assets'],
 		['cec set-editorial-role Role1 -c "Region:Asia" -t categorize', 'Role1 can see and add assets to Asia category and its children in taxonomy Region'],
 		['cec set-editorial-role Role1 -c "Region:Asia/East" -t categorize', 'Role1 can see and add assets to Asia\'s child category East and its children in taxonomy Region'],
-		['cec set-editorial-role Role1 -c "Region:Asia" -t', 'Remove category Region|Asia from Role1']
+		['cec set-editorial-role Role1 -c "Region:Asia" -t', 'Remove category Region|Asia from Role1'],
+		['cec set-editorial-role Repo1 -c "Region:Asia/West" -t createSite', 'Role1 can create sites using West category as the parent category for site content']
 	]
 };
 
@@ -3514,6 +3551,23 @@ const downloadJobLog = {
 	]
 };
 
+const updateRenditionJob = {
+	command: 'update-rendition-job <job>',
+	alias: 'urj',
+	name: 'update-rendition-job',
+	usage: {
+		'short': 'Update content compilation rendition job status.',
+		'long': (function () {
+			let desc = 'Update content compilation rendition job status on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec update-rendition-job \'{"jobId":"OP5155F7815D9D4852B87E56887123304A","status":"inprogress","progress":"50","compiledAt":"2023-01-11T12:38:20Z"}\' -s SampleServer1'],
+		['cec update-rendition-job \'{"jobId":"OP5155F7815D9D4852B87E56887123304A","status":"inprogress","progress":"50","compiledAt":"2023-01-11T12:38:20Z"}\' -f ~/Docs/result.zip']
+	]
+};
+
 const createEncryptionKey = {
 	command: 'create-encryption-key <file>',
 	alias: 'cek',
@@ -4058,6 +4112,7 @@ _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(downloadTaxonomy) + os.EOL +
 	_getCmdHelp(uploadTaxonomy) + os.EOL +
 	_getCmdHelp(controlTaxonomy) + os.EOL +
+	_getCmdHelp(updateTaxonomy) + os.EOL +
 	_getCmdHelp(describeTaxonomy) + os.EOL;
 
 _usage = _usage + os.EOL + 'Permissions' + os.EOL +
@@ -4086,7 +4141,8 @@ _usage = _usage + os.EOL + 'Jobs' + os.EOL +
 	_getCmdHelp(listScheduledJobs) + os.EOL +
 	_getCmdHelp(describeScheduledJob) + os.EOL +
 	_getCmdHelp(listPublishingJobs) + os.EOL +
-	_getCmdHelp(downloadJobLog) + os.EOL
+	_getCmdHelp(downloadJobLog) + os.EOL;
+// _getCmdHelp(updateRenditionJob) + os.EOL;
 
 _usage = _usage + os.EOL + 'Groups' + os.EOL +
 	_getCmdHelp(createGroup) + os.EOL +
@@ -5328,6 +5384,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlContent.example[10])
 				.example(...controlContent.example[11])
 				.example(...controlContent.example[12])
+				.example(...controlContent.example[13])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlContent.command}\n\n${controlContent.usage.long}`);
@@ -5585,6 +5642,36 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${controlTaxonomy.command}\n\n${controlTaxonomy.usage.long}`);
 		})
+	.command([updateTaxonomy.command, updateTaxonomy.alias], false,
+		(yargs) => {
+			yargs.option('sitesecurity', {
+				alias: 'm',
+				description: 'Enable for Site security management use'
+			})
+				.option('publishable', {
+					alias: 'p',
+					description: 'Enable for publishing'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					var sitesecurityspecified = typeof argv.sitesecurity !== 'undefined',
+						publishablespecified = typeof argv.publishable !== 'undefined';
+					if (!sitesecurityspecified && !publishablespecified) {
+						throw new Error('Please specify either <sitesecurity> or <publishable>');
+					}
+					return true;
+				})
+				.example(...updateTaxonomy.example[0])
+				.example(...updateTaxonomy.example[1])
+				.example(...updateTaxonomy.example[2])
+				.example(...updateTaxonomy.example[3])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${updateTaxonomy.command}\n\n${updateTaxonomy.usage.long}`);
+		})
 	.command([describeTaxonomy.command, describeTaxonomy.alias], false,
 		(yargs) => {
 			yargs.option('id', {
@@ -5825,6 +5912,10 @@ const argv = yargs.usage(_usage)
 					alias: 'g',
 					description: 'Suppress site governance controls'
 				})
+				.options('category', {
+					alias: 'c',
+					description: 'Category path of the parent category for Site security management in the format of <taxonomy>:<category>'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -5832,6 +5923,11 @@ const argv = yargs.usage(_usage)
 				.check((argv) => {
 					if (argv.update && argv.reuse) {
 						throw new Error(os.EOL + 'Set either update or reuse');
+					}
+					if (argv.category) {
+						if (typeof argv.category !== 'string' || argv.category.indexOf(':') <= 0 || argv.category.indexOf(':') === (argv.category.length - 1)) {
+							throw new Error(os.EOL + '<category> must be specified in the format of <taxonomy>:<category>');
+						}
 					}
 					return true;
 				})
@@ -5841,6 +5937,7 @@ const argv = yargs.usage(_usage)
 				.example(...createSite.example[3])
 				.example(...createSite.example[4])
 				.example(...createSite.example[5])
+				.example(...createSite.example[6])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createSite.command}\n\n${createSite.usage.long}`);
@@ -6305,6 +6402,14 @@ const argv = yargs.usage(_usage)
 				description: 'Repository name',
 				demandOption: true
 			})
+				.option('localizationPolicy', {
+					alias: 'l',
+					description: 'Localization policy, required for duplicating a site'
+				})
+				.option('sitePrefix', {
+					alias: 'x',
+					description: 'Site prefix'
+				})
 				.option('importname', {
 					alias: 'e',
 					description: 'name of the import',
@@ -6313,17 +6418,13 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'path of the local folder for upload'
 				})
-				.option('policies', {
+				.option('sitepolicy', {
 					alias: 'i',
-					description: 'policies: createSite (default), updateSite, duplicateSite'
+					description: 'Site policy [' + getImportSitePolicies().join(' | ') + ']'
 				})
-				.option('assetspolicy', {
+				.option('assetpolicy', {
 					alias: 'a',
-					description: 'assets policy: createOrUpdate (default), createOrUpdateIfOutdated, duplicate'
-				})
-				.option('themecustomcomponentspolicy', {
-					alias: 't',
-					description: 'theme custom components policy: createOrUpdate (default), duplicate'
+					description: 'Site policy [' + getImportSiteAssetPolicies().join(' | ') + ']'
 				})
 				.option('newsite', {
 					alias: 'n',
@@ -6341,9 +6442,28 @@ const argv = yargs.usage(_usage)
 					if (!argv.repository) {
 						throw new Error('Please specify repository');
 					}
-					if (argv.policies === 'duplicateSite') {
+					if (argv.sitepolicy && !getImportSitePolicies().includes(argv.sitepolicy)) {
+						throw new Error(os.EOL + `${argv.sitepolicy} is not a valid value for <sitepolicy>`);
+					}
+					if (argv.assetpolicy && !getImportSiteAssetPolicies().includes(argv.assetpolicy)) {
+						throw new Error(os.EOL + `${argv.assetpolicy} is not a valid value for <assetpolicy>`);
+					}
+					if (argv.sitepolicy === 'duplicateSite') {
+						if (argv.assetpolicy && argv.assetpolicy !== 'duplicate') {
+							throw new Error('Please specify duplicate for <assetpolicy> when <sitepolicy> is duplicateSite');
+						}
 						if (!argv.newsite) {
-							throw new Error('Pleaee specific newsite for duplicateSite policies');
+							throw new Error('Pleaee specify newsite for duplicateSite policies');
+						}
+						if (!argv.localizationPolicy) {
+							throw new Error('Pleaee specify localizationPolicy for duplicateSite policies');
+						}
+						if (!argv.sitePrefix) {
+							throw new Error('Pleaee specify sitePrefix for duplicateSite policies');
+						}
+					} else if (argv.sitepolicy === 'updateSite') {
+						if (argv.assetpolicy === 'duplicate') {
+							throw new Error('Please specify createOrUpdate or createOrUpdateIfOutdated for <assetpolicy> when <sitepolicy> is updateSite');
 						}
 					}
 					return true;
@@ -6354,7 +6474,6 @@ const argv = yargs.usage(_usage)
 				.example(...importSite.example[3])
 				.example(...importSite.example[4])
 				.example(...importSite.example[5])
-				.example(...importSite.example[6])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${importSite.command}\n\n${importSite.usage.long}`);
@@ -6431,10 +6550,10 @@ const argv = yargs.usage(_usage)
 				alias: 's',
 				description: 'The registered OCM server'
 			})
-			.option('download', {
-				alias: 'd',
-				description: 'flag to indicate to download files of the exported site to local folder'
-			})
+				.option('download', {
+					alias: 'd',
+					description: 'flag to indicate to download files of the exported site to local folder'
+				})
 				.example(...describeExportJob.example[0])
 				.example(...describeExportJob.example[1])
 				.example(...describeExportJob.example[2])
@@ -6462,10 +6581,10 @@ const argv = yargs.usage(_usage)
 				alias: 's',
 				description: 'The registered OCM server'
 			})
-			.option('download', {
-				alias: 'd',
-				description: 'flag to indicate to download the import report to local folder'
-			})
+				.option('download', {
+					alias: 'd',
+					description: 'flag to indicate to download the import report to local folder'
+				})
 				.example(...describeImportJob.example[0])
 				.example(...describeImportJob.example[1])
 				.example(...describeImportJob.example[2])
@@ -7160,7 +7279,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('role', {
 					alias: 'r',
-					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users or groups',
+					description: 'The role [' + getResourceRoles().join(' | ') + '] or an editorial role to assign to the users or groups',
 					demandOption: true
 				})
 				.option('types', {
@@ -7179,8 +7298,8 @@ const argv = yargs.usage(_usage)
 					if (!argv.users && !argv.groups) {
 						throw new Error('Please specify users or groups');
 					}
-					if (argv.role && !getResourceRoles().includes(argv.role)) {
-						throw new Error(`${argv.role} is not a valid value for <role>`);
+					if (argv.role && typeof argv.role === 'boolean') {
+						throw new Error('Please specify a role name');
 					}
 					if (argv.typerole && !getContentTypeRoles().includes(argv.typerole)) {
 						throw new Error(`${argv.typerole} is not a valid value for <typerole>`);
@@ -7320,6 +7439,7 @@ const argv = yargs.usage(_usage)
 				.example(...setEditorialPermission.example[8])
 				.example(...setEditorialPermission.example[9])
 				.example(...setEditorialPermission.example[10])
+				.example(...setEditorialPermission.example[11])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${setEditorialPermission.command}\n\n${setEditorialPermission.usage.long}`);
@@ -7430,6 +7550,7 @@ const argv = yargs.usage(_usage)
 				.example(...setEditorialRole.example[7])
 				.example(...setEditorialRole.example[8])
 				.example(...setEditorialRole.example[9])
+				.example(...setEditorialRole.example[10])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${setEditorialRole.command}\n\n${setEditorialRole.usage.long}`);
@@ -8916,6 +9037,22 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadJobLog.command}\n\n${downloadJobLog.usage.long}`);
+		})
+	.command([updateRenditionJob.command, updateRenditionJob.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+				alias: 'f',
+				description: 'The job data zip file to upload'
+			})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...updateRenditionJob.example[0])
+				.example(...updateRenditionJob.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${updateRenditionJob.command}\n\n${updateRenditionJob.usage.long}`);
 		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
@@ -10516,6 +10653,26 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === updateTaxonomy.name || argv._[0] === updateTaxonomy.alias) {
+	let updateTaxonomyArgs = ['run', '-s', updateTaxonomy.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (typeof argv.sitesecurity !== 'undefined') {
+		updateTaxonomyArgs.push(...['--sitesecurity', argv.sitesecurity]);
+	}
+	if (typeof argv.publishable !== 'undefined') {
+		updateTaxonomyArgs.push(...['--publishable', argv.publishable]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		updateTaxonomyArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, updateTaxonomyArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === describeTaxonomy.name || argv._[0] === describeTaxonomy.alias) {
 	let describeTaxonomyArgs = ['run', '-s', describeTaxonomy.name, '--prefix', appRoot,
 		'--',
@@ -10841,6 +10998,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.suppressgovernance) {
 		createSiteArgs.push(...['--suppressgovernance', argv.suppressgovernance]);
+	}
+	if (argv.category && typeof argv.category !== 'boolean') {
+		createSiteArgs.push(...['--category', argv.category]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createSiteArgs.push(...['--server', argv.server]);
@@ -11191,17 +11351,20 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.repository && typeof argv.repository !== 'boolean') {
 		importSiteArgs.push(...['--repository', argv.repository]);
 	}
+	if (argv.localizationPolicy && typeof argv.localizationPolicy !== 'boolean') {
+		importSiteArgs.push(...['--localizationPolicy', argv.localizationPolicy]);
+	}
+	if (argv.sitePrefix && typeof argv.sitePrefix !== 'boolean') {
+		importSiteArgs.push(...['--sitePrefix', argv.sitePrefix]);
+	}
 	if (argv.path && typeof argv.path !== 'boolean') {
 		importSiteArgs.push(...['--path', argv.path]);
 	}
-	if (argv.policies && typeof argv.policies !== 'boolean') {
-		importSiteArgs.push(...['--policies', argv.policies]);
+	if (argv.sitepolicy && typeof argv.sitepolicy !== 'boolean') {
+		importSiteArgs.push(...['--sitepolicy', argv.sitepolicy]);
 	}
-	if (argv.assetspolicy && argv.assetspolicy !== 'boolean') {
-		importSiteArgs.push(...['--assetspolicy', argv.assetspolicy]);
-	}
-	if (argv.themecustomcomponentspolicy && argv.themecustomcomponentspolicy !== 'boolean') {
-		importSiteArgs.push(...['--themecustomcomponentspolicy', argv.themecustomcomponentspolicy]);
+	if (argv.assetpolicy && argv.assetpolicy !== 'boolean') {
+		importSiteArgs.push(...['--assetpolicy', argv.assetpolicy]);
 	}
 	if (argv.newsite && typeof argv.newsite !== 'boolean') {
 		importSiteArgs.push(...['--newsite', argv.newsite]);
@@ -12881,6 +13044,25 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, downloadJobLogArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === updateRenditionJob.name || argv._[0] === updateRenditionJob.alias) {
+	let updateRenditionJobArgs = ['run', '-s', updateRenditionJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--job', argv.job
+	];
+
+	if (argv.file) {
+		updateRenditionJobArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		updateRenditionJobArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, updateRenditionJobArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

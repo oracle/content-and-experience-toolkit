@@ -1596,7 +1596,7 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 			var statusUrl = response.location;
 			if (statusUrl) {
 				console.info(' - submit background job');
-				statusUrl += '?fields=id,name,description,progress,completed,message,completedPercentage,sources,target,reports';
+				statusUrl += '?fields=id,name,description,progress,completed,message,completedPercentage,sources,target.provider,target.docs.folderId,target.docs.result.folderId,target.docs.result.folderName,reports';
 				console.info(' - job status: ' + statusUrl);
 				var startTime = new Date();
 				var needNewLine = false;
@@ -1712,7 +1712,7 @@ var _createArchive = function (server, folderId) {
 			var statusUrl = response.location;
 			if (statusUrl) {
 				console.info(' - submit background job for create archive');
-				statusUrl += '?fields=id,entries,provider,docs,entries.site.id,entries.site.name,entries.site.defaultLanguage,entries.site.channel,entries.site.channel,entries.site.channel.localizationPolicy';
+				statusUrl += '?fields=id,entries,provider,entries.site.id,entries.site.name,entries.site.defaultLanguage,entries.site.channel,entries.site.channel,entries.site.channel.localizationPolicy,target.docs.folderId,target.docs.result.folderId,target.docs.result.folderName';
 				console.info(' - job status: ' + statusUrl);
 				var startTime = new Date();
 				var inter = setInterval(function () {
@@ -1771,7 +1771,7 @@ var _showValidationResults = function (source, job) {
 	});
 };
 
-var _importSite = function (server, name, archiveId, siteId, repositoryId, policies, assetspolicy, themecustomcomponentspolicy, newsite, usingExportedFolderAsSource) {
+var _importSite = function (server, name, archiveId, siteId, repositoryId, localizationPolicyId, sitePrefix, policies, assetspolicy, newsite) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/system/export/api/v1/imports';
@@ -1806,7 +1806,6 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, polic
 			case 'createSite':
 				payload.targets[0].apply.createSite = {
 					"assetsPolicy": assetspolicy,
-					"themeCustomComponentsPolicy": themecustomcomponentspolicy,
 					"site": {
 						"repository": {
 							"id": repositoryId
@@ -1817,7 +1816,6 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, polic
 			case 'updateSite':
 				payload.targets[0].apply.updateSite = {
 					"assetsPolicy": assetspolicy,
-					"themeCustomComponentsPolicy": themecustomcomponentspolicy,
 					"site": {
 						"repository": {
 							"id": repositoryId
@@ -1827,13 +1825,17 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, polic
 				break;
 			case 'duplicateSite':
 				payload.targets[0].apply.duplicateSite = {
-					"assetsPolicy": assetspolicy,
-					"themeCustomComponentsPolicy": themecustomcomponentspolicy,
+					"assetsPolicy": 'duplicate',
 					"site": {
 						"name": newsite,
-						"sitePrefix": newsite.toLowerCase(),
+						"sitePrefix": sitePrefix,
 						"repository": {
 							"id": repositoryId
+						},
+						channel: {
+							"localizationPolicy": {
+								"id": localizationPolicyId
+							}
 						}
 					}
 				}
@@ -1883,7 +1885,7 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, polic
 			var statusUrl = response.location;
 			if (statusUrl) {
 				console.info(' - submit background job for import site');
-				statusUrl += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,currentState,completed,targets,reports';
+				statusUrl += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,currentState,completed,completedPercentage,targets,reports';
 				statusUrl += ',validationSummary.messagesByEntityTypes.entityType,validationSummary.messagesByEntityTypes.countsByLevel.warning,validationSummary.messagesByEntityTypes.countsByLevel.error,validationSummary.messagesByEntityTypes.countsByLevel.info';
 				statusUrl += ',validationResults.assetType,validationResults.assetType.source,validationResults.assetType.target,validationResults.messages';
 				console.info(' - job status: ' + statusUrl);
@@ -1947,7 +1949,7 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, polic
  */
 module.exports.importSite = function (args) {
 	var server = args.server;
-	return _importSite(server, args.name, args.archiveId, args.siteId, args.repositoryId, args.policies, args.assetspolicy, args.themecustomcomponentspolicy, args.newsite, args.usingExportedFolderAsSource);
+	return _importSite(server, args.name, args.archiveId, args.siteId, args.repositoryId, args.localizationPolicyId, args.sitePrefix, args.policies, args.assetspolicy, args.newsite);
 };
 
 var _describeExportJob = function (server, id) {
@@ -1956,7 +1958,7 @@ var _describeExportJob = function (server, id) {
 		var stem = server.url + '/system/export/api/v1/exports/' + id;
 		var url = stem;
 
-		url += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,completed,currentState,completedPercentage,target.provider,target.docs,sources.select.type,sources.select.site.id,sources.apply.exportSite.includeUnpublishedAssets,reports.id';
+		url += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,completed,currentState,completedPercentage,target.provider,target.docs.folderId,target.docs.result.folderId,target.docs.result.folderName,reports,sources.select.type,sources.select.site.id,sources.apply.exportSite.includeUnpublishedAssets';
 		var options = {
 			method: 'GET',
 			url: url,
@@ -2016,9 +2018,9 @@ var _describeImportJob = function (server, id) {
 		url += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,currentState,completed,reports';
 		url += ',source,source.archive,targets.select.type,targets.select.site,id,targets.select.site.name';
 		url += ',targets.select.site.channel.name,targets.select.site.channel.localizationPolicy.name,targets.select.site.defaultLanguage,targets.apply.policies';
-		url += ',targets.apply.createSite.site.repository,targets.apply.createSite.assetsPolicy,targets.apply.createSite.themeCustomComponentsPolicy';
-		url += ',targets.apply.updateSite.site.repository,targets.apply.updateSite.assetsPolicy,targets.apply.updateSite.themeCustomComponentsPolicy';
-		url += ',targets.apply.duplicateSite.site.repository,targets.apply.duplicateSite.assetsPolicy,targets.apply.duplicateSite.themeCustomComponentsPolicy';
+		url += ',targets.apply.createSite.site.repository,targets.apply.createSite.assetsPolicy';
+		url += ',targets.apply.updateSite.site.repository,targets.apply.updateSite.assetsPolicy';
+		url += ',targets.apply.duplicateSite.site.repository,targets.apply.duplicateSite.assetsPolicy';
 		url += ',validationSummary.messagesByEntityTypes.entityType,validationSummary.messagesByEntityTypes.countsByLevel.warning,validationSummary.messagesByEntityTypes.countsByLevel.error,validationSummary.messagesByEntityTypes.countsByLevel.info';
 		url += ',validationResults.assetType,validationResults.assetType.source,validationResults.assetType.target,validationResults.messages';
 		var options = {

@@ -1196,12 +1196,32 @@ module.exports.shareRepository = function (argv, done) {
 					}
 				}
 
+				// Role is not a default role. Get the role Id.
+				if (['manager','contributor','viewer'].indexOf(role) === -1) {
+					return serverRest.getEditorialRoleWithName({
+						server: server,
+						name: role
+					});
+				} else {
+					return Promise.resolve();
+				}
+			})
+			.then(function (roleResult) {
+				var roleId;
+				if (roleResult) {
+					roleId = roleResult.data && roleResult.data.id;
+					if (!roleId) {
+						console.error(`ERROR: role ${role} not found`);
+						return Promise.reject();
+					}
+				}
 				return serverRest.performPermissionOperation({
 					server: server,
 					operation: 'share',
 					resourceId: repository.id,
 					resourceType: 'repository',
 					role: role,
+					roleId: roleId,
 					users: usersToGrant,
 					groups: groupsToGrant
 				});
@@ -4138,8 +4158,8 @@ var _listPermissionSets = function (data) {
 	var format1 = '%-30s  %-53s  %-s';
 	console.log(sprintf(format1, 'Users & Groups', 'Assets', 'Taxonomies'));
 
-	var format2 = '%-30s  %-20s  %-4s  %-6s  %-6s  %-6s     %-30s  %-6s  %-s';
-	console.log(sprintf(format2, '', '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize'));
+	var format2 = '%-30s  %-20.20s  %-4s  %-6s  %-6s  %-6s     %-30.30s  %-6s  %-12s  %-s';
+	console.log(sprintf(format2, '', '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize', 'Create Site'));
 
 	data.forEach(function (item) {
 		// console.log(item.principal);
@@ -4184,7 +4204,7 @@ var _listPermissionSets = function (data) {
 			}
 
 			console.log(sprintf(format2, user, typeLabel, typeView, typeUpdate, typeCreate, typeDelete,
-				catLabel, catView, catCategorize));
+				catLabel, catView, catCategorize, catCreateSite));
 
 			//move to next one
 			idx += 1;
@@ -4913,14 +4933,14 @@ var _listEditorialRoles = function (item) {
 	var format1 = '  %-63s  %-s';
 	// console.log(sprintf(format1, '', 'Assets', 'Taxonomies'));
 
-	var format2 = '  %-30s  %-4s  %-6s  %-6s  %-6s     %-36s  %-6s  %-s';
+	var format2 = '  %-30s  %-4s  %-6s  %-6s  %-6s     %-36.36s  %-6s  %-12s  %-s';
 	// console.log(sprintf(format2, '', '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize'));
 
 
 	console.log(item.name + '  ' + (item.description ? ('(' + item.description + ')') : ''));
 
 	console.log(sprintf(format1, 'Assets', 'Taxonomies'));
-	console.log(sprintf(format2, '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize'));
+	console.log(sprintf(format2, '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize', 'Create Site'));
 
 	// console.log(item.principal);
 	// console.log(item.contentPrivileges);
@@ -4935,7 +4955,8 @@ var _listEditorialRoles = function (item) {
 			typeDelete = '';
 		var catLabel = '',
 			catView = '',
-			catCategorize = '';
+			catCategorize = '',
+			catCreateSite = '';
 		if (idx < item.contentPrivileges.length) {
 			typeLabel = item.contentPrivileges[idx].typeName ? item.contentPrivileges[idx].typeName : 'Any Type';
 			typeView = item.contentPrivileges[idx].operations.includes('view') ? '  √' : '';
@@ -4958,10 +4979,11 @@ var _listEditorialRoles = function (item) {
 			}
 			catView = item.taxonomyPrivileges[idx].operations.includes('view') ? '  √' : '';
 			catCategorize = item.taxonomyPrivileges[idx].operations.includes('categorize') ? '  √' : '';
+			catCreateSite = item.taxonomyPrivileges[idx].operations.includes('createSite') ? '  √' : '';
 		}
 
 		console.log(sprintf(format2, typeLabel, typeView, typeUpdate, typeCreate, typeDelete,
-			catLabel, catView, catCategorize));
+			catLabel, catView, catCategorize, catCreateSite));
 
 		//move to next one
 		idx += 1;
@@ -5064,6 +5086,9 @@ module.exports.setEditorialRole = function (argv, done) {
 	var assetPermission = argv.assetpermission;
 	var categoryNames = argv.categories ? argv.categories.split(',') : [];
 	var categoryPermission = argv.categorypermission;
+	if (categoryPermission && categoryPermission.toLowerCase() === 'createsite') {
+		categoryPermission = 'createSite';
+	}
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -5330,6 +5355,8 @@ module.exports.setEditorialRole = function (argv, done) {
 						catOps = ['view'];
 					} else if (categoryPermission === 'categorize') {
 						catOps = ['view', 'categorize'];
+					} else if (categoryPermission === 'createSite') {
+						catOps = ['view', 'categorize', 'createSite'];
 					}
 				}
 
@@ -7231,6 +7258,115 @@ module.exports.describeScheduledJob = function (argv, done) {
 			});
 	});
 
+};
+
+/**
+ * List properties of a scheduled publish job
+ */
+module.exports.updateRenditionJob = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var jobValues;
+	try {
+		jobValues = JSON.parse(argv.job);
+	} catch (e) {
+		console.error('Error: the rendition job is invalid: ' + argv.job);
+		done();
+		return;
+	}
+
+	var jobId = jobValues.jobId;
+	if (!jobId) {
+		console.error('Error: no job Id is specified: ' + argv.job);
+		done();
+		return;
+	}
+
+	var filePath = argv.file;
+	var fileName;
+	if (filePath) {
+		if (!path.isAbsolute(filePath)) {
+			filePath = path.join(projectDir, filePath);
+		}
+		filePath = path.resolve(filePath);
+		fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+
+		if (!fs.existsSync(filePath)) {
+			console.error('ERROR: file ' + filePath + ' does not exist');
+			done();
+			return;
+		}
+		if (fs.statSync(filePath).isDirectory()) {
+			console.error('ERROR: ' + filePath + ' is not a file');
+			done();
+			return;
+		}
+	}
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		if (filePath) {
+			jobValues.multipart = true;
+			jobValues.filePath = filePath;
+			jobValues.filename = fileName;
+		}
+		console.log(jobValues);
+
+		jobValues.server = server;
+
+		serverRest.getItemOperationStatus({ server: server, statusId: jobId, hideError: true })
+			.then(function (result) {
+				if (!result || result.err || !result.id || result.id !== jobId) {
+					console.error('ERROR: invalid job Id: ' + jobId);
+					return Promise.reject();
+				}
+
+				if (jobValues.progress === '100' && !filePath) {
+					console.error('ERROR: job data file is not provided');
+					return Promise.reject();
+				}
+				// console.log(result);
+				if (result.completedPercentage === 100) {
+					console.log(' - the job is already completed');
+					done(true);
+				} else {
+					// update the job
+					serverRest.updateRenditionStatus(jobValues)
+						.then(function (result) {
+							if (!result || result.error) {
+								console.log(result);
+								done();
+							} else {
+								console.log(' - rendition job updated');
+								done(true);
+							}
+						});
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
 };
 
 

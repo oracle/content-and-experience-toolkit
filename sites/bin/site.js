@@ -70,7 +70,7 @@ var _downloadReport = function (url, siteName, server) {
 			namePrefix = 'Import_';
 		}
 
-		var targetPath = path.join(projectDir, 'src', targetStem, siteName);
+		var targetPath = path.join(projectDir, 'src', targetStem);
 		// Create target path
 		fs.mkdirSync(targetPath, {
 			recursive: true
@@ -139,7 +139,7 @@ var _getSiteForExportJob = function(id, server) {
 var _getSiteForImportJob = function(id, server) {
 	return new Promise(function (resolve, reject) {
 		var url = '/system/export/api/v1/imports/' + id;
-		url += '?fields=targets.select.type,targets.select.site.id';
+		url += '?fields=targets.select.type,targets.select.site.id,targets.select.site.name';
 
 		serverRest.executeGet({
 			server: server,
@@ -154,17 +154,7 @@ var _getSiteForImportJob = function(id, server) {
 			}
 			// Support single site for now
 			var target = data.targets.at(0);
-			sitesRest.getSite({
-				server: server,
-				id: target.select.site.id,
-				showInfo: false
-			}).then(site => {
-				resolve(site);
-			}).catch((siteError) => {
-				console.error('Failed to get site details');
-				resolve();
-			});
-
+			resolve(target.select.site);
 		}).catch((jobError) => {
 			console.error('Failed to get job details');
 			resolve();
@@ -216,6 +206,66 @@ var _getRepository = function(repositoryId, server) {
 	});
 };
 
+var _getCategoryId = function(categoryPath, taxonomyId, server) {
+	return new Promise(function (resolve, reject) {
+		var categories = categoryPath.split('/');
+
+		var getCategoryFromResult = function(result) {
+			var cat;
+			if (result) {
+				if (result.categories && result.categories.length > 0) {
+					// Should have one found only. Get the first one.
+					cat = result.categories.at(0);
+				}
+			}
+			return cat;
+		}
+
+		var getCategory = categories.reduce(function (categoryPromise, categoryName) {
+				return categoryPromise.then(function(result) {
+					// Handle leading and trailing / cases
+					if (!categoryName) {
+						return Promise.resolve(result);
+					}
+
+					var parentId;
+					if (!result) {
+						// First category in the list.
+						parentId = taxonomyId;
+					} else {
+						var category = getCategoryFromResult(result);
+						if (category) {
+							parentId = category.id;
+						} else {
+							// Category not found case
+							return Promise.reject();
+						}
+					}
+					return serverRest.getCategory({
+						server: server,
+						taxonomyId: taxonomyId,
+						parentCategoryId: parentId,
+						categoryName: categoryName
+					});
+				});
+			}, Promise.resolve()
+		);
+
+		getCategory.then(function (result) {
+			var leafCategory = getCategoryFromResult(result);
+			if (leafCategory) {
+				resolve(leafCategory);
+			} else {
+				console.error('ERROR: ' + categoryPath + ' category not found');
+				reject();
+			}
+		}).catch((error) => {
+			console.error('ERROR: ' + categoryPath + ' category not found');
+			reject();
+		});
+	});
+};
+
 var duration = function (beginTimeString, endTimeString) {
 	if (!beginTimeString || !endTimeString) {
 		return '';
@@ -256,8 +306,20 @@ module.exports.createSite = function (argv, done) {
 	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
 	var reuseContent = typeof argv.reuse === 'string' && argv.reuse.toLowerCase() === 'true';
 	var suppressgovernance = typeof argv.suppressgovernance === 'string' && argv.suppressgovernance.toLowerCase() === 'true';
+	var taxonomyName = '';
+	var categoryName = '';
 
-	_createSiteREST(server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, reuseContent, suppressgovernance, done);
+	// Extract strings in the format of <taxonomy>:<category>
+	if (argv.category) {
+		var colonIdx = argv.category.indexOf(':');
+
+		if (colonIdx > 0) {
+			taxonomyName = argv.category.substring(0, colonIdx);
+			categoryName = argv.category.substring(colonIdx + 1);
+		}
+	}
+
+	_createSiteREST(server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, reuseContent, suppressgovernance, taxonomyName, categoryName, done);
 
 };
 
@@ -276,7 +338,7 @@ module.exports.createSite = function (argv, done) {
  * @param {*} done 
  */
 var _createSiteREST = function (server, name, templateName, repositoryName, localizationPolicyName,
-	defaultLanguage, description, sitePrefix, updateContent, reuseContent, suppressgovernance, done) {
+	defaultLanguage, description, sitePrefix, updateContent, reuseContent, suppressgovernance, taxonomyName, categoryName, done) {
 	var template, templateGUID;
 	var repositoryId, localizationPolicyId;
 	var createEnterprise;
@@ -284,6 +346,7 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 	var localizationPolicyAllowed;
 	var sitePrefixAllowed;
 	var isUserSitesAdmin = false;
+	var taxonomyId, categoryId;
 
 	var format = '   %-20s %-s';
 	var loginPromise = serverUtils.loginToServer(server);
@@ -470,6 +533,48 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 								return Promise.reject();
 							}
 
+							if (taxonomyName) {
+								return serverRest.getTaxonomiesWithName({
+									server: server,
+									name: taxonomyName
+								});
+							} else {
+								return Promise.resolve();
+							}
+						})
+						.then(function (result) {
+							if (taxonomyName) {
+								var taxonomies = result || [];
+								var nameMatched = [];
+								for (var i = 0; i < taxonomies.length; i++) {
+									if (name && taxonomies[i].name === taxonomyName) {
+										nameMatched.push(taxonomies[i]);
+									}
+								}
+
+								if (nameMatched.length === 0) {
+									console.error('ERROR: taxonomy ' + taxonomyName + ' does not exist');
+									return Promise.reject();
+								} else {
+									// Return first one.
+									taxonomyId = nameMatched.at(0).id;
+								}
+
+
+								if (categoryName) {
+									return _getCategoryId(categoryName, taxonomyId, server);
+								} else {
+									return Promise.resolve();
+								}
+							} else {
+								return Promise.resolve();
+							}
+						})
+						.then(function (result) {
+							if (categoryName) {
+								categoryId = result && result.id;
+							}
+
 							//
 							// create enterprise site
 							//
@@ -497,7 +602,9 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 								defaultLanguage: defaultLanguage,
 								updateContent: updateContent,
 								reuseContent: reuseContent,
-								suppressgovernance: suppressgovernance
+								suppressgovernance: suppressgovernance,
+								taxonomyId: taxonomyName && taxonomyId,
+								categoryId: categoryName && categoryId
 							});
 						})
 						.then(function (result) {
@@ -3756,22 +3863,17 @@ module.exports.exportSite = function (argv, done) {
 						folderId: folderId,
 						includeunpublishedassets: (includeunpublishedassets === true) || (includeunpublishedassets === 'true') || false
 					}).then(function (data) {
-						_downloadReports(data.reports, siteName, server).then(function () {
-							if (data.err) {
-								done();
-								return;
-							}
+						_downloadReports(data.reports, data.job.name, server).then(function () {
 
-							// Server response does not include the name of the folder created for the export site request.
-							// Construct the export folder name
-							var exportFolderName = data.job.name + '_' + data.job.id;
-
-							if (argv.download) {
+							if (data.job.progress === 'succeeded' && argv.download && data.job.target && data.job.target.docs && data.job.target.docs.result) {
+								var exportFolderName = data.job.target.docs.result.folderName;
 
 								// Download option
 								// If no download path is specified, then save to src/siteExport/<siteName>
 								// If download path is specified, then save to the specified path.
-								var targetPath = downloadPath ? downloadPath : path.join(projectDir, 'src', 'siteExport', siteName);
+
+								// TODO: Use job name temporary. Might need to get the site name.
+								var targetPath = path.join(projectDir, 'src', 'siteExport', data.job.name);
 
 								// Remove target path if exists.
 								if (fs.existsSync(targetPath)) {
@@ -3784,10 +3886,13 @@ module.exports.exportSite = function (argv, done) {
 									recursive: true
 								});
 
+								var folderId = data.job.target.docs.folderId;
 								var downloadArgv = {
-									path: (folderInfo.id === 'self') ? exportFolderName : folder + '/' + exportFolderName,
+									parentId: folderId,
+									path: exportFolderName,
 									folder: targetPath
 								};
+
 								documentUtils.downloadFolder(downloadArgv, server, true, true).then(function () {
 									console.info('Downloaded export site files to ' + targetPath);
 									done(true);
@@ -3837,11 +3942,23 @@ module.exports.importSite = function (argv, done) {
 			folderPathName = inputFolder || folderName,
 			importName = argv.importname || siteName,
 			repository = argv.repository,
-			policies = (['createSite', 'updateSite', 'duplicateSite'].indexOf(argv.policies) !== -1) ? argv.policies : 'createSite',
-			assetspolicy = (['createOrUpdate', 'createOrUpdateIfOutdated', 'duplicate'].indexOf(argv.assetspolicy) !== -1) ? argv.assetspolicy : 'duplicate',
-			themecustomcomponentspolicy = (['createOrUpdate', 'duplicate'].indexOf(argv.assetspolicy) !== -1) ? argv.themecustomcomponentspolicy : 'duplicate',
-			importRepo;
+			localizationPolicy = argv.localizationPolicy,
+			sitePrefix = argv.sitePrefix && argv.sitePrefix.toLowerCase(),
+			policies = (['createSite', 'updateSite', 'duplicateSite'].indexOf(argv.sitepolicy) !== -1) ? argv.sitepolicy : 'createSite',
+			assetspolicy = argv.assetpolicy,
+			importRepo,
+			importL10P;
 
+		// Set default asset policy according to site policy.
+		if (!assetspolicy) {
+			if (policies === 'createSite') {
+				assetspolicy = 'createOrUpdate'
+			} else if (policies === 'updateSite') {
+				assetspolicy = 'createOrUpdateIfOutdated';
+			} else {
+				assetspolicy = 'duplicate';
+			}
+		}
 		var deleteExistingFolder = function () {
 			return new Promise(function (resolve, reject) {
 				var deleteArgv = {
@@ -3881,19 +3998,44 @@ module.exports.importSite = function (argv, done) {
 				.then(function (repos) {
 					var repo = repos[0];
 					if (!repo || repo.err) {
-						return Promise.reject('ImportSite failed to get repository ' + 'repository');
+						return Promise.reject('ImportSite failed to get repository ' + repository);
 					}
 					if (!repo.data || !repo.data.id) {
 						return Promise.reject('ImportSite: repository ' + repository + ' does not exist');
 					} else {
 						importRepo = repo.data;
 
-						var deletePromises = [];
-						if (!inputFolder) {
-							deletePromises.push(deleteExistingFolder());
+						var l10NPolicyPromises = [];
+
+						if (localizationPolicy) {
+							l10NPolicyPromises.push(serverRest.getLocalizationPolicWithName({
+								server: server,
+								name: localizationPolicy,
+								fields: 'id'
+							}));
 						}
-						return Promise.all(deletePromises);
+
+						return Promise.all(l10NPolicyPromises);
 					}
+				})
+				.then(function (l10Ps) {
+					if (localizationPolicy) {
+						var l10P = l10Ps[0][0];
+						if (!l10P || l10P.err) {
+							return Promise.reject('ImportSite failed to get localizationPolicy ' + localizationPolicy);
+						}
+						console.log('l10P.id ' + l10P.id + ' l10P.name ' + l10P.name);
+						if (!l10P.id) {
+							return Promise.reject('ImportSite: localizationPolicy ' + localizationPolicy + ' does not exist');
+						}
+						importL10P = l10P;
+						console.log('localizationPolicy ' + localizationPolicy + ' id ' + importL10P.id);
+					}
+					var deletePromises = [];
+					if (!inputFolder) {
+						deletePromises.push(deleteExistingFolder());
+					}
+					return Promise.all(deletePromises);
 				})
 				.then(function () {
 					var uploadPromises = [];
@@ -3960,11 +4102,11 @@ module.exports.importSite = function (argv, done) {
 								archiveId: archivedata.id,
 								siteId: siteId,
 								repositoryId: importRepo.id,
+								localizationPolicyId: importL10P && importL10P.id,
+								sitePrefix: sitePrefix,
 								policies: policies,
 								newsite: argv.newsite,
-								assetspolicy: assetspolicy,
-								themecustomcomponentspolicy: themecustomcomponentspolicy,
-								usingExportedFolderAsSource: inputFolder ? true : false
+								assetspolicy: assetspolicy
 							}));
 						});
 					}
@@ -4370,46 +4512,47 @@ module.exports.describeExportJob = function (argv, done) {
 						console.log(sprintf(jobFormat, 'Duration', duration(job.createdAt, job.completedAt)));
 					}
 
-					if (job.progress !== 'succeeded') {
+					if (argv.download) {
 						_downloadReports(data.reports, data.job.name, server).then(function () {
-							done(true);
+
+							if (data.job.progress === 'succeeded' && data.job.target && data.job.target.docs && data.job.target.docs.result) {
+								var exportFolderName = data.job.target.docs.result.folderName;
+
+								// Download option
+								// If no download path is specified, then save to src/siteExport/<siteName>
+								// If download path is specified, then save to the specified path.
+
+								// TODO: Use job name temporary. Might need to get the site name.
+								var targetPath = path.join(projectDir, 'src', 'siteExport', data.job.name);
+
+								// Remove target path if exists.
+								if (fs.existsSync(targetPath)) {
+									// TODO: Is warning necessary before removing existing folder?
+									fileUtils.remove(targetPath);
+								}
+
+								// Create target path
+								fs.mkdirSync(targetPath, {
+									recursive: true
+								});
+
+								var folderId = data.job.target.docs.folderId;
+								var downloadArgv = {
+									parentId: folderId,
+									path: exportFolderName,
+									folder: targetPath
+								};
+
+								documentUtils.downloadFolder(downloadArgv, server, true, true).then(function () {
+									console.info('Downloaded export site files to ' + targetPath);
+									done(true);
+								});
+							} else {
+								done(true);
+							}
 						});
 					} else {
-						if (argv.download) {
-							var exportFolderName = data.job.name + '_' + data.job.id;
-
-							// Download option
-							// If no download path is specified, then save to src/siteExport/<siteName>
-							// If download path is specified, then save to the specified path.
-
-							// TODO: Use job name temporary. Might need to get the site name.
-							var targetPath = path.join(projectDir, 'src', 'siteExport', data.job.name);
-
-							// Remove target path if exists.
-							if (fs.existsSync(targetPath)) {
-								// TODO: Is warning necessary before removing existing folder?
-								fileUtils.remove(targetPath);
-							}
-
-							// Create target path
-							fs.mkdirSync(targetPath, {
-								recursive: true
-							});
-
-							var folderId = data.job.target.docs.folderId;
-							var downloadArgv = {
-								parentId: folderId,
-								path: exportFolderName,
-								folder: targetPath
-							};
-
-							documentUtils.downloadFolder(downloadArgv, server, true, true).then(function () {
-								console.info('Downloaded export site files to ' + targetPath);
-								done(true);
-							});
-						} else {
-							done(true);
-						}
+						done(true);
 					}
 				});
 			});
@@ -4462,7 +4605,6 @@ module.exports.listImportJobs = function (argv, done) {
 					data = body;
 				}
 				if (!data.err && data.items) {
-
 					var sitePromises = [];
 					data.items.forEach(job => {
 						sitePromises.push(_getSiteForImportJob(job.id, server));
@@ -4566,7 +4708,6 @@ module.exports.describeImportJob = function (argv, done) {
 							case 'createSite':
 								console.log(sprintf(jobFormat, 'Import Policy', 'Create Site from Archive'));
 								console.log(sprintf(jobFormat, 'Assets policy', t.apply.createSite.assetsPolicy));
-								console.log(sprintf(jobFormat, 'Theme and components policy', t.apply.createSite.themeCustomComponentsPolicy));
 								if (repositoryName) {
 									console.log(sprintf(jobFormat, 'Target Asset Repository', repositoryName));
 								} else {
@@ -4576,7 +4717,6 @@ module.exports.describeImportJob = function (argv, done) {
 							case 'updateSite':
 								console.log(sprintf(jobFormat, 'Import Policy', 'Update Site from Archive'));
 								console.log(sprintf(jobFormat, 'Assets policy', t.apply.updateSite.assetsPolicy));
-								console.log(sprintf(jobFormat, 'Theme and components policy', t.apply.updateSite.themeCustomComponentsPolicy));
 								if (repositoryName) {
 									console.log(sprintf(jobFormat, 'Target Asset Repository', repositoryName));
 								} else {
@@ -4586,7 +4726,6 @@ module.exports.describeImportJob = function (argv, done) {
 							case 'duplicateSite':
 								console.log(sprintf(jobFormat, 'Import Policy', 'Duplicate Site from Archive'));
 								console.log(sprintf(jobFormat, 'Assets policy', t.apply.duplicateSite.assetsPolicy));
-								console.log(sprintf(jobFormat, 'Theme and components policy', t.apply.duplicateSite.themeCustomComponentsPolicy));
 								if (repositoryName) {
 									console.log(sprintf(jobFormat, 'Target Asset Repository', repositoryName));
 								} else {

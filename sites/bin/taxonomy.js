@@ -36,6 +36,120 @@ var verifyRun = function (argv) {
 	return true;
 };
 
+var _getTaxonomy = function(id, status, server) {
+	return new Promise(function (resolve, reject) {
+		var url = '/content/management/api/v1.1/taxonomies/' + id;
+		url += '?q=(status eq "' + status + '")&fields=all';
+
+		serverRest.executeGet({
+			server: server,
+			endpoint: url,
+			noMsg: true
+		}).then(function (body) {
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			resolve(data);
+		}).catch((error) => {
+			console.error('Failed to get taxonomy');
+			reject();
+		})
+	});
+};
+
+var _putTaxonomy = function(tax, status, server) {
+	return new Promise(function (resolve, reject) {
+		var url = '/content/management/api/v1.1/taxonomies/' + tax.id;
+		url += '?q=(status eq "' + status + '")&fields=all';
+
+		serverRest.executePut({
+			server: server,
+			endpoint: url,
+			body: tax,
+			noMsg: true
+		}).then(function (result) {
+			if (result && result.err) {
+				console.error('Failed to update taxonomy');
+				reject();
+			} else {
+				if (Object.prototype.hasOwnProperty.call(result, 'o:errorCode')) {
+					console.error(JSON.stringify(result, null, 4));
+					reject();
+				} else {
+					resolve();
+				}
+			}
+		}).catch((error) => {
+			console.error('Failed to update taxonomy');
+			reject();
+		})
+	});
+};
+
+var _findTaxonomyByName = function(name, server) {
+	return new Promise(function (resolve, reject) {
+		serverRest.getTaxonomiesWithName({
+			server: server,
+			name: name,
+			fields: 'availableStates,publishedChannels'
+		}).then(function (result) {
+			var taxonomies = result || [];
+			var nameMatched = [];
+			for (var i = 0; i < taxonomies.length; i++) {
+				if (name && taxonomies[i].name === name) {
+					nameMatched.push(taxonomies[i]);
+				}
+			}
+
+			if (nameMatched.length === 0) {
+				console.error('ERROR: taxonomy ' + name + ' does not exist');
+				return reject();
+			} else {
+				// Return first one.
+				resolve(nameMatched.at(0));
+			}
+
+		}).catch((error) => {
+			console.error('Failed to find taxonomy');
+			reject();
+		})
+	});
+};
+
+var _findTaxonomyByStatus = function(name, status, server) {
+	return new Promise(function (resolve, reject) {
+		_findTaxonomyByName(name, server).then((tax) => {
+			var statusMatch = tax.availableStates.find((state) => {
+				return state.status === status;
+			});
+
+			if (statusMatch) {
+				resolve(tax);
+			} else {
+				// Create draft
+				serverRest.controlTaxonomy({
+					server: server,
+					id: tax.id,
+					name: tax.name,
+					action: 'createDraft'
+				}).then(() => {
+					console.info(' - Created draft of ' + name + ' taxonomy');
+					resolve(tax);
+				}).catch((error) => {
+					console.info(' - Failed to create draft of ' + name + ' taxonomy');
+					reject();
+				});
+			}
+
+		}).catch((error) => {
+			reject();
+		});
+	});
+}
+
 module.exports.downloadTaxonomy = function (argv, done) {
 	'use strict';
 
@@ -653,6 +767,70 @@ module.exports.controlTaxonomy = function (argv, done) {
 	});
 };
 
+module.exports.updateTaxonomy = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var name = argv.name,
+			publishableArg = typeof argv.publishable !== 'undefined',
+			isPublishable = typeof argv.publishable === 'string' && argv.publishable.toLowerCase() === 'true',
+			sitesecurityArg = typeof argv.sitesecurity !== 'undefined',
+			isForSiteManagement = typeof argv.sitesecurity === 'string' && argv.sitesecurity.toLowerCase() === 'true';
+
+		_findTaxonomyByStatus(name, 'draft', server).then((tax) => {
+			_getTaxonomy(tax.id, 'draft', server).then((drafttax) => {
+				if ((publishableArg && (drafttax.isPublishable !== isPublishable)) || (sitesecurityArg && (drafttax.isForSiteManagement !== isForSiteManagement))) {
+					if (publishableArg) {
+						drafttax.isPublishable = isPublishable;
+					}
+					if (sitesecurityArg) {
+						drafttax.isForSiteManagement = isForSiteManagement
+					}
+					_putTaxonomy(drafttax, 'draft', server).then(() => {
+						if (publishableArg) {
+							var verb = isPublishable ? 'Enabled' : 'Disabled';
+							console.info(' - ' + verb + ' ' + tax.name + ' taxonomy for publishing');
+						}
+						if (sitesecurityArg) {
+							verb = isForSiteManagement ? 'Enabled' : 'Disabled';
+							console.info(' - ' + verb + ' ' + tax.name + ' taxonomy for Site security management use');
+						}
+						done(true);
+					}).catch((error) => {
+						done();
+					})
+				} else {
+					console.info('Specified input settings matches current settings. Update not necessary');
+					done(true);
+				}
+			}).catch((error) => {
+				done();
+			})
+		}).catch((error) => {
+			console.error('Taxonomy ' + name + ' not found');
+			done();
+		});
+	});
+};
+
 module.exports.describeTaxonomy = function (argv, done) {
 	'use strict';
 
@@ -783,6 +961,7 @@ module.exports.describeTaxonomy = function (argv, done) {
 				console.log(sprintf(format1, 'Created', tax.createdDate.value + ' by ' + tax.createdBy));
 				console.log(sprintf(format1, 'Updated', tax.updatedDate.value + ' by ' + tax.updatedBy));
 				console.log(sprintf(format1, 'Allow publishing', tax.isPublishable));
+				console.log(sprintf(format1, 'Use for Site security management', tax.isForSiteManagement));
 				console.log(sprintf(format1, 'Status', tax.status));
 				if (promotedVersion) {
 					console.log(sprintf(format1, 'Promoted', 'v' + promotedVersion));

@@ -42,8 +42,8 @@
 	// For XSS, we need to encode all strings on output.
 	//
 	// Most encoding will be handled by $('<div></div>').text() and encodeURI().
-	// Anything we want to handle in addition to these should be entered 
-	// in the corresponding array below. 
+	// Anything we want to handle in addition to these should be entered
+	// in the corresponding array below.
 	// These arrays are used within encodeURL() & encodeHTML()
 	ComponentCommon.prototype.xssEncoding = {
 		'urlTags': [{
@@ -127,7 +127,7 @@
 	};
 
 	// Return CSS for margin on wrapper div.
-	// TODO: use style binding (e.g. return {'marginTop': marginTop, ...}) 
+	// TODO: use style binding (e.g. return {'marginTop': marginTop, ...})
 	ComponentCommon.prototype.createMarginStyle = function (viewModel) {
 		var computedMarginStyle = '';
 
@@ -307,7 +307,7 @@
 	};
 
 	//
-	// Appends "px" to value if it is a number 
+	// Appends "px" to value if it is a number
 	//
 	ComponentCommon.prototype.getDimensionValue = function (value) {
 		var cssDimension;
@@ -380,7 +380,7 @@
 	// Is it a caasGUID?
 	ComponentCommon.prototype.isCaaSGUID = function (href) {
 		// For Digital Asset, the caasGUID is stored rather than a URL.
-		// In case of a link, e.g. href property, the value could be a URL or a CaaS GUID. 
+		// In case of a link, e.g. href property, the value could be a URL or a CaaS GUID.
 		// This helper function determines if the given value is a CaaS GUID or not.
 		return href && href.indexOf('DigitalAsset') >= 0;
 	};
@@ -398,7 +398,7 @@
 				var parsedURL = this.parseURL(url);
 				return decodeURIComponent(parsedURL.searchObject.scsOriginalFileName);
 			} else {
-				// Remove path from URL 
+				// Remove path from URL
 				name = url.split('/').pop();
 				//Grab extension
 				ext = url.split('.').pop();

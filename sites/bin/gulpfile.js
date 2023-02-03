@@ -1277,6 +1277,18 @@ gulp.task('control-taxonomy', function (done) {
 });
 
 /**
+ * update taxonomy on server
+ */
+ gulp.task('update-taxonomy', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	taxonomylib.updateTaxonomy(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * describe taxonomy on server
  */
 gulp.task('describe-taxonomy', function (done) {
@@ -2541,6 +2553,18 @@ gulp.task('download-job-log', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	resourcelib.downloadJobLog(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Update rendition job
+ */
+ gulp.task('update-rendition-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.updateRenditionJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
