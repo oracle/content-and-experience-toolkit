@@ -5032,7 +5032,10 @@ var _updateRepository = function (server, repository, contentTypes, channels,
 				if (editorialRoles) {
 					data.editorialRoles = editorialRoles;
 				}
-				data.autoTagEnabled = autoTagEnabled || false;
+
+				if (autoTagEnabled !== undefined) {
+					data.autoTagEnabled = autoTagEnabled || false;
+				}
 
 				var url = server.url + '/content/management/api/v1.1/repositories/' + repository.id;
 				var postData = {
@@ -5147,7 +5150,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 				};
 				if (operation === 'share') {
 					// Role is not a default role. Assume the tyoe is 'editorial'.
-					if (['manager','contributor','viewer'].indexOf(role) === -1) {
+					if (['manager', 'contributor', 'viewer'].indexOf(role) === -1) {
 						operations[operation]['roles'] = [{
 							id: roleId,
 							name: role,
@@ -8897,6 +8900,7 @@ module.exports.executePut = function (args) {
  */
 module.exports.executePatch = function (args) {
 	return new Promise(function (resolve, reject) {
+		var showDetail = args.noMsg ? false : true;
 		var endpoint = args.endpoint;
 		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
 
@@ -8931,7 +8935,9 @@ module.exports.executePatch = function (args) {
 				}
 				serverUtils.showRequestOptions(postData);
 
-				console.info(' - executing endpoint: PATCH ' + endpoint);
+				if (showDetail) {
+					console.info(' - executing endpoint: PATCH ' + endpoint);
+				}
 				var request = require('./requestUtils.js').request;
 				request.patch(postData, function (error, response, body) {
 					if (error) {
@@ -8948,9 +8954,11 @@ module.exports.executePatch = function (args) {
 						// in case result is not json
 					}
 
-					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
-					if (response.location || response.url) {
-						console.log('Result URL: ' + (response.location || response.url));
+					if (showDetail) {
+						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
+						if (response.location || response.url) {
+							console.log('Result URL: ' + (response.location || response.url));
+						}
 					}
 
 					return resolve(data);

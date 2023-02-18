@@ -1857,6 +1857,7 @@ var _displayServerTemplate = function (server, name, output) {
 					console.log(sprintf(format1, 'Localization policy', temp.localizationPolicy ? temp.localizationPolicy.name : ''));
 					console.log(sprintf(format1, 'Default language', temp.defaultLanguage || ''));
 					console.log(sprintf(format1, 'Theme', temp.themeName));
+					console.log(sprintf(format1, 'Require Site Security Taxonomy', temp.granularSecurity && temp.granularSecurity.enabled));
 
 					console.log('');
 					return resolve({});
@@ -2089,6 +2090,19 @@ module.exports.describeTemplate = function (argv, done) {
 				for (let j = 0; j < contentForms.length; j++) {
 					console.log('    ' + contentForms[j].type + ': ' + contentForms[j].customForms);
 				}
+			}
+		}
+
+		// Get isGranularSecurityRequired property from _folder.json
+		var folderJsonFile = path.join(tempSrcDir, '_folder.json');
+
+		if (fs.existsSync(folderJsonFile)) {
+			var folderstr = fs.readFileSync(folderJsonFile),
+				folderjson = JSON.parse(folderstr);
+
+			// Write this line only if _folder.json exists.
+			if (folderjson) {
+				console.info('Require Site Security Taxonomy: ' + folderjson.isGranularSecurityRequired);
 			}
 		}
 
@@ -4195,6 +4209,162 @@ module.exports.unshareTemplate = function (argv, done) {
 					_cmdEnd(done);
 				});
 		}); // login
+	} catch (e) {
+		_cmdEnd(done);
+	}
+};
+
+
+/**
+ * update template
+ */
+ module.exports.updateTemplate = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+		return;
+	}
+
+	try {
+		var useserver = argv.server ? true : false,
+			action = argv.action,
+			template = argv.template;
+
+		if (useserver) {
+			var serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
+
+			var server = serverUtils.verifyServer(serverName, projectDir);
+			if (!server || !server.valid) {
+				_cmdEnd(done);
+				return;
+			}
+
+			var loginPromise = serverUtils.loginToServer(server);
+			loginPromise.then(function (result) {
+				if (!result.status) {
+					console.error(result.statusMessage);
+					done();
+					return;
+				}
+
+				var tempPromise = sitesRest.getTemplate({
+					server: server,
+					name: template,
+					expand: 'permissions'
+				});
+				tempPromise.then(function (result) {
+					if (!result || result.err) {
+						done();
+						return;
+					}
+
+					if (result.granularSecurity) {
+						if ((action === 'require-taxonomy' && result.granularSecurity.enabled) || (action === 'not-require-taxonomy' && !result.granularSecurity.enabled)) {
+							console.info(' - Specified action matches current value. Update not necessary.');
+							done(true);
+							return;
+						}
+
+						var url = '/sites/management/api/v1/templates/' + result.id,
+							body = { "granularSecurity": (action === 'require-taxonomy') ? true : false };
+
+						serverRest.executePatch({
+							server: server,
+							endpoint: url,
+							body: body,
+							noMsg: true
+						}).then(function (result) {
+							if (result && result.err) {
+								console.error('ERROR: Failed to update template ' + template);
+								done();
+							} else {
+								if (Object.prototype.hasOwnProperty.call(result, 'o:errorCode')) {
+									console.error(JSON.stringify(result, null, 4));
+									done();
+								} else {
+									if (action === 'require-taxonomy') {
+										console.info(' - Template ' + template + ' updated to require Site Security Taxonomy');
+									} else {
+										console.info(' - Template ' + template + ' updated to not require Site Security Taxonomy');
+									}
+									done(true);
+								}
+							}
+						}).catch((error) => {
+							console.error('Failed to update template ' + template + ' - ' + error);
+							done();
+						})
+					} else {
+						// Unexpected condition.
+						console.error('ERROR: template data does not allow action to be executed.');
+						done();
+					}
+				})
+				.catch((error) => {
+					done();
+				});
+			});
+		} else {
+			// local template
+			var name = argv.template,
+				tempExist = false,
+				templates = getContents(templatesSrcDir);
+
+			for (var i = 0; i < templates.length; i++) {
+				if (name === templates[i]) {
+					tempExist = true;
+					break;
+				}
+			}
+			if (!tempExist) {
+				console.error('ERROR: local template ' + name + ' does not exist');
+				done();
+				return;
+			}
+
+			var tempSrcDir = path.join(templatesSrcDir, name);
+
+			// Get isGranularSecurityRequired property from _folder.json
+			var folderJsonFile = path.join(tempSrcDir, '_folder.json');
+
+			var writeFolderJson = function () {
+
+			}
+
+			if (fs.existsSync(folderJsonFile)) {
+				var folderstr = fs.readFileSync(folderJsonFile),
+					folderjson = JSON.parse(folderstr);
+
+				// Write this line only if _folder.json exists.
+				if (folderjson) {
+					var isPropertyDefined = Object.prototype.hasOwnProperty.call(folderjson, 'isGranularSecurityRequired');
+					if (isPropertyDefined) {
+						var currentValue = folderjson.isGranularSecurityRequired === 'true';
+						if ((action === 'require-taxonomy' && currentValue) || (action === 'not-require-taxonomy' && !currentValue)) {
+							console.info(' - Specified action matches current value. Update not necessary.');
+							done(true);
+							return;
+						}
+					}
+					folderjson.isGranularSecurityRequired = action === 'require-taxonomy' ? "true" : "false";
+					fs.writeFileSync(folderJsonFile, JSON.stringify(folderjson));
+					if (action === 'require-taxonomy') {
+						console.info(' - Local template ' + template + ' updated to require Site Security Taxonomy');
+					} else {
+						console.info(' - Local template ' + template + ' updated to not require Site Security Taxonomy');
+					}
+					done(true);
+				} else {
+					console.error('ERROR: ' + folderJsonFile + ' is not valid. Local template cannot be updated.')
+					done();
+				}
+			} else {
+				console.error('ERROR: ' + folderJsonFile + ' does not exist. Local template cannot be updated.')
+				done();
+			}
+		}
+
 	} catch (e) {
 		_cmdEnd(done);
 	}

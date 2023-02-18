@@ -17,6 +17,7 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	os = require('os'),
 	readline = require('readline'),
 	sprintf = require('sprintf-js').sprintf,
+	vsprintf = require('sprintf-js').vsprintf,
 	path = require('path'),
 	zip = require('gulp-zip');
 
@@ -1197,7 +1198,7 @@ module.exports.shareRepository = function (argv, done) {
 				}
 
 				// Role is not a default role. Get the role Id.
-				if (['manager','contributor','viewer'].indexOf(role) === -1) {
+				if (['manager', 'contributor', 'viewer'].indexOf(role) === -1) {
 					return serverRest.getEditorialRoleWithName({
 						server: server,
 						name: role
@@ -6251,6 +6252,22 @@ module.exports.listAssets = function (argv, done) {
 
 	var validate = typeof argv.validate === 'boolean' ? argv.validate : argv.validate === 'true';
 
+	const allowedProperties = ['id', 'name', 'type', 'language', 'slug', 'status', 'createdDate', 'createdBy', 'updatedDate', 'updatedBy', 'version', 'publishedVersion', 'size'];
+	const defaultProperties = ['type', 'id', 'version', 'status', 'language', 'size', 'name'];
+	var properties = argv.properties ? argv.properties.split(',') : [];
+	var propertiesToShow = [];
+	properties.forEach(function (name) {
+		if (allowedProperties.includes(name)) {
+			propertiesToShow.push(name);
+		} else {
+			console.warn('WARNING: invalid property name ' + name);
+		}
+	});
+	if (propertiesToShow.length === 0) {
+		propertiesToShow = defaultProperties;
+	}
+	console.log(' - properties to show: ' + propertiesToShow);
+
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.error(result.statusMessage);
@@ -6410,7 +6427,7 @@ module.exports.listAssets = function (argv, done) {
 				return serverRest.queryItems({
 					server: server,
 					q: q,
-					fields: 'name,status,slug,language,publishedChannels,languageIsMaster',
+					fields: 'name,status,slug,language,publishedChannels,languageIsMaster,createdDate,createdBy,updatedDate,updatedBy,version,versionInfo',
 					includeAdditionalData: true,
 					orderBy: orderBy,
 					rankBy: rankingApiName
@@ -6429,7 +6446,7 @@ module.exports.listAssets = function (argv, done) {
 				console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
 
 				if (total > 0) {
-					_displayAssets(server, repository, collection, channel, channelToken, items, showURLS, rankingApiName);
+					_displayAssets(server, propertiesToShow, repository, collection, channel, channelToken, items, showURLS, rankingApiName);
 					console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
 
 					var itemsWithForwardSlashSlug = [];
@@ -6584,7 +6601,7 @@ var _validateDigitalAssetNativeFile = function (server, items) {
 	});
 };
 
-var _displayAssets = function (server, repository, collection, channel, channelToken, items, showURLS, ranking) {
+var _displayAssets = function (server, propertiesToShow, repository, collection, channel, channelToken, items, showURLS, ranking) {
 	var types = [];
 	var allIds = [];
 	for (var i = 0; i < items.length; i++) {
@@ -6649,6 +6666,9 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 	var format2;
 
 	if (showURLS) {
+		//
+		// Not used anymore
+		//
 		format2 = '   %-s';
 		// console.log(sprintf(format2, 'Name', 'URLs'));
 		items.forEach(function (item) {
@@ -6663,24 +6683,124 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 		});
 
 	} else {
-		format2 = '   %-38s %-38s %-7s %-10s %-8s %-10s %-s';
-		console.log(sprintf(format2, 'Type', 'Id', 'Version', 'Status', 'Language', 'Size', 'Name'));
+		// format2 = '   %-38s %-38s %-7s %-10s %-8s %-10s %-s';
+		// console.log(sprintf(format2, 'Type', 'Id', 'Version', 'Status', 'Language', 'Size', 'Name'));
+		var labels = [];
+		format2 = '   ';
+		for (let i = 0; i < propertiesToShow.length; i++) {
+			let name = propertiesToShow[i];
+			labels.push(name[0].toUpperCase() + name.slice(1));
+			let f = '%-10s ';
+			if (i === propertiesToShow.length - 1) {
+				f = '%-s';
+			} else {
+				if (name === 'id' || name === 'type') {
+					f = '%-38s ';
+				}
+				if (name === 'name') {
+					f = '%-30s ';
+				}
+				if (name === 'version') {
+					f = '%-7s ';
+				}
+				if (name === 'publishedVersion') {
+					f = '%-16s ';
+				}
+				if (name === 'status') {
+					f = '%-10s ';
+				}
+				if (name === 'language') {
+					f = '%-8s ';
+				}
+				if (name === 'size') {
+					f = '%-10s ';
+				}
+				if (name === 'createdBy' || name === 'updatedBy') {
+					f = '%-26s ';
+				}
+				if (name === 'updatedDate' || name === 'createdDate') {
+					f = '%-26s ';
+				}
+			}
+			format2 += f;
+		}
+		// console.log(format2);
+
+		// labels
+		console.log(vsprintf(format2, labels));
+
 		var totalSize = 0;
-		for (let i = 0; i < list.length; i++) {
-			for (let j = 0; j < list[i].items.length; j++) {
-				var item = list[i].items[j];
+		if (propertiesToShow.includes('type')) {
+			for (let i = 0; i < list.length; i++) {
+				for (let j = 0; j < list[i].items.length; j++) {
+					let item = list[i].items[j];
+					if (item.fields && item.fields.size) {
+						totalSize = totalSize + item.fields.size;
+					}
+					// console.log(item);
+					/*
+					var typeLabel = j === 0 ? item.type : '';
+					var sizeLabel = item.fields && item.fields.size ? item.fields.size : '';
+					var languageLabel = item.language ? item.language : '';
+					console.log(sprintf(format2, typeLabel, item.id, item.latestVersion, item.status, languageLabel, sizeLabel, item.name));
+					*/
+					let values = [];
+					propertiesToShow.forEach(function (name) {
+						let value = '';
+						if (item.hasOwnProperty(name)) {
+							if (name === 'updatedDate' || name === 'createdDate') {
+								value = item[name].value;
+							} else {
+								value = item[name];
+							}
+						} else {
+							if (name === 'size') {
+								value = item.fields && item.fields.size ? item.fields.size : '';
+							}
+						}
+						if (name === 'type') {
+							if (j > 0) {
+								value = '';
+							}
+						}
+						if (value === undefined) {
+							value = '';
+						}
+						values.push(value);
+					});
+					console.log(vsprintf(format2, values));
+				}
+			}
+		} else {
+			for (let i = 0; i < items.length; i++) {
+				let values = [];
+				let item = items[i];
 				if (item.fields && item.fields.size) {
 					totalSize = totalSize + item.fields.size;
 				}
-				// console.log(item);
-				var typeLabel = j === 0 ? item.type : '';
-				var sizeLabel = item.fields && item.fields.size ? item.fields.size : '';
-				var languageLabel = item.language ? item.language : '';
-				console.log(sprintf(format2, typeLabel, item.id, item.latestVersion, item.status, languageLabel, sizeLabel, item.name));
+				propertiesToShow.forEach(function (name) {
+					let value = '';
+					if (item.hasOwnProperty(name)) {
+						if (name === 'updatedDate' || name === 'createdDate') {
+							value = item[name].value;
+						} else {
+							value = item[name];
+						}
+					} else {
+						if (name === 'size') {
+							value = item.fields && item.fields.size ? item.fields.size : '';
+						}
+					}
+					if (value === undefined) {
+						value = '';
+					}
+					values.push(value);
+				});
+				console.log(vsprintf(format2, values));
 			}
 		}
 		console.log('');
-		if (totalSize > 0) {
+		if (propertiesToShow.includes('size') && totalSize > 0) {
 			console.log(' - total file size: ' + (Math.floor(totalSize / 1024)) + 'k');
 		}
 	}

@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "23.2.1",
+	"version": "23.2.2",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -105,6 +105,7 @@
 		"update-site": "gulp -LL --gulpfile bin/gulpfile.js update-site ",
 		"export-site": "gulp -LL --gulpfile bin/gulpfile.js export-site ",
 		"import-site": "gulp -LL --gulpfile bin/gulpfile.js import-site ",
+		"unblock-import-job": "gulp -LL --gulpfile bin/gulpfile.js unblock-import-job ",
 		"cancel-export-job": "gulp -LL --gulpfile bin/gulpfile.js cancel-export-job ",
 		"cancel-import-job": "gulp -LL --gulpfile bin/gulpfile.js cancel-import-job ",
 		"delete-export-job": "gulp -LL --gulpfile bin/gulpfile.js delete-export-job ",
@@ -215,7 +216,7 @@
 	"dependencies": {
 		"@oracle/oraclejet": "13.1.0",
 		"body-parser": "1.19.2",
-		"chai": "4.3.4",
+		"chai": "4.3.7",
 		"cheerio": "1.0.0-rc.9",
 		"deepmerge": "4.2.2",
 		"express": "4.17.3",
@@ -235,7 +236,7 @@
 		"node-fetch": "2.6.7",
 		"puppeteer": "15.3.1",
 		"request": "2.88.0",
-		"semver": "7.3.5",
+		"semver": "7.3.8",
 		"simplebar": "5.3.6",
 		"sprintf-js": "1.1.2",
 		"uglify-js": "3.13.5",

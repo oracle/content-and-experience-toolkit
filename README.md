@@ -15,6 +15,19 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.2.2
+
+**Updated**
+- `cec create-site-map` - Added option to exclude languages
+- `cec control-content` - Added option to read asset IDs from a file and option to publish assets in batches
+- `cec list-asset` - Added option to configure output info
+- `cec transfer-site` - Support transfer static files for standard sites
+- `cec update-template` - Add action to specify taxonomy requirement
+
+**Fixed**
+- `cec index-site` - Now handles update existing search items correctly
+
+
 # New in Release 23.2.1
 
 **Updated**

@@ -1092,6 +1092,11 @@ gulp.task('update-template', function (done) {
 			process.exitCode = _getExitCode(success);
 			done();
 		});
+	} else if (argv.action === 'require-taxonomy' || argv.action === 'not-require-taxonomy') {
+		templatelib.updateTemplate(argv, function (success) {
+			process.exitCode = _getExitCode(success);
+			done();
+		});
 	} else {
 		console.log('ERRRO: ' + argv.action + ' is not supported');
 		process.exitCode = 1;
@@ -1729,6 +1734,18 @@ gulp.task('import-site', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.importSite(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Unblock import job
+ */
+ gulp.task('unblock-import-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.unblockImportJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

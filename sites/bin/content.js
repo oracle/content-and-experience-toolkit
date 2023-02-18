@@ -1769,6 +1769,39 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 			return cmdEnd(done);
 		}
 
+		var assetsFile = argv.assetsfile;
+		var assetsInFile = [];
+		if (assetsFile) {
+			var filePath = assetsFile;
+			if (!path.isAbsolute(filePath)) {
+				filePath = path.join(projectDir, filePath);
+			}
+			filePath = path.resolve(filePath);
+
+			if (!fs.existsSync(filePath)) {
+				console.error('ERROR: file ' + filePath + ' does not exist');
+				done();
+				return;
+			}
+			if (fs.statSync(filePath).isDirectory()) {
+				console.error('ERROR: file ' + filePath + ' is not a file');
+				done();
+				return;
+			}
+
+			try {
+				assetsInFile = JSON.parse(fs.readFileSync(filePath));
+			} catch (e) {
+				console.error(e);
+			}
+			if (assetsInFile.length === 0) {
+				console.error('ERROR: file ' + filePath + ' does not contain any asset GUID');
+				done();
+				return;
+			}
+			console.log(' - total asset GUIDs in file ' + assetsFile + ': ' + assetsInFile.length);
+		}
+
 		var serverName = argv.server;
 		var server = loginServer ? loginServer : serverUtils.verifyServer(serverName, projectDir);
 		if (!server || !server.valid) {
@@ -1795,7 +1828,11 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 			var publishingJobName = argv.name;
 			var repositoryName = argv.repository;
 			var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
+			assetGUIDS = assetGUIDS.concat(assetsInFile);
 			var query = argv.query;
+
+			var batchSize = argv.batchsize;
+			var executePublish = typeof argv.execute === 'string' && argv.execute.toLowerCase() === 'true';
 
 			var repository;
 			var channel, channelToken;
@@ -2107,14 +2144,92 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 								}
 							});
 						} else {
-							var plPromise = _performOneOp(server, action, channel.id, toPublishItemIds, true);
-							plPromise.then(function (result) {
-								if (result.err) {
-									return cmdEnd(done);
+							if (batchSize) {
+								// publish in batches
+								var count = 0;
+								var ids = [];
+								var groups = [];
+								var groupName;
+								items.forEach(function (item) {
+									ids.push(item.id);
+									count += 1;
+
+									if (count === batchSize) {
+										groups.push(ids.toString());
+										ids = [];
+										count = 0;
+									}
+								});
+								if (ids.length > 0) {
+									groups.push(ids.toString());
+								}
+								console.log(' - publish in batches, total batches: ' + groups.length);
+
+								var isWindows = /^win/.test(process.platform) ? true : false;
+								var winCall = isWindows ? 'call ' : '';
+
+								var publishScript = 'cd "' + projectDir + '"' + os.EOL + os.EOL;
+								var cmd;
+								var assetsFile;
+								var channelName2 = serverUtils.replaceAll(channelName, ' ', '');
+								for (let i = 0; i < groups.length; i++) {
+									ids = groups[i];
+									groupName = channelName2 + '_publish_content_batch_' + i.toString();
+
+									// save ids to file
+									assetsFile = path.join(distFolder, groupName + '_assets');
+									fs.writeFileSync(assetsFile, JSON.stringify(ids.split(',')));
+
+
+									// publish script
+									cmd = winCall + 'cec control-content publish';
+									if (repositoryName) {
+										cmd += ' -r "' + repositoryName + '"';
+									}
+									cmd += ' -c ' + channelName;
+									if (serverName) {
+										cmd += ' -s ' + serverName;
+									}
+									cmd += ' -f "' + assetsFile + '"';
+
+									publishScript += 'echo "*** control-content publish' + groupName + '"' + os.EOL;
+									publishScript += cmd + os.EOL + os.EOL;
+								}
+								var publishContentFileName = channelName2 + '_publishcontent' + (isWindows ? '.bat' : '');
+								var publishContentFilePath = path.join(projectDir, publishContentFileName);
+								fs.writeFileSync(publishContentFilePath, publishScript);
+								fs.chmodSync(publishContentFilePath, '755');
+								console.log(' - create script ' + publishContentFilePath);
+
+
+								if (executePublish) {
+									var childProcess = require('child_process');
+									console.log('');
+									console.log('Executing script ' + publishContentFileName + ' ...');
+									var scriptPath = '"' + publishContentFilePath.substring(0, publishContentFilePath.lastIndexOf(path.sep)) + '"' +
+										publishContentFilePath.substring(publishContentFilePath.lastIndexOf(path.sep));
+									var publishCmd = childProcess.execSync(scriptPath, {
+										stdio: 'inherit'
+									});
+
+									console.log('');
+									process.exitCode = 0;
+									return cmdSuccess(done, true);
 								} else {
+									console.log('Please execute ' + publishContentFileName + ' to publish content on the server.');
 									return cmdSuccess(done, true);
 								}
-							});
+
+							} else {
+								var plPromise = _performOneOp(server, action, channel.id, toPublishItemIds, true);
+								plPromise.then(function (result) {
+									if (result.err) {
+										return cmdEnd(done);
+									} else {
+										return cmdSuccess(done, true);
+									}
+								});
+							}
 						}
 
 					} else if (action === 'unpublish') {
@@ -2272,7 +2387,7 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 							var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
 							if (showerror) {
 								console.error('ERROR: ' + action + ' failed: ' + msg + (ecid ? ' (ecid: ' + ecid + ')' : ''));
-								console.error(data);
+								console.log(JSON.stringify(data, null, 4));
 								if (data && data.error && data.error.validation) {
 									_displayValidation(data.error.validation, action);
 								}
@@ -3900,8 +4015,10 @@ module.exports.transferSiteContent = function (argv, done) {
 	var siteName2 = serverUtils.replaceAll(siteName, ' ', '');
 	var downloadContentFileName = siteName2 + '_downloadcontent' + (isWindows ? '.bat' : '');
 	var uploadContentFileName = siteName2 + '_uploadcontent' + (isWindows ? '.bat' : '');
+	var publishContentFileName = siteName2 + '_publishcontent' + (isWindows ? '.bat' : '');
 	var downloadContentFilePath = path.join(projectDir, downloadContentFileName);
 	var uploadContentFilePath = path.join(projectDir, uploadContentFileName);
+	var publishContentFilePath = path.join(projectDir, publishContentFileName);
 
 	serverUtils.loginToServer(server)
 		.then(function (result) {
@@ -4088,6 +4205,7 @@ module.exports.transferSiteContent = function (argv, done) {
 
 			var downloadScript = 'cd "' + projectDir + '"' + os.EOL + os.EOL;
 			var uploadScript = 'cd "' + projectDir + '"' + os.EOL + os.EOL;
+			var publishScript = 'cd "' + projectDir + '"' + os.EOL + os.EOL;
 			var cmd;
 			var winCall = isWindows ? 'call ' : '';
 			var zipPath;
@@ -4156,6 +4274,16 @@ module.exports.transferSiteContent = function (argv, done) {
 				uploadScript += 'echo "*** upload-content ' + groupName + '"' + os.EOL;
 				uploadScript += cmd + os.EOL + os.EOL;
 
+
+				// publish script
+				cmd = winCall + 'cec control-content publish';
+				cmd += ' -r "' + repositoryName + '"';
+				cmd += ' -c ' + channelName;
+				cmd += ' -s ' + destServerName;
+				cmd += ' -f "' + assetsFile + '"';
+
+				publishScript += 'echo "*** control-content publish' + groupName + '"' + os.EOL;
+				publishScript += cmd + os.EOL + os.EOL;
 			}
 
 			// download / upload for other repositories
@@ -4194,16 +4322,30 @@ module.exports.transferSiteContent = function (argv, done) {
 
 					uploadScript += 'echo "*** upload-content ' + groupName + '"' + os.EOL;
 					uploadScript += cmd + os.EOL + os.EOL;
+
+					// publish script
+					cmd = winCall + 'cec control-content publish';
+					cmd += ' -r "' + repositoryName + '"';
+					cmd += ' -c ' + channelName;
+					cmd += ' -s ' + destServerName;
+					cmd += ' -f "' + assetsFile + '"';
+
+					publishScript += 'echo "*** control-content publish' + groupName + '"' + os.EOL;
+					publishScript += cmd + os.EOL + os.EOL;
+
 				}
 			}
 
 			fs.writeFileSync(downloadContentFilePath, downloadScript);
 			fs.writeFileSync(uploadContentFilePath, uploadScript);
+			fs.writeFileSync(publishContentFilePath, publishScript);
 			fs.chmodSync(downloadContentFilePath, '755');
 			fs.chmodSync(uploadContentFilePath, '755');
+			fs.chmodSync(publishContentFilePath, '755');
 
 			console.log(' - create script ' + downloadContentFilePath);
 			console.log(' - create script ' + uploadContentFilePath);
+			console.log(' - create script ' + publishContentFilePath);
 
 			if (executeScripts) {
 				var childProcess = require('child_process');
@@ -4294,8 +4436,10 @@ module.exports.transferContent = function (argv, done) {
 	var repoName2 = serverUtils.replaceAll(repositoryName, ' ', '');
 	var downloadContentFileName = repoName2 + '_downloadcontent' + (isWindows ? '.bat' : '');
 	var uploadContentFileName = repoName2 + '_uploadcontent' + (isWindows ? '.bat' : '');
+	var publishContentFileName = repoName2 + '_publishcontent' + (isWindows ? '.bat' : '');
 	var downloadContentFilePath = path.join(projectDir, downloadContentFileName);
 	var uploadContentFilePath = path.join(projectDir, uploadContentFileName);
+	var publishContentFilePath = path.join(projectDir, publishContentFileName);
 
 
 	serverUtils.loginToServer(server)
@@ -4379,6 +4523,7 @@ module.exports.transferContent = function (argv, done) {
 
 			var downloadScript = 'cd "' + projectDir + '"' + os.EOL + os.EOL;
 			var uploadScript = 'cd "' + projectDir + '"' + os.EOL + os.EOL;
+			var publishScript = 'cd "' + projectDir + '"' + os.EOL + os.EOL;
 			var cmd;
 			var winCall = isWindows ? 'call ' : '';
 			var zipPath;
@@ -4449,6 +4594,17 @@ module.exports.transferContent = function (argv, done) {
 				uploadScript += 'echo "*** upload-content ' + groupName + '"' + os.EOL;
 				uploadScript += cmd + os.EOL + os.EOL;
 
+				// publish script
+				cmd = winCall + 'cec control-content publish';
+				if (channelName) {
+					cmd += ' -c "' + channelName + '"';
+				}
+				cmd += ' -r "' + repositoryName + '"';
+				cmd += ' -s ' + destServerName;
+				cmd += ' -f "' + assetsFile + '"';
+
+				publishScript += 'echo "*** control-content publish' + groupName + '"' + os.EOL;
+				publishScript += cmd + os.EOL + os.EOL;
 			}
 
 			fs.writeFileSync(downloadContentFilePath, downloadScript);
@@ -4458,6 +4614,12 @@ module.exports.transferContent = function (argv, done) {
 
 			console.log(' - create script ' + downloadContentFilePath);
 			console.log(' - create script ' + uploadContentFilePath);
+
+			if (channelName) {
+				fs.writeFileSync(publishContentFilePath, publishScript);
+				fs.chmodSync(publishContentFilePath, '755');
+				console.log(' - create script ' + publishContentFilePath);
+			}
 
 			if (executeScripts) {
 				var childProcess = require('child_process');

@@ -1555,7 +1555,8 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 						includeUnpublishedAssets: includeUnpublishedAssets
 					}
 				}
-			}]
+			}],
+			"ignoreFailures": true
 		};
 
 		var options = {
@@ -1771,7 +1772,7 @@ var _showValidationResults = function (source, job) {
 	});
 };
 
-var _importSite = function (server, name, archiveId, siteId, repositoryId, localizationPolicyId, sitePrefix, policies, assetspolicy, newsite) {
+var _importSite = function (server, name, archiveId, siteId, repositoryId, localizationPolicyId, sitePrefix, policies, assetspolicy, newsite, ignorewarnings) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/system/export/api/v1/imports';
@@ -1797,9 +1798,9 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, local
 				}
 			}],
 			"policies": {
-				"ignoreAllValidationWarnings": true
+				"ignoreAllValidationWarnings": ignorewarnings
 			},
-			"ignoreFailures": true
+			"ignoreFailures": false
 		};
 
 		switch (policies) {
@@ -1949,7 +1950,7 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, local
  */
 module.exports.importSite = function (args) {
 	var server = args.server;
-	return _importSite(server, args.name, args.archiveId, args.siteId, args.repositoryId, args.localizationPolicyId, args.sitePrefix, args.policies, args.assetspolicy, args.newsite);
+	return _importSite(server, args.name, args.archiveId, args.siteId, args.repositoryId, args.localizationPolicyId, args.sitePrefix, args.policies, args.assetspolicy, args.newsite, args.ignorewarnings);
 };
 
 var _describeExportJob = function (server, id) {

@@ -281,7 +281,7 @@ var getContentItemSources = function () {
 };
 
 var updateTemplateActions = function () {
-	const actions = ['rename-asset-id'];
+	const actions = ['rename-asset-id', 'require-taxonomy', 'not-require-taxonomy'];
 	return actions;
 };
 
@@ -332,6 +332,11 @@ var getImportSiteAssetPolicies = function () {
 var getLoggerLevels = function () {
 	const types = ['error', 'warn', 'info', 'debug'];
 	return types;
+};
+
+var getListAssetProperties = function () {
+	const properties = ['id', 'name', 'type', 'language', 'slug', 'status', 'createdDate', 'createdBy', 'updatedDate', 'updatedBy', 'version', 'publishedVersion', 'size'];
+	return properties;
 };
 
 /*********************
@@ -921,16 +926,19 @@ const updateTemplate = {
 	alias: 'ut',
 	name: 'update-template',
 	usage: {
-		'short': 'Performs action on a local template.',
+		'short': 'Performs action on a local or server template.',
 		'long': (function () {
-			let desc = 'Performs action <action> on a local template. ';
+			let desc = 'Performs action <action> on a local or server template. ';
+			desc += '<rename-asset-id> action is for local template only. '
 			desc = desc + 'Optionally specify -c for other local content.  The valid actions are\n\n';
 			return updateTemplateActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
 		['cec update-template rename-asset-id -t Template1'],
-		['cec update-template rename-asset-id -t Template1 -c Content1,Content2']
+		['cec update-template rename-asset-id -t Template1 -c Content1,Content2'],
+		['cec update-template require-taxonomy -t Template1', 'Set local template to require Site Security Taxonomy'],
+		['cec update-template not-require-taxonomy -t Template1 -s SampleServer1', 'Set template on OCM server to not require Site Security Taxonomy']
 	]
 };
 
@@ -1097,13 +1105,17 @@ const controlContent = {
 		'short': 'Performs action <action> on channel items on OCM server.',
 		'long': (function () {
 			let desc = 'Performs action <action> on channel items on OCM server. Specify the channel with -c <channel>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
-			return getContentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = getContentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc += os.EOL + 'To publish large number of assets, specify <batchsize> to generate script to publish the assets in batches. By default the script will not be executed by this command, specify <execute> to execute the script after it is generated.';
+			return desc;
 		})()
 	},
 	example: [
 		['cec control-content publish -c Channel1', 'Publish all items in channel Channel1 on the server specified in cec.properties file'],
 		['cec control-content publish -c Channel1 -a GUID1,GUID2', 'Publish asset GUID1 and GUID2 in channel Channel1'],
 		['cec control-content publish -c Channel1 -q \'createdDate ge "2023-01-01" and createdDate lt "2024-01-01"\'', 'Publish asset created in 2023 in channel Channel1'],
+		['cec control-content publish -c Channel1 -b 400', 'Create script to publish all items in channel Channel1 in batches, each batch has 400 assets'],
+		['cec control-content publish -c Channel1 -b 400 -e', 'Create script to publish all items in channel Channel1 in batches and execute the script'],
 		['cec control-content publish -c Channel1 -s SampleServer1', 'Publish all items in channel Channel1 on the registered server SampleServer1'],
 		['cec control-content unpublish -c Channel1 -s SampleServer1', 'Unpublish all items in channel Channel1 on the registered server SampleServer1'],
 		['cec control-content add -c Channel1 -r Repo1 -s SampleServer1', 'Add all items in repository Repo1 to channel Channel1 on the registered server SampleServer1'],
@@ -1822,7 +1834,25 @@ const importSite = {
 		['cec import-site Site1 -e ImportName -r repository', 'Import src/siteExport/Site1 to the OCM server with ImportName as name'],
 		['cec import-site Site1 -i duplicateSite -n Site1Copy -r repository -x site1copy -l EnglishPolicy', 'Import site to the OCM server by duplicating it as Site1Copy'],
 		['cec import-site Site1 -a createOrUpdate -r repository', 'Import src/siteExport/Site1 to the OCM server with createOrUpdate assets policy'],
-		['cec import-site Site1 -f Site1_72D365DB55C94BF1BB023299B4AB64B0 -r repository', 'Import from the given folder on the OCM server']
+		['cec import-site Site1 -f Site1_72D365DB55C94BF1BB023299B4AB64B0 -r repository', 'Import from the given folder on the OCM server'],
+		['cec import-site Site1 -r repository -g', 'Import site in src/siteExport/Site1 to the OCM server and ignore all validation warnings']
+	]
+};
+
+const unblockImportJob = {
+	command: 'unblock-import-job <id>',
+	alias: 'uij',
+	name: 'unblock-import-job',
+	usage: {
+		'short': 'Unblocks an import job.',
+		'long': (function () {
+			let desc = 'Unblock an import job on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec unblock-import-job 9F88FB74733E42889BF61CFCDA6D7E39', 'Unblock the specified import job on the server specified in cec.properties file'],
+		['cec unblock-import-job 9F88FB74733E42889BF61CFCDA6D7E39 -g -s SampleServer1', 'Unblock the specified import job on the registered server SampleServer1 and ignore all validation warnings']
 	]
 };
 
@@ -2023,6 +2053,7 @@ const createSiteMap = {
 		['cec create-site-map Site1 -u http://www.example.com/site1 -c weekly -p'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT', 'Generate URLs in default locale, de-DE and it-IT'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT -b', 'Generate URLs in de-DE and it-IT only'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -x de-DE,it-IT', 'Generate URLs in all locales excluding de-DE and it-IT'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -d', 'Include the default locale in the URLs'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -m', 'Generate multiple sitemaps, one for each locale'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -e', 'Uses \'/\' for the root page path instead of any pageUrl value'],
@@ -2866,12 +2897,14 @@ const listAssets = {
 	usage: {
 		'short': 'Lists assets on OCM server.',
 		'long': (function () {
-			let desc = 'Lists assets on OCM server. Optionally specify -c <channel>, -r <repository>, -l <collection> or -q <query> to query assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
-			return desc;
+			let desc = 'Lists assets on OCM server. Optionally specify -c <channel>, -r <repository>, -l <collection> or -q <query> to query assets. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			desc += 'Optionally specify -p to select to show the properties of assets. The supported properties are:' + os.EOL + os.EOL;
+			return getListAssetProperties().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
 		})()
 	},
 	example: [
 		['cec list-assets', 'List all assets'],
+		['cec list-assets -p type,id,name,slug,language', 'List all assets with property type, id, name, slug and language'],
 		['cec list-assets -s SampleServer1', 'List all assets on registered server SampleServer1'],
 		['cec list-assets -r Repo1', 'List all assets from repository Repo1'],
 		['cec list-assets -r Repo1 -o "name:asc"', 'List all assets from repository Repo1 and order them by name'],
@@ -4044,6 +4077,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 _usage = _usage + os.EOL + 'Site Export and Import' + os.EOL +
 	_getCmdHelp(exportSite) + os.EOL +
 	_getCmdHelp(importSite) + os.EOL +
+	_getCmdHelp(unblockImportJob) + os.EOL +
 	_getCmdHelp(cancelExportJob) + os.EOL +
 	_getCmdHelp(cancelImportJob) + os.EOL +
 	_getCmdHelp(deleteExportJob) + os.EOL +
@@ -4889,14 +4923,23 @@ const argv = yargs.usage(_usage)
 					alias: 'c',
 					description: 'The comma separated list of local content'
 				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
 				.check((argv) => {
 					if (argv.action && !updateTemplateActions().includes(argv.action)) {
 						throw new Error(`${os.EOL} ${argv.action} is not a valid value for <action>`);
+					}
+					if (argv.action === 'rename-asset-id' && argv.server) {
+						throw new Error(`${os.EOL} ${argv.action} action is for local templates only`);
 					}
 					return true;
 				})
 				.example(...updateTemplate.example[0])
 				.example(...updateTemplate.example[1])
+				.example(...updateTemplate.example[2])
+				.example(...updateTemplate.example[3])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${updateTemplate.command}\n\n${updateTemplate.usage.long}`);
@@ -5326,6 +5369,18 @@ const argv = yargs.usage(_usage)
 					alias: 'a',
 					description: 'The comma separated list of asset GUIDS'
 				})
+				.option('assetsfile', {
+					alias: 'f',
+					description: 'The file with an array of asset GUIDS'
+				})
+				.option('batchsize', {
+					alias: 'b',
+					description: 'The number of assets in each batch to publish in batches'
+				})
+				.option('execute', {
+					alias: 'e',
+					description: 'Execute the publish script when publish in batches'
+				})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -5369,6 +5424,14 @@ const argv = yargs.usage(_usage)
 					if (argv.date && !argv.name) {
 						throw new Error('Please specify the name of the scheduled publishing job to create');
 					}
+					if (typeof argv.batchsize !== 'undefined') {
+						if (typeof argv.batchsize === 'boolean') {
+							throw new Error(os.EOL + 'Please provide valid <batchsize>');
+						}
+						if (argv.batchsize === 0 || argv.batchsize && (!Number.isInteger(argv.batchsize) || argv.batchsize <= 0)) {
+							throw new Error(os.EOL + 'Value for <batchsize> should be an integer greater than 0');
+						}
+					}
 					return true;
 				})
 				.example(...controlContent.example[0])
@@ -5385,6 +5448,8 @@ const argv = yargs.usage(_usage)
 				.example(...controlContent.example[11])
 				.example(...controlContent.example[12])
 				.example(...controlContent.example[13])
+				.example(...controlContent.example[14])
+				.example(...controlContent.example[15])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlContent.command}\n\n${controlContent.usage.long}`);
@@ -6438,6 +6503,10 @@ const argv = yargs.usage(_usage)
 					alias: 'f',
 					description: '<folder> Folder to import the site from'
 				})
+				.option('ignorewarnings', {
+					alias: 'g',
+					description: 'Ignore all validation warnings'
+				})
 				.check((argv) => {
 					if (!argv.repository) {
 						throw new Error('Please specify repository');
@@ -6474,9 +6543,27 @@ const argv = yargs.usage(_usage)
 				.example(...importSite.example[3])
 				.example(...importSite.example[4])
 				.example(...importSite.example[5])
+				.example(...importSite.example[6])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${importSite.command}\n\n${importSite.usage.long}`);
+		})
+
+	.command([unblockImportJob.command, unblockImportJob.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+			.option('ignorewarnings', {
+				alias: 'g',
+				description: 'Ignore all validation warnings'
+			})
+			.example(...unblockImportJob.example[0])
+				.example(...unblockImportJob.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${unblockImportJob.command}\n\n${unblockImportJob.usage.long}`);
 		})
 
 	.command([cancelExportJob.command, cancelExportJob.alias], false,
@@ -6703,6 +6790,10 @@ const argv = yargs.usage(_usage)
 					alias: 'l',
 					description: 'The comma separated list of languages used to create the site map'
 				})
+				.option('excludelanguages', {
+					alias: 'x',
+					description: 'The comma separated list of languages excluded in the site map'
+				})
 				.option('publish', {
 					alias: 'p',
 					description: 'Upload the site map to OCM server after creation'
@@ -6775,6 +6866,7 @@ const argv = yargs.usage(_usage)
 				.example(...createSiteMap.example[14])
 				.example(...createSiteMap.example[15])
 				.example(...createSiteMap.example[16])
+				.example(...createSiteMap.example[17])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
@@ -8127,6 +8219,10 @@ const argv = yargs.usage(_usage)
 					alias: 'v',
 					description: 'Validate the existence of each item'
 				})
+				.option('properties', {
+					alias: 'p',
+					description: 'The comma separated list of asset properties to show'
+				})
 				/*
 				.option('urls', {
 					alias: 'u',
@@ -8152,6 +8248,7 @@ const argv = yargs.usage(_usage)
 				.example(...listAssets.example[6])
 				.example(...listAssets.example[7])
 				.example(...listAssets.example[8])
+				.example(...listAssets.example[9])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listAssets.command}\n\n${listAssets.usage.long}`);
@@ -10187,6 +10284,10 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.content) {
 		updateTemplateArgs.push(...['--content', argv.content]);
 	}
+	if (argv.server) {
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		updateTemplateArgs.push(...['--server', serverVal]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, updateTemplateArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -10379,8 +10480,17 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.assets) {
 		controlContentArgs.push(...['--assets', argv.assets]);
 	}
+	if (argv.assetsfile && typeof argv.assetsfile !== 'boolean') {
+		controlContentArgs.push(...['--assetsfile', argv.assetsfile]);
+	}
 	if (argv.query) {
 		controlContentArgs.push(...['--query', argv.query]);
+	}
+	if (argv.batchsize) {
+		controlContentArgs.push(...['--batchsize', argv.batchsize]);
+	}
+	if (argv.execute) {
+		controlContentArgs.push(...['--execute', argv.execute]);
 	}
 	if (argv.date) {
 		controlContentArgs.push(...['--date', argv.date]);
@@ -10908,6 +11018,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.urls) {
 		listAssetsArgs.push(...['--urls', argv.urls]);
 	}
+	if (argv.properties) {
+		listAssetsArgs.push(...['--properties', argv.properties]);
+	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, listAssetsArgs, {
 		cwd,
@@ -11372,7 +11485,27 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.folder && typeof argv.folder !== 'boolean') {
 		importSiteArgs.push(...['--folder', argv.folder]);
 	}
+	if (argv.ignorewarnings) {
+		importSiteArgs.push(...['--ignorewarnings', argv.ignorewarnings]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, importSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === unblockImportJob.name || argv._[0] === unblockImportJob.alias) {
+	let unblockImportJobArgs = ['run', '-s', unblockImportJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		unblockImportJobArgs.push(...['--server', argv.server]);
+	}
+	if (argv.ignorewarnings) {
+		unblockImportJobArgs.push(...['--ignorewarnings', argv.ignorewarnings]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, unblockImportJobArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -11556,6 +11689,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.languages) {
 		createSiteMapArgs.push(...['--languages', argv.languages]);
+	}
+	if (argv.excludelanguages) {
+		createSiteMapArgs.push(...['--excludelanguages', argv.excludelanguages]);
 	}
 	if (argv.toppagepriority) {
 		createSiteMapArgs.push(...['--toppagepriority', argv.toppagepriority]);

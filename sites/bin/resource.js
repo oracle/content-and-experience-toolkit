@@ -1135,7 +1135,7 @@ module.exports.describeBackgroundJob = function (argv, done) {
 											if (job.JobStatus === 'PROCESSING' || job.JobStatus === 'QUEUED') {
 												process.stdout.write(sprintf(jobFormat, 'Processing ', job.JobPercentage + ' [' + serverUtils.timeUsed(new Date(job.JobCreateDate), new Date()) + '] ...'));
 												if (job.JobAction === 'publish' && job.JobType === 'site' && publishJobData) {
-													let publishingStatus = ' (tasks total: ' + publishJobData.total + '  completed: ' + publishJobData.completed + '  failed: ' + publishJobData.failed + '  queued: ' + publishJobData.queued + ')';
+													let publishingStatus = sprintf('%-s', ' (tasks total: ' + publishJobData.total + '  completed: ' + publishJobData.completed + '  failed: ' + publishJobData.failed + '  queued: ' + publishJobData.queued + ')          ');
 													process.stdout.write(publishingStatus);
 												}
 												readline.cursorTo(process.stdout, 0);
@@ -1349,76 +1349,115 @@ module.exports.describeBackgroundJob = function (argv, done) {
 								//
 								// content async bulk op
 								//
-								serverRest.getItemOperationStatus({ server: server, statusId: jobId, hideError: true })
-									.then(function (result) {
-										if (result && result.id === jobId) {
-											job = result;
-											// console.log(JSON.stringify(job, null, 4));
-											var operations = job.result && job.result.body && job.result.body.operations;
-											var jobAction = operations ? Object.keys(operations) : '';
+
+								var _displayBulkJob = function (job, showId) {
+									let operations = job.result && job.result.body && job.result.body.operations;
+									let jobAction = operations ? Object.keys(operations) : '';
+
+									if (showId === undefined || showId) {
+										console.log(sprintf(jobFormat, 'Id', job.id));
+										console.log(sprintf(jobFormat, 'Type', 'bulk items operation'));
+									}
+									console.log(sprintf(jobFormat, 'Operation', jobAction));
+									console.log(sprintf(jobFormat, 'Status', job.progress));
+									console.log(sprintf(jobFormat, 'Percentage', job.completedPercentage));
+									console.log(sprintf(jobFormat, 'StartTime', job.startTime && job.startTime.value));
+									console.log(sprintf(jobFormat, 'EndTime', job.endTime && job.endTime.value || ''));
+									let duration = job.endTime && job.endTime.value ? serverUtils.timeUsed(new Date(job.startTime.value), new Date(job.endTime.value)) :
+										job.startTime && job.startTime.value ? serverUtils.timeUsed(new Date(job.startTime.value), new Date()) : '';
+									console.log(sprintf(jobFormat, 'Time', duration));
+									console.log(sprintf(jobFormat, 'Message', job.message));
+									if (job.error && job.error.detail) {
+										console.log(sprintf(jobFormat, 'Error', job.error.detail));
+									}
+								};
+
+								serverRest.getItemOperationStatus({ server: server, statusId: jobId, hideError: true }).then(function (result) {
+									if (result && result.id === jobId) {
+										job = result;
+										// console.log(JSON.stringify(job, null, 4));
+										var operations = job.result && job.result.body && job.result.body.operations;
+										var renditionJobId = operations && operations.generateRenditions && operations.generateRenditions.jobId;
+
+										var jobsPromises = [];
+										if (renditionJobId) {
+											jobsPromises.push(serverRest.getItemOperationStatus({ server: server, statusId: renditionJobId, hideError: true }));
+										}
+
+										Promise.all(jobsPromises).then(function (results) {
+											var renditionJob = renditionJobId ? results[0] : undefined;
 
 											if (job.progress === 'processing' && wait) {
 												console.log('');
 												console.log(sprintf(jobFormat, 'Id', job.id));
 												console.log(sprintf(jobFormat, 'Type', 'bulk items operation'));
+												// pulling job till it finishes
 												var inter = setInterval(function () {
-													process.stdout.write(sprintf(jobFormat, 'Processing ', job.completedPercentage + ' [' + serverUtils.timeUsed(new Date(job.startTime.value), new Date()) + '] ...'));
+													let processInfo = job.completedPercentage + ' [' + serverUtils.timeUsed(new Date(job.startTime.value), new Date()) + '] ...';
+													if (renditionJob) {
+														processInfo += ' (rendition job ' + renditionJob.progress + ' ' + renditionJob.completedPercentage + ' percent)';
+													}
+													process.stdout.write(sprintf(jobFormat, 'Processing ', processInfo));
 													readline.cursorTo(process.stdout, 0);
-													serverRest.getItemOperationStatus({ server: server, statusId: jobId, hideError: true })
-														.then(function (result) {
-															let job = result;
-															if (job.progress === 'processing') {
-																process.stdout.write(sprintf(jobFormat, 'Processing ', job.completedPercentage + ' [' + serverUtils.timeUsed(new Date(job.startTime.value), new Date()) + '] ...'));
-																readline.cursorTo(process.stdout, 0);
-															} else {
-																clearInterval(inter);
-																operations = job.result && job.result.body && job.result.body.operations;
-																jobAction = operations ? Object.keys(operations) : '';
-																console.log(sprintf(jobFormat, 'Operation', jobAction + '             '));
-																console.log(sprintf(jobFormat, 'Status', job.progress));
-																console.log(sprintf(jobFormat, 'Percentage', job.completedPercentage));
-																console.log(sprintf(jobFormat, 'StartTime', job.startTime && job.startTime.value));
-																console.log(sprintf(jobFormat, 'EndTime', job.endTime && job.endTime.value || ''));
-																let duration = job.endTime && job.endTime.value ? serverUtils.timeUsed(new Date(job.startTime.value), new Date(job.endTime.value)) :
-																	job.startTime && job.startTime.value ? serverUtils.timeUsed(new Date(job.startTime.value), new Date()) : '';
-																console.log(sprintf(jobFormat, 'Time', duration));
-																console.log(sprintf(jobFormat, 'Message', job.message));
-																if (job.error && job.error.detail) {
-																	console.log(sprintf(jobFormat, 'Error', job.error.detail));
-																}
-																console.log('');
+
+													// query jobs again
+													serverRest.getItemOperationStatus({ server: server, statusId: jobId, hideError: true }).then(function (result) {
+														job = result;
+														let operations = job.result && job.result.body && job.result.body.operations;
+														renditionJobId = operations && operations.generateRenditions && operations.generateRenditions.jobId;
+
+														jobsPromises = [];
+														if (renditionJobId) {
+															jobsPromises.push(serverRest.getItemOperationStatus({ server: server, statusId: renditionJobId, hideError: true }));
+														}
+														return Promise.all(jobsPromises);
+
+													}).then(function (results) {
+														renditionJob = renditionJobId ? results[0] : undefined;
+
+														if (job.progress === 'processing') {
+															let processInfo = job.completedPercentage + ' [' + serverUtils.timeUsed(new Date(job.startTime.value), new Date()) + '] ...';
+															if (renditionJob) {
+																processInfo += ' (rendition job ' + renditionJob.progress + ' ' + renditionJob.completedPercentage + ' percent)';
 															}
-														})
+															process.stdout.write(sprintf(jobFormat, 'Processing ', processInfo));
+															readline.cursorTo(process.stdout, 0);
+														} else {
+															clearInterval(inter);
+															_displayBulkJob(job, false);
+															if (renditionJob) {
+																console.log('');
+																console.log('Rendition job:');
+																_displayBulkJob(renditionJob);
+															}
+															console.log('');
+															done(true);
+														}
+													})
 												}, 6000);
 											} else {
 												console.log('');
-												console.log(sprintf(jobFormat, 'Id', job.id));
-												console.log(sprintf(jobFormat, 'Type', 'bulk items operation'));
-												console.log(sprintf(jobFormat, 'Operation', jobAction));
-												console.log(sprintf(jobFormat, 'Status', job.progress));
-												console.log(sprintf(jobFormat, 'Percentage', job.completedPercentage));
-												console.log(sprintf(jobFormat, 'StartTime', job.startTime && job.startTime.value));
-												console.log(sprintf(jobFormat, 'EndTime', job.endTime && job.endTime.value || ''));
-												let duration = job.endTime && job.endTime.value ? serverUtils.timeUsed(new Date(job.startTime.value), new Date(job.endTime.value)) :
-													job.startTime && job.startTime.value ? serverUtils.timeUsed(new Date(job.startTime.value), new Date()) : '';
-												console.log(sprintf(jobFormat, 'Time', duration));
-												console.log(sprintf(jobFormat, 'Message', job.message));
-												if (job.error && job.error.detail) {
-													console.log(sprintf(jobFormat, 'Error', job.error.detail));
+												_displayBulkJob(job);
+
+												if (renditionJob) {
+													console.log('');
+													console.log('Rendition job:');
+													_displayBulkJob(renditionJob);
 												}
 												console.log('');
+												done(true);
 											}
 
-											done(true);
-										} else {
-											//
-											// invalid job id
-											//
-											console.error('ERROR: job not found');
-											done();
-										}
-									});
-							}
+										});
+									} else {
+										//
+										// invalid job id
+										//
+										console.error('ERROR: job not found');
+										done();
+									}
+								});
+							} // bulk operation
 
 						});
 				}

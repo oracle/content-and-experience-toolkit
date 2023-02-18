@@ -1230,21 +1230,23 @@
             var d = document.querySelector("body");
             if (!n.contentItemData || !n.contentTypeData) throw s = 'Unable to initialize sdk - invalid  parameter: "contentItemData" and "contentTypeData', 
             o.error(s), new Error(s);
-            var u = n.contentItemData, l = n.contentTypeData, c = n.formOptions, f = n.locale, p = n.repositoryId, h = n.repositoryDefaultLanguage, g = new t(l), m = new e({
+            var u = n.contentItemData, l = n.contentTypeData, c = n.formOptions, f = n.locale, p = n.repositoryId, h = n.dir, g = n.repositoryDefaultLanguage, m = new t(l), v = new e({
                 itemData: u,
-                contentType: g,
+                contentType: m,
                 formOptions: c
             });
             this.getType = function() {
-                return g;
-            }, this.getItem = function() {
                 return m;
+            }, this.getItem = function() {
+                return v;
             }, this.getLocale = function() {
                 return f;
+            }, this.getDirection = function() {
+                return h;
             }, this.getRepositoryId = function() {
                 return p;
             }, this.getRepositoryDefaultLanguage = function() {
-                return h;
+                return g;
             }, this.previewAsset = function(e) {
                 if (!e || !e.id) throw new Error('Invalid params. {"id" : "<id of asset>" must be provided to open asset preview.');
                 return i.send("previewAsset", e);
@@ -1275,16 +1277,16 @@
                     height: e.height
                 });
             };
-            var v, w;
+            var w, b;
             this.registerFormValidation = function(e, t) {
-                v = e, t = t || {}, w = t.message || "";
+                w = e, t = t || {}, b = t.message || "";
             }, this.isFormValid = function() {
-                if ("function" != typeof v) return o.debug("Unable to validate value: no validation function has been registered"), 
+                if ("function" != typeof w) return o.debug("Unable to validate value: no validation function has been registered"), 
                 {
                     isValid: !0
                 };
                 try {
-                    return o.debug("Evaluating custom validation function for item :", m), Promise.resolve(v.call(this, m)).then(function(e) {
+                    return o.debug("Evaluating custom validation function for item :", v), Promise.resolve(w.call(this, v)).then(function(e) {
                         var t;
                         switch (o.debug("validation function returned:", e), typeof e) {
                           case "boolean":
@@ -1297,7 +1299,7 @@
                             e.hasOwnProperty("isValid") && "boolean" == typeof e.isValid && (t = {
                                 isValid: e.isValid,
                                 error: {
-                                    message: e.message || w
+                                    message: e.message || b
                                 }
                             });
                         }

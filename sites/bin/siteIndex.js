@@ -1333,16 +1333,18 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 				let found = false;
 				let item = existingPageIndex[j];
 				let fields = item.fields;
+				let newFields;
 				for (let i = 0; i < pageIndex.length; i++) {
 					if (fields && pageIndex[i].site === fields.site && pageIndex[i].pageid === fields.pageid) {
 						found = true;
+						newFields = pageIndex[i];
 						break;
 					}
 				}
 
 				if (found) {
 					// Update item with newly generated page index
-					item.fields = pageIndex[i];
+					item.fields = newFields;
 					_pageIndexToUpdate.push(item);
 				} else {
 					_pageIndexToDelete.push(item);
@@ -1496,8 +1498,9 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 						return resolve({});
 					}
 				}).catch(function (err) {
-					console.error('ERROR: ');
-					console.error(err);
+					if (err) {
+						console.error(err);
+					}
 				});
 
 		}); // get page index items

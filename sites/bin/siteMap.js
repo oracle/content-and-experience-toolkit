@@ -756,7 +756,7 @@ var _getQueryString = function (querystrings, name) {
  * @param {*} siteInfo 
  * @param {*} pages 
  */
-var _generateSiteMapURLs = function (server, languages, data, siteUrl, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
+var _generateSiteMapURLs = function (server, languages, excludeLanguages, data, siteUrl, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
 	newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale, defaultLocale, useDefaultSiteUrl) {
 
 	var prefix = siteUrl;
@@ -796,6 +796,49 @@ var _generateSiteMapURLs = function (server, languages, data, siteUrl, pages, pa
 	var pagePriority = [];
 	var addedPageUrls = [];
 	for (let i = 0; i < pages.length; i++) {
+
+		//
+		// find out last modified date
+		//
+		// var fileName = (includeLocale ? (pages[i].locale + '_') : '') + pages[i].id.toString() + '.json';
+		var fileName = pages[i].id.toString() + '.json';
+		var pageChangefreq = changefreq === 'auto' ? 'monthly' : changefreq;
+		var found = false;
+		for (var j = 0; j < pageFiles.length; j++) {
+			if (fileName === pageFiles[j].name) {
+				lastmod = _getLastmod(pageFiles[j].lastModifiedDate);
+				pageChangefreq = pageFiles[j].changefreq || pageChangefreq;
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			// console.info('*** page ' + fileName + ' not found');
+		}
+		//
+		// calculate priority
+		//
+		var priority;
+		if (!pages[i].parentId) {
+			// root always is 1
+			priority = 1;
+		} else {
+			priority = toppagepriority || 1;
+			if (pages[i].pageUrl) {
+				var levels = pages[i].pageUrl.split('/');
+				for (let j = 1; j < levels.length; j++) {
+					priority = priority / 2;
+				}
+			}
+		}
+
+		pagePriority.push({
+			id: pages[i].id.toString(),
+			pageUrl: pages[i].pageUrl,
+			priority: priority,
+			changefreq: pageChangefreq
+		});
+
 		// console.log(pages[i]);
 		var pageId = pages[i].id;
 		var masterPageData = _getMasterPageData(data, pageId);
@@ -805,36 +848,6 @@ var _generateSiteMapURLs = function (server, languages, data, siteUrl, pages, pa
 		if (pages[i].pageUrl && !pages[i].isDetailPage && !noIndex && !isExternalLink) {
 
 			var includeLocale = pages[i].locale && (pages[i].locale !== data.SiteInfo.defaultLanguage || defaultLocale);
-
-			// find out last modified date
-			// var fileName = (includeLocale ? (pages[i].locale + '_') : '') + pages[i].id.toString() + '.json';
-			var fileName = pages[i].id.toString() + '.json';
-
-			var pageChangefreq = changefreq === 'auto' ? 'monthly' : changefreq;
-			var found = false;
-			for (var j = 0; j < pageFiles.length; j++) {
-				if (fileName === pageFiles[j].name) {
-					lastmod = _getLastmod(pageFiles[j].lastModifiedDate);
-					pageChangefreq = pageFiles[j].changefreq || pageChangefreq;
-					found = true;
-					break;
-				}
-			}
-			if (!found) {
-				// console.info('*** page ' + fileName + ' not found');
-			}
-			// calculate priority
-			var priority;
-			if (!pages[i].parentId) {
-				// root always is 1
-				priority = 1;
-			} else {
-				priority = toppagepriority || 1;
-				var levels = pages[i].pageUrl.split('/');
-				for (let j = 1; j < levels.length; j++) {
-					priority = priority / 2;
-				}
-			}
 
 			// console.log('page: ' + pages[i].id + ' parent: ' + pages[i].parentId + ' url: ' + pages[i].pageUrl + ' priority: ' + priority + ' lastmod: ' + lastmod);
 			let pageurl = pageId === rootPageId && useDefaultSiteUrl ? '' : pages[i].pageUrl;
@@ -854,16 +867,18 @@ var _generateSiteMapURLs = function (server, languages, data, siteUrl, pages, pa
 			if (!addedPageUrls.includes(loc)) {
 				if (!noDefaultLocale || includeLocale) {
 					if (languages.length === 0 || languages.includes(pages[i].locale)) {
-						urls.push({
-							loc: loc,
-							lastmod: lastmod,
-							priority: priority,
-							changefreq: pageChangefreq,
-							locale: pages[i].locale
-						});
-						addedPageUrls.push(loc);
-						if (!locales.includes(pages[i].locale)) {
-							locales.push(pages[i].locale);
+						if (!excludeLanguages.includes(pages[i].locale)) {
+							urls.push({
+								loc: loc,
+								lastmod: lastmod,
+								priority: priority,
+								changefreq: pageChangefreq,
+								locale: pages[i].locale
+							});
+							addedPageUrls.push(loc);
+							if (!locales.includes(pages[i].locale)) {
+								locales.push(pages[i].locale);
+							}
 						}
 					}
 
@@ -873,17 +888,19 @@ var _generateSiteMapURLs = function (server, languages, data, siteUrl, pages, pa
 							if (pages[i].locale === data.SiteInfo.localeFallbacks[otherLocale]) {
 								let otherLoc = serverUtils.replaceAll(loc, '/' + pages[i].locale + '/', '/' + otherLocale + '/');
 								if (languages.length === 0 || languages.includes(otherLocale)) {
-									if (!addedPageUrls.includes(otherLoc)) {
-										urls.push({
-											loc: otherLoc,
-											lastmod: lastmod,
-											priority: priority,
-											changefreq: pageChangefreq,
-											locale: otherLocale
-										});
-										addedPageUrls.push(otherLoc);
-										if (!locales.includes(otherLocale)) {
-											locales.push(otherLocale);
+									if (!excludeLanguages.includes(otherLocale)) {
+										if (!addedPageUrls.includes(otherLoc)) {
+											urls.push({
+												loc: otherLoc,
+												lastmod: lastmod,
+												priority: priority,
+												changefreq: pageChangefreq,
+												locale: otherLocale
+											});
+											addedPageUrls.push(otherLoc);
+											if (!locales.includes(otherLocale)) {
+												locales.push(otherLocale);
+											}
 										}
 									}
 								}
@@ -892,14 +909,9 @@ var _generateSiteMapURLs = function (server, languages, data, siteUrl, pages, pa
 					}
 				}
 			} // no duplicate
-
-			pagePriority.push({
-				id: pages[i].id.toString(),
-				priority: priority,
-				changefreq: pageChangefreq
-			});
 		}
 	}
+
 
 	var totalPageUrls = addedPageUrls.length;
 
@@ -969,15 +981,17 @@ var _generateSiteMapURLs = function (server, languages, data, siteUrl, pages, pa
 								// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
 								if (!noDefaultLocale || locale) {
 									if (languages.length === 0 || languages.includes(itemlanguage)) {
-										urls.push({
-											loc: url,
-											lastmod: lastmod,
-											priority: itemPriority,
-											changefreq: itemChangefreq,
-											locale: itemlanguage
-										});
+										if (!excludeLanguages.includes(itemlanguage)) {
+											urls.push({
+												loc: url,
+												lastmod: lastmod,
+												priority: itemPriority,
+												changefreq: itemChangefreq,
+												locale: itemlanguage
+											});
 
-										addedUrls.push(url);
+											addedUrls.push(url);
+										}
 									}
 
 									// Add fallbacks if there are
@@ -986,16 +1000,18 @@ var _generateSiteMapURLs = function (server, languages, data, siteUrl, pages, pa
 											if (locale === data.SiteInfo.localeFallbacks[otherLocale] + '/') {
 												let otherUrl = serverUtils.replaceAll(url, '/' + locale, '/' + otherLocale + '/');
 												if (languages.length === 0 || languages.includes(otherLocale)) {
-													if (!addedUrls.includes(otherUrl)) {
-														urls.push({
-															loc: otherUrl,
-															lastmod: lastmod,
-															priority: itemPriority,
-															changefreq: itemChangefreq,
-															locale: otherLocale
-														});
+													if (!excludeLanguages.includes(otherLocale)) {
+														if (!addedUrls.includes(otherUrl)) {
+															urls.push({
+																loc: otherUrl,
+																lastmod: lastmod,
+																priority: itemPriority,
+																changefreq: itemChangefreq,
+																locale: otherLocale
+															});
 
-														addedUrls.push(otherUrl);
+															addedUrls.push(otherUrl);
+														}
 													}
 												}
 											}
@@ -1054,15 +1070,17 @@ var _generateSiteMapURLs = function (server, languages, data, siteUrl, pages, pa
 						// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
 						if (!noDefaultLocale || locale) {
 							if (languages.length === 0 || languages.includes(itemlanguage)) {
-								urls.push({
-									loc: url,
-									lastmod: lastmod,
-									priority: itemPriority,
-									changefreq: itemChangefreq,
-									locale: itemlanguage
-								});
+								if (!excludeLanguages.includes(itemlanguage)) {
+									urls.push({
+										loc: url,
+										lastmod: lastmod,
+										priority: itemPriority,
+										changefreq: itemChangefreq,
+										locale: itemlanguage
+									});
 
-								addedUrls.push(url);
+									addedUrls.push(url);
+								}
 							}
 
 							if (locale && data.SiteInfo.localeFallbacks) {
@@ -1070,16 +1088,18 @@ var _generateSiteMapURLs = function (server, languages, data, siteUrl, pages, pa
 									if (locale === data.SiteInfo.localeFallbacks[otherLocale] + '/') {
 										let otherUrl = serverUtils.replaceAll(url, '/' + locale, '/' + otherLocale + '/');
 										if (languages.length === 0 || languages.includes(otherLocale)) {
-											if (!addedUrls.includes(otherUrl)) {
-												urls.push({
-													loc: otherUrl,
-													lastmod: lastmod,
-													priority: itemPriority,
-													changefreq: itemChangefreq,
-													locale: otherLocale
-												});
+											if (!excludeLanguages.includes(otherLocale)) {
+												if (!addedUrls.includes(otherUrl)) {
+													urls.push({
+														loc: otherUrl,
+														lastmod: lastmod,
+														priority: itemPriority,
+														changefreq: itemChangefreq,
+														locale: otherLocale
+													});
 
-												addedUrls.push(otherUrl);
+													addedUrls.push(otherUrl);
+												}
 											}
 										}
 									}
@@ -1640,7 +1660,7 @@ var _setLocalAliases = function (aliases, urls) {
  * 
  */
 var _createSiteMap = function (server, serverName, site, siteUrl, format, changefreq,
-	publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink,
+	publish, siteMapFile, languages, excludeLanguages, toppagepriority, newlink, noDefaultDetailPageLink,
 	allTypes, wantedTypes, querystrings, noDefaultLocale, defaultLocale, multiple, useDefaultSiteUrl, done) {
 
 	//
@@ -1677,6 +1697,10 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 				}
 			}
 
+			if (locales.length === 0) {
+				console.log('ERROR: no language is specified');
+				return Promise.reject();
+			}
 			if (noDefaultLocale && locales.length === 1 && locales[0].language === data.SiteInfo.defaultLanguage) {
 				console.log('ERROR: no language is specified');
 				return Promise.reject();
@@ -1748,7 +1772,7 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 			//
 			// create site map
 			//
-			var siteMapData = _generateSiteMapURLs(server, languages, data, siteUrl, allPages, allPageFiles, allItems, allTypeItems,
+			var siteMapData = _generateSiteMapURLs(server, languages, excludeLanguages, data, siteUrl, allPages, allPageFiles, allItems, allTypeItems,
 				changefreq, toppagepriority, newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale, defaultLocale, useDefaultSiteUrl);
 
 			var urls = siteMapData.urls;
@@ -2072,6 +2096,8 @@ module.exports.createSiteMap = function (argv, done) {
 
 	var languages = argv.languages ? argv.languages.split(',') : [];
 
+	var excludeLanguages = argv.excludelanguages ? argv.excludelanguages.split(',') : [];
+
 	var toppagepriority = argv.toppagepriority;
 
 	var querystrings = argv.querystrings ? argv.querystrings.split(',') : [];
@@ -2089,7 +2115,7 @@ module.exports.createSiteMap = function (argv, done) {
 		}
 
 		_createSiteMap(server, serverName, site, siteUrl, format, changefreq,
-			publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink,
+			publish, siteMapFile, languages, excludeLanguages, toppagepriority, newlink, noDefaultDetailPageLink,
 			allTypes, wantedTypes, querystrings, noDefaultLocale, defaultLocale, multiple, useDefaultSiteUrl, done);
 
 	}); // login
