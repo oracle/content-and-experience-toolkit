@@ -477,7 +477,7 @@ var _getSiteChannelToken = function (siteInfo) {
 };
 
 
-var _getContentListQueryString = function (type, limit, offset, orderBy, locale) {
+var _getContentListQueryString = function (type, limit, offset, orderBy, categoryFilters, queryString, locale) {
 	var str = 'fields=ALL';
 	var q = '';
 	if (orderBy) {
@@ -498,6 +498,32 @@ var _getContentListQueryString = function (type, limit, offset, orderBy, locale)
 		} else {
 			q = 'type eq "' + type + '"';
 		}
+	}
+	if (categoryFilters && categoryFilters.length > 0) {
+		let taxq = '';
+		categoryFilters.forEach(function (tax) {
+			if (tax.taxonomy && tax.categories && tax.categories.length > 0) {
+				let catq = '';
+				for (let i = 0; i < tax.categories.length; i++) {
+					if (catq) {
+						catq = catq + ' or ';
+					}
+					catq = catq + 'taxonomies.categories.nodes.id eq "' + tax.categories[i] + '"';
+				}
+				if (catq) {
+					if (taxq) {
+						taxq = taxq + ' and ';
+					}
+					taxq = taxq + '(' + catq + ')';
+				}
+			}
+		});
+		if (taxq) {
+			q = q + ' and ' + taxq;
+		}
+	}
+	if (queryString) {
+		q = q + ' and (' + queryString + ')';
 	}
 	if (q) {
 		str = str + '&q=(' + q + ')';
@@ -523,7 +549,9 @@ var _getPageContentListQuery = function (pageData, locale) {
 				var offset = data.firstItem;
 				var limit = data.maxResults;
 				var orderBy = data.sortOrder;
-				var str = _getContentListQueryString(type, limit, offset, orderBy, locale);
+				var categoryFilters = data.categoryFilters;
+				var queryString = data.queryString;
+				var str = _getContentListQueryString(type, limit, offset, orderBy, categoryFilters, queryString, locale);
 				pageContentListQueries.push({
 					pageId: pageId,
 					type: type,

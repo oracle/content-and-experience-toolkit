@@ -28,6 +28,7 @@ var gulp = require('gulp'),
     serverRest = require('../../test/server/serverRest'),
     fileUtils = require('../../test/server/fileUtils'),
     compilationReporter = require('./reporter.js'),
+    exec = require('child_process').exec,
     componentLib = require('../component');
 
 //*********************************************
@@ -59,6 +60,8 @@ var channelAccessToken = '', // channel access token for the site
     installedNodePackages = [],
     itemResults = {}, // results of compilation for each item
     systemFormats = ['contentlistdefault', 'contentplaceholderdefault', 'default', 'emptycontentlistdefault'];
+
+var isWindowsOS = process.platform === "win32";
 
 
 var compiler = {
@@ -557,6 +560,38 @@ var folder2json = function (filename) {
     return info;
 };
 
+var execZipCommand = function (itemsDir, zipFile) {
+    return new Promise(function (resolve, reject) {
+        var logStdout = function (data) {
+            console.log('stdout:', `${data}`);
+        };
+        var logStderr = function (data) {
+            console.log('stderr:', `${data}`);
+        };
+        var logCodeSignal = function (commndString, code, signal) {
+            console.log(commndString, 'child process exited with code', `${code}`);
+            // If code is null, then the process is terminated by a signal.
+            if (code === null) {
+                console.log(commndString, 'child process terminated due to receipt of signal', `${signal}`);
+            }
+        }
+
+        var cmdLine = 'zip -r ' + zipFile + ' *';
+        var zipCommand = exec(cmdLine, {
+			cwd: itemsDir,
+			env: process.env,
+			maxBuffer: 1024 * 1024 * 10
+		});
+
+        zipCommand.stdout.on('data', logStdout);
+        zipCommand.stderr.on('data', logStderr);
+        zipCommand.on('close', (code, signal) => {
+            logCodeSignal("'" + cmdLine + "'", code, signal);
+            code === 0 ? resolve(code) : reject(code);
+        });
+    });
+};
+
 var zipCompiledContent = function (contentContext) {
     // we need to import the renditions to the server
     return updateStatus({
@@ -681,13 +716,21 @@ var zipCompiledContent = function (contentContext) {
             compilationReporter.renderReport();
 
             // zip up all the files
-            fs.closeSync(fs.openSync(zipFile, 'w'));
-            gulp.src(itemsDir + '/**')
-                .pipe(zip(zipFileName))
-                .pipe(gulp.dest(distFolder))
-                .on('end', function () {
+            if (isWindowsOS) {
+                // for windows machines, try using gulp-zip
+                fs.closeSync(fs.openSync(zipFile, 'w'));
+                gulp.src(itemsDir + '/**')
+                    .pipe(zip(zipFileName))
+                    .pipe(gulp.dest(distFolder))
+                    .on('end', function () {
+                        return resolve();
+                    });
+            } else {
+                // for non-windows machines, assume that OS zip is available
+                execZipCommand(itemsDir, zipFile).then(function () {
                     return resolve();
                 });
+            }
         });
     });
 };

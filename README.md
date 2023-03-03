@@ -15,6 +15,17 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.3.1
+
+**Added**
+- `cec transfer-site-page` - Transfer changes of site pages from source server to target server
+
+**Updated**
+- `cec create-site-map` - Now supports content lists with categories
+- `cec list-assets` - Now reports non-master translatable items in draft state
+- `cec sync-server` - Added option to specify the number of days to keep processed events when starting the server
+
+
 # New in Release 23.2.2
 
 **Updated**

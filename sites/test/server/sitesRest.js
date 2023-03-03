@@ -73,15 +73,15 @@ var _getAllResources = function (server, type, expand) {
 		var resources = [];
 
 		var doGetResources = groups.reduce(function (resPromise, offset) {
-				return resPromise.then(function (result) {
-					if (result && result.items && result.items.length > 0) {
-						resources = resources.concat(result.items);
-					}
-					if (result && result.hasMore) {
-						return _getResources(server, type, expand, offset);
-					}
-				});
-			},
+			return resPromise.then(function (result) {
+				if (result && result.items && result.items.length > 0) {
+					resources = resources.concat(result.items);
+				}
+				if (result && result.hasMore) {
+					return _getResources(server, type, expand, offset);
+				}
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise
 			_getResources(server, type, expand));
 
@@ -964,7 +964,7 @@ module.exports.setSiteTheme = function (args) {
 	return _setSiteTheme(args.server, args.site, args.themeName, args.showMsg)
 };
 
-var _exportResource = function (server, type, id, name) {
+var _exportResource = function (server, type, id, name, showInfo) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
@@ -974,7 +974,9 @@ var _exportResource = function (server, type, id, name) {
 			url = url + 'name:' + name;
 		}
 		url = url + '/export';
-		console.info(' - post ' + url);
+		if (showInfo === undefined || showInfo) {
+			console.info(' - post ' + url);
+		}
 		var options = {
 			method: 'POST',
 			url: server.url + url,
@@ -982,8 +984,6 @@ var _exportResource = function (server, type, id, name) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		serverUtils.showRequestOptions(options);
-
 		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
@@ -1031,7 +1031,8 @@ var _exportResource = function (server, type, id, name) {
  */
 module.exports.exportComponent = function (args) {
 	var server = args.server;
-	return _exportResource(server, 'components', args.id, args.name);
+	var showInfo = args.showInfo !== undefined ? args.showInfo : true;
+	return _exportResource(server, 'components', args.id, args.name, showInfo);
 };
 
 var _exportResourceAsync = function (server, type, id, name) {
@@ -3450,7 +3451,7 @@ module.exports.getExportJobsEndpoint = function (server) {
 };
 
 var _sendExportJobRequest = function (server, method, url, payload, requestUtils) {
-	return new Promise(function (resolve /*, reject*/ ) {
+	return new Promise(function (resolve /*, reject*/) {
 		var postData = {
 			method: method,
 			url,
@@ -3504,7 +3505,7 @@ module.exports.sendExportJobRequest = function (args) {
 	return _sendExportJobRequest(args.server, args.method, args.url, args.payload, args.requestUtils);
 }
 var _getExportJobRequest = function (server, method, url, requestUtils) {
-	return new Promise(function (resolve /*, reject*/ ) {
+	return new Promise(function (resolve /*, reject*/) {
 		var postData = {
 			method: method,
 			url,

@@ -65,6 +65,8 @@ var password = process.env.CEC_TOOLKIT_SYNC_PASSWORD;
 
 var updateItemOnly = process.env.CEC_TOOLKIT_SYNC_UPDATEITEMONLY;
 
+var daysToKeepProcessedEvents = Number(process.env.CEC_TOOLKIT_SYNC_DAYS);
+
 app.use(express.json());
 
 // enable cookies
@@ -88,21 +90,25 @@ if (!fs.existsSync(eventsFilePath)) {
 			events = [];
 			fs.writeFileSync(eventsFilePath, '[]');
 		}
+		var deleted = 0;
 		for (var i = 0; i < events.length; i++) {
 			if (!events[i].__processed) {
 				unprocessedEvents.push(events[i]);
 				hasUnprocessedEvent = true;
 			} else {
-				// save processed events for 7 days
+				// save processed events for 7 days or the days set from param
 				var currTime = (new Date()).getTime();
 				var processTime = (new Date(events[i].__processed_date)).getTime();
 				var days = (currTime - processTime) / (1000 * 60 * 60 * 24);
-				if (days <= 7) {
+				if (days <= daysToKeepProcessedEvents) {
 					unprocessedEvents.push(events[i]);
+				} else {
+					deleted += 1;
 				}
 			}
 		}
 		fs.writeFileSync(eventsFilePath, JSON.stringify(unprocessedEvents, null, 4));
+		console.log('Deleted ' + deleted + ' processed events from events.json');
 	}
 }
 

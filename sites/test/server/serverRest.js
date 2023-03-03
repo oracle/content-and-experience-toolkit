@@ -6,6 +6,7 @@
 const {
 	end
 } = require('cheerio/lib/api/traversing');
+const { off } = require('process');
 var request = require('request'),
 	os = require('os'),
 	fs = require('fs'),
@@ -1516,42 +1517,16 @@ module.exports.getItemRendition = function (args) {
 };
 
 
-var _queryItems = function (useDelivery, server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, aggregationResults, defaultQuery, rankBy) {
+var _queryItems = function (useDelivery, server, queryString) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items';
 		if (useDelivery) {
 			url = server.url + '/content/published/api/v1.1/items';
 		}
-		var sep = '?';
-		if (q) {
-			url = url + sep + 'q=' + q;
-			sep = '&';
+		if (queryString) {
+			url = url + '?' + queryString;
 		}
-		url = url + sep + 'limit=' + limit;
-		if (offset) {
-			url = url + '&offset=' + offset;
-		}
-		if (orderBy) {
-			url = url + '&orderBy=' + orderBy;
-		}
-		if (channelToken) {
-			url = url + '&channelToken=' + channelToken;
-		}
-		if (fields) {
-			url = url + '&fields=' + fields;
-		}
-		if (includeAdditionalData) {
-			url = url + '&includeAdditionalData=true';
-		}
-		if (defaultQuery) {
-			url = url + '&default="' + defaultQuery + '"';
-		}
-		if (aggregationResults) {
-			url = url + '&aggs={"name":"item_count_per_category","field":"id"}';
-		}
-		if (rankBy) {
-			url = url + '&rankBy=' + rankBy;
-		}
+
 		var options = {
 			method: 'GET',
 			url: url,
@@ -1595,6 +1570,89 @@ var _queryItems = function (useDelivery, server, q, fields, orderBy, limit, offs
 					err: 'err'
 				});
 			}
+		});
+	});
+};
+
+var _queryAllItems = function (useDelivery, server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, aggregationResults, defaultQuery, rankBy) {
+	const QUERY_SIZE = 500;
+	return new Promise(function (resolve, reject) {
+		var queryString = [];
+
+		if (q) {
+			queryString.push('q=' + q);
+		}
+		if (orderBy) {
+			queryString.push('orderBy=' + orderBy);
+		}
+		if (channelToken) {
+			queryString.push('channelToken=' + channelToken);
+		}
+		if (fields) {
+			queryString.push('fields=' + fields);
+		}
+		if (includeAdditionalData) {
+			queryString.push('includeAdditionalData=true');
+		}
+		if (defaultQuery) {
+			queryString.push('default="' + defaultQuery + '"');
+		}
+		if (aggregationResults) {
+			queryString.push('aggs={"name":"item_count_per_category","field":"id"}');
+		}
+		if (rankBy) {
+			queryString.push('rankBy=' + rankBy);
+		}
+		var query = queryString.join('&');
+
+		var groups = [];
+		var offset2 = offset ? offset : 0;
+		for (var i = 0; i < limit / QUERY_SIZE; i++) {
+			groups.push({
+				limit: limit < QUERY_SIZE ? limit : QUERY_SIZE,
+				offset: offset2 + i * QUERY_SIZE
+			});
+		}
+
+		// console.log(' - QUERY_SIZE: ' + QUERY_SIZE + ' limit: ' + limit + ' offset: ' + offset + ' groups: ' + groups.length);
+		// 
+		// console.log(groups);
+
+		var items = [];
+		var aggregationResults = [];
+		var hasMore;
+		var returnLimit;
+
+		var startTime = new Date();
+		var doGetItems = groups.reduce(function (itemPromise, param) {
+			return itemPromise.then(function (result) {
+				let itemQueryString = queryString.join('&');
+				if (itemQueryString) {
+					itemQueryString = itemQueryString + '&';
+				}
+				itemQueryString = itemQueryString + 'limit=' + param.limit + '&offset=' + param.offset;
+				return _queryItems(useDelivery, server, itemQueryString).then(function (result) {
+					if (result.data) {
+						items = items.concat(result.data);
+					}
+					hasMore = result.hasMore;
+					returnLimit = result.limit;
+					if (result.aggregationResults) {
+						aggregationResults = aggregationResults.concat(result.aggregationResults);
+					}
+				});
+			});
+		},
+			Promise.resolve({}));
+
+		doGetItems.then(function (result) {
+			return resolve({
+				data: items,
+				query: query,
+				hasMore: hasMore,
+				limit: returnLimit,
+				aggregationResults: aggregationResults
+			});
 		});
 	});
 };
@@ -1730,7 +1788,7 @@ module.exports.queryItems = function (args) {
 	var showTotal = args.showTotal === undefined ? true : args.showTotal;
 	return new Promise(function (resolve, reject) {
 		// find out the total first
-		_queryItems(args.useDelivery, args.server, args.q, args.fields, args.orderBy, 1, 0, args.channelToken, args.includeAdditionalData)
+		_queryAllItems(args.useDelivery, args.server, args.q, args.fields, args.orderBy, 1, 0, args.channelToken, args.includeAdditionalData)
 			.then(function (result) {
 				var items = result && result.data || [];
 				if (items.length == 0 || result.limit === args.limit) {
@@ -1743,7 +1801,7 @@ module.exports.queryItems = function (args) {
 				}
 				var offset = args.offset ? args.offset : 0;
 				if (totalCount < MAX_ITEM_LIMIT || (args.limit && (offset + args.limit < MAX_ITEM_LIMIT))) {
-					_queryItems(args.useDelivery, args.server, args.q, args.fields, args.orderBy, (args.limit || totalCount), args.offset, args.channelToken, args.includeAdditionalData, args.aggregationResults, args.defaultQuery, args.rankBy)
+					_queryAllItems(args.useDelivery, args.server, args.q, args.fields, args.orderBy, (args.limit || totalCount), args.offset, args.channelToken, args.includeAdditionalData, args.aggregationResults, args.defaultQuery, args.rankBy)
 						.then(function (result) {
 							return resolve(result);
 						});

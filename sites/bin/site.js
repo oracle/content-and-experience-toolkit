@@ -12,6 +12,7 @@ var gulp = require('gulp'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip'),
 	assetUtils = require('./asset.js').utils,
+	componentUtils = require('./component.js').utils,
 	contentUtils = require('./content.js').utils,
 	documentUtils = require('./document.js').utils,
 	templateUtils = require('./template.js').utils,
@@ -206,11 +207,11 @@ var _getRepository = function (repositoryId, server) {
 	});
 };
 
-var _getCategoryId = function(categoryPath, taxonomyId, server) {
+var _getCategoryId = function (categoryPath, taxonomyId, server) {
 	return new Promise(function (resolve, reject) {
 		var categories = categoryPath.split('/');
 
-		var getCategoryFromResult = function(result) {
+		var getCategoryFromResult = function (result) {
 			var cat;
 			if (result) {
 				if (result.categories && result.categories.length > 0) {
@@ -222,33 +223,33 @@ var _getCategoryId = function(categoryPath, taxonomyId, server) {
 		}
 
 		var getCategory = categories.reduce(function (categoryPromise, categoryName) {
-				return categoryPromise.then(function(result) {
-					// Handle leading and trailing / cases
-					if (!categoryName) {
-						return Promise.resolve(result);
-					}
+			return categoryPromise.then(function (result) {
+				// Handle leading and trailing / cases
+				if (!categoryName) {
+					return Promise.resolve(result);
+				}
 
-					var parentId;
-					if (!result) {
-						// First category in the list.
-						parentId = taxonomyId;
+				var parentId;
+				if (!result) {
+					// First category in the list.
+					parentId = taxonomyId;
+				} else {
+					var category = getCategoryFromResult(result);
+					if (category) {
+						parentId = category.id;
 					} else {
-						var category = getCategoryFromResult(result);
-						if (category) {
-							parentId = category.id;
-						} else {
-							// Category not found case
-							return Promise.reject();
-						}
+						// Category not found case
+						return Promise.reject();
 					}
-					return serverRest.getCategory({
-						server: server,
-						taxonomyId: taxonomyId,
-						parentCategoryId: parentId,
-						categoryName: categoryName
-					});
+				}
+				return serverRest.getCategory({
+					server: server,
+					taxonomyId: taxonomyId,
+					parentCategoryId: parentId,
+					categoryName: categoryName
 				});
-			}, Promise.resolve()
+			});
+		}, Promise.resolve()
 		);
 
 		getCategory.then(function (result) {
@@ -1623,7 +1624,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 };
 
 /**
- * Transfer enterprise site
+ * Transfer site
  */
 module.exports.transferSite = function (argv, done) {
 	'use strict';
@@ -2929,6 +2930,934 @@ var _updateSiteUsedData = function (destServer, idcToken, destSite, siteUsedData
 
 };
 
+var _getPages = function (server, siteName, pages) {
+	return new Promise(function (resolve, reject) {
+		var pageData = [];
+		var doQueryPage = pages.reduce(function (pagePromise, pageId) {
+			return pagePromise.then(function (result) {
+				return documentUtils.getFile({ file: 'site:' + siteName + '/pages/' + pageId + '.json' }, server)
+					.then(function (result) {
+						var pageSource = {};
+						if (result && result.data) {
+							try {
+								pageSource = JSON.parse(result.data);
+							} catch (e) {
+								// validate
+							}
+						}
+						pageData.push({
+							id: pageId,
+							data: pageSource
+						})
+					})
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doQueryPage.then(function (result) {
+			resolve(pageData);
+		});
+
+	});
+};
+
+var _getContentListQueryString = function (type, limit, offset, orderBy, categoryFilters, queryString, locale) {
+	var str = 'fields=ALL';
+	var q = '';
+	if (orderBy) {
+		if (orderBy.indexOf('updateddate') >= 0) {
+			orderBy = serverUtils.replaceAll(orderBy, 'updateddate', 'updatedDate');
+		}
+		str = str + '&orderBy=' + orderBy;
+	}
+	if (limit) {
+		str = str + '&limit=' + limit;
+	}
+	if (offset) {
+		str = str + '&offset=' + offset;
+	}
+	if (type) {
+		if (locale) {
+			q = '(type eq "' + type + '") and (language eq "' + locale + '" or translatable eq "false")';
+		} else {
+			q = '(type eq "' + type + '")';
+		}
+	}
+	if (categoryFilters && categoryFilters.length > 0) {
+		let taxq = '';
+		categoryFilters.forEach(function (tax) {
+			if (tax.taxonomy && tax.categories && tax.categories.length > 0) {
+				let catq = '';
+				for (let i = 0; i < tax.categories.length; i++) {
+					if (catq) {
+						catq = catq + ' or ';
+					}
+					catq = catq + 'taxonomies.categories.nodes.id eq "' + tax.categories[i] + '"';
+				}
+				if (catq) {
+					if (taxq) {
+						taxq = taxq + ' and ';
+					}
+					taxq = taxq + '(' + catq + ')';
+				}
+			}
+		});
+		if (taxq) {
+			q = q + ' and ' + taxq;
+		}
+	}
+	if (queryString) {
+		q = q + ' and (' + queryString + ')';
+	}
+	if (q) {
+		str = str + '&q=(' + q + ')';
+	}
+	return str;
+};
+
+//
+// Get components, content items on the pages
+//
+var _getPageInfo = function (pages, locale) {
+	const _ootbComps = ["scs-title", "scs-paragraph", "scs-text", "scs-text-link", "scs-button", "scs-divider",
+		"scs-spacer", "scs-contentitem", "scs-contentplaceholder", "scs-contentlist", "scs-contentsearch",
+		"scs-recommendation", "scs-image", "scs-gallery", "scs-gallerygrid", "scs-youtube", "scs-video",
+		"scs-document", "Folder List", "File List", "Documents Manager", "Project Library", "scs-socialbar",
+		"Facebook Like", "Twitter Follow", "Twitter Share", "Facebook Recommend", "Conversation", "Conversation List",
+		"Start Form", "Task List", "Task Details", "scs-opainterview", "scs-cobrowse", "scs-map", "scs-comp-article",
+		"scs-comp-headline", "scs-comp-image-text", "scs-componentgroup", "scs-sl-horizontal", "scs-sl-slider",
+		"scs-sl-tabs", "scs-sl-three-columns", "scs-sl-two-columns", "scs-sl-vertical"];
+	var components = [];
+	var itemIds = [];
+	var contentTypes = [];
+	var contentListQueries = [];
+	var contentNames = [];
+
+	var _getInstanceInfo = function (comp) {
+		var data = comp.data || {};
+		// collect content items, content lists and components
+		if (comp.id === 'scs-contentitem' || (comp.id === 'scsCaaSLayout' && comp.type === 'scs-component')) {
+			if (data.contentId && !itemIds.includes(data.contentId)) {
+				itemIds.push(comp.data.contentId);
+			}
+			if (data.contentTypes && data.contentTypes.length > 0 && data.contentTypes[0]) {
+				if (!contentTypes.includes(data.contentTypes[0])) {
+					contentTypes.push(data.contentTypes[0]);
+				}
+			}
+		} else if (comp.id === 'scs-image' || comp.id === 'scs-gallery' || comp.id === 'scs-video') {
+			if (data.contentIds) {
+				for (let k = 0; k < data.contentIds.length; k++) {
+					if (!itemIds.includes(data.contentIds[k])) {
+						itemIds.push(data.contentIds[k]);
+					}
+				}
+			}
+		} else if (comp.id === 'scs-contentlist') {
+			if (data.contentTypes[0]) {
+				let type = data.contentTypes[0];
+				let offset = data.firstItem;
+				let limit = data.maxResults;
+				let orderBy = data.sortOrder;
+				var categoryFilters = data.categoryFilters;
+				let queryString = data.queryString;
+				let str = _getContentListQueryString(type, limit, offset, orderBy, categoryFilters, queryString, locale);
+				contentListQueries.push(str);
+				if (!contentTypes.includes(type)) {
+					contentTypes.push(type);
+				}
+			}
+		} else if (!_ootbComps.includes(comp.id) && (comp.type === 'scs-component' || comp.type === 'scs-app')) {
+			// custom component
+			var name = comp.type === 'scs-component' ? (data.componentName || data.componentId || comp.id) : data.appName;
+			if (name && name !== comp.type) {
+				if (!components.includes(name)) {
+					components.push(name);
+				}
+			}
+		}
+		if (data.imageUrl && data.imageUrl.startsWith('[!--$SCS_CONTENT_URL--]/')) {
+			let file = data.imageUrl.substring(data.imageUrl.indexOf('/') + 1);
+			if (file && !contentNames.includes(file)) {
+				contentNames.push(file);
+			}
+		}
+		if (data.images && data.images.length > 0) {
+			data.images.forEach(function (image) {
+				if (image.source && image.source.startsWith('[!--$SCS_CONTENT_URL--]/')) {
+					let file = image.source.substring(image.source.indexOf('/') + 1);
+					if (file && !contentNames.includes(file)) {
+						contentNames.push(file);
+					}
+				}
+			});
+		}
+	};
+	for (var i = 0; i < pages.length; i++) {
+		var pageId = pages[i].id;
+		var componentInstances = pages[i].data.componentInstances || {};
+		Object.keys(componentInstances).forEach(function (key) {
+			var comp = componentInstances[key];
+			_getInstanceInfo(comp);
+
+			if (comp.data.nestedComponents && comp.data.nestedComponents.length > 0) {
+				for (let i = 0; i < comp.data.nestedComponents.length; i++) {
+					_getInstanceInfo(comp.data.nestedComponents[i]);
+				}
+			}
+		});
+	}
+
+	return ({
+		components: components,
+		items: itemIds,
+		types: contentTypes,
+		contentLists: contentListQueries,
+		content: contentNames
+	});
+};
+
+var _updateSitePageUsedData = function (destServer, idcToken, destSite, pageIds, siteUsedData, destSiteUsedData) {
+	return new Promise(function (resolve, reject) {
+		// console.log(JSON.stringify(siteUsedData, null, 4));
+		// console.log(JSON.stringify(destSiteUsedData, null, 4));
+
+		var itemsUsedAdded = [];
+		var itemsUsedDeleted = [];
+
+		// components to add
+		siteUsedData.componentsUsed.forEach(function (comp) {
+			if (pageIds.includes(comp.scsPageID)) {
+				var found = false;
+				for (var i = 0; i < destSiteUsedData.componentsUsed.length; i++) {
+					var destComp = destSiteUsedData.componentsUsed[i];
+					if (comp.scsPageID === destComp.scsPageID &&
+						comp.scsInstanceID === destComp.scsInstanceID &&
+						comp.scsComponentName === destComp.scsComponentName) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					itemsUsedAdded.push({
+						type: 'component',
+						identifier: destSite.id,
+						instanceID: comp.scsInstanceID,
+						pageID: comp.scsPageID,
+						name: comp.scsComponentName
+					});
+				}
+			}
+		});
+
+		// components to delete
+		destSiteUsedData.componentsUsed.forEach(function (destComp) {
+			if (pageIds.includes(destComp.scsPageID)) {
+				var found = false;
+				for (var i = 0; i < siteUsedData.componentsUsed.length; i++) {
+					var comp = siteUsedData.componentsUsed[i];
+					if (comp.scsPageID === destComp.scsPageID &&
+						comp.scsInstanceID === destComp.scsInstanceID &&
+						comp.scsComponentName === destComp.scsComponentName) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					itemsUsedDeleted.push({
+						type: 'component',
+						identifier: destComp.scsIdentifier,
+						instanceID: destComp.scsInstanceID,
+						pageID: destComp.scsPageID,
+						name: destComp.scsComponentName
+					});
+				}
+			}
+		});
+
+		// content items to add 
+		siteUsedData.contentItemsUsed.forEach(function (item) {
+			if (pageIds.includes(item.scsPageID)) {
+				var found = false;
+				for (var i = 0; i < destSiteUsedData.contentItemsUsed.length; i++) {
+					var destItem = destSiteUsedData.contentItemsUsed[i];
+					if (item.scsPageID === destItem.scsPageID &&
+						item.scsInstanceID === destItem.scsInstanceID &&
+						item.scsContentItemID === destItem.scsContentItemID) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					itemsUsedAdded.push({
+						type: 'contentItem',
+						identifier: destSite.id,
+						instanceID: item.scsInstanceID,
+						pageID: item.scsPageID,
+						contentItemID: item.scsContentItemID,
+						version: item.scsVersion
+					});
+				}
+			}
+		});
+
+		// content items to delete 
+		destSiteUsedData.contentItemsUsed.forEach(function (destItem) {
+			if (pageIds.includes(destItem.scsPageID)) {
+				var found = false;
+				for (var i = 0; i < siteUsedData.contentItemsUsed.length; i++) {
+					var item = siteUsedData.contentItemsUsed[i];
+					if (item.scsPageID === destItem.scsPageID &&
+						item.scsInstanceID === destItem.scsInstanceID &&
+						item.scsContentItemID === destItem.scsContentItemID) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					itemsUsedDeleted.push({
+						type: 'contentItem',
+						identifier: destItem.scsIdentifier,
+						instanceID: destItem.scsInstanceID,
+						pageID: destItem.scsPageID,
+						contentItemID: destItem.scsContentItemID
+					});
+				}
+			}
+		});
+
+		// content types to add 
+		siteUsedData.contentTypesUsed.forEach(function (type) {
+			if (pageIds.includes(type.scsPageID)) {
+				var found = false;
+				for (var i = 0; i < destSiteUsedData.contentTypesUsed.length; i++) {
+					var destType = destSiteUsedData.contentTypesUsed[i];
+					if (type.scsPageID === destType.scsPageID &&
+						type.scsInstanceID === destType.scsInstanceID &&
+						type.scsTypeName === destType.scsTypeName) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					itemsUsedAdded.push({
+						type: 'contentType',
+						identifier: destSite.id,
+						instanceID: type.scsInstanceID,
+						pageID: type.scsPageID,
+						name: type.scsTypeName
+					});
+				}
+			}
+		});
+		// content types to delete 
+		destSiteUsedData.contentTypesUsed.forEach(function (destType) {
+			if (pageIds.includes(destType.scsPageID)) {
+				var found = false;
+				for (var i = 0; i < siteUsedData.contentTypesUsed.length; i++) {
+					var type = siteUsedData.contentTypesUsed[i];
+					if (type.scsPageID === destType.scsPageID &&
+						type.scsInstanceID === destType.scsInstanceID &&
+						type.scsTypeName === destType.scsTypeName) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					itemsUsedDeleted.push({
+						type: 'contentType',
+						identifier: destType.scsIdentifier,
+						instanceID: destType.scsInstanceID,
+						pageID: destType.scsPageID,
+						name: destType.scsTypeName
+					});
+				}
+			}
+		});
+
+		// console.log(' - itemsUsedAdded: \n' + JSON.stringify(itemsUsedAdded, null, 4));
+		// console.log(' - itemsUsedDeleted: \n' + JSON.stringify(itemsUsedDeleted, null, 4));
+
+		if (itemsUsedAdded.length === 0 && itemsUsedAdded.length === 0) {
+			console.info(' - no change for site used items')
+			return resolve({});
+		} else {
+			serverUtils.setSiteUsedData(destServer, idcToken, destSite.id, itemsUsedAdded, itemsUsedDeleted)
+				.then(function (result) {
+					if (!result || result.err) {
+						console.error('ERROR: failed to set site used data for pages');
+						return Promise.reject();
+					}
+
+					console.info(' - update site used data for pages');
+					return resolve({});
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					return resolve({
+						err: 'err'
+					});
+				});
+		}
+	});
+};
+
+var _executeContentListQueries = function (server, channelToken, queries) {
+	var items = [];
+	return new Promise(function (resolve, reject) {
+		if (queries.length === 0) {
+			return resolve(items);
+		} else {
+			var itemPromises = [];
+			queries.forEach(function (q) {
+				let url = '/content/management/api/v1.1/items?' + q + '&channelToken=' + channelToken;
+				itemPromises.push(serverRest.executeGet({
+					server: server,
+					endpoint: url,
+					noMsg: true
+				}));
+			})
+			Promise.all(itemPromises).then(function (results) {
+				results.forEach(function (result) {
+					var data;
+					try {
+						data = JSON.parse(result);
+					} catch (e) {
+						// validate
+					}
+					if (data && data.items && data.items.length > 0) {
+						items = items.concat(data.items);
+					}
+				})
+				return resolve(items);
+			});
+		}
+	});
+};
+
+var _transferSiteContent = function (server, destServer, site, destSite, name, fileNames) {
+	return new Promise(function (resolve, reject) {
+		if (fileNames.length === 0) {
+			return resolve({});
+		} else {
+			var folderPromises = [];
+			folderPromises.push(serverRest.findFolderHierarchy({
+				server: server,
+				parentID: site.id,
+				folderPath: 'content'
+			}));
+			folderPromises.push(serverRest.findFolderHierarchy({
+				server: destServer,
+				parentID: destSite.id,
+				folderPath: 'content'
+			}));
+
+			var srcContentFolderId, destContentFolderId;
+			var files = [];
+			var targetFolder;
+
+			Promise.all(folderPromises)
+				.then(function (results) {
+					srcContentFolderId = results && results[0] && results[0].id;
+					destContentFolderId = results && results[1] && results[1].id;
+					if (!srcContentFolderId || !destContentFolderId) {
+						return Promise.reject();
+					}
+
+					return serverRest.getAllChildItems({ server: server, parentID: srcContentFolderId });
+				})
+				.then(function (result) {
+					var contentFiles = result || [];
+					// find the fileGUID of the content files on the source sercer
+					fileNames.forEach(function (name) {
+						var found = false;
+						for (let i = 0; i < contentFiles.length; i++) {
+							if (name === contentFiles[i].name) {
+								files.push(contentFiles[i]);
+								found = true;
+							}
+						}
+						if (!found) {
+							console.error('ERROR: file ' + name + ' not found');
+						}
+					});
+
+					if (files.length === 0) {
+						return Promise.reject();
+					}
+					// save to src/documents/<name>/
+					targetFolder = path.join(documentsSrcDir, name);
+					if (!fs.existsSync(targetFolder)) {
+						fs.mkdirSync(targetFolder);
+					}
+					var downloadPromises = [];
+					files.forEach(function (file) {
+						var targetFile = path.join(targetFolder, file.name);
+						downloadPromises.push(serverRest.downloadFileSave({
+							server: server,
+							fFileGUID: file.id,
+							saveTo: targetFile
+						}));
+					});
+
+					return Promise.all(downloadPromises);
+
+				})
+				.then(function (results) {
+					var uploadPromises = [];
+					files.forEach(function (file) {
+						var targetFile = path.join(targetFolder, file.name);
+						if (fs.existsSync(targetFile)) {
+							uploadPromises.push(serverRest.createFile({
+								server: destServer,
+								parentID: destContentFolderId,
+								filename: file.name,
+								contents: fs.createReadStream(targetFile)
+							}));
+						}
+					});
+
+					return Promise.all(uploadPromises);
+				})
+				.then(function (results) {
+					return resolve(results);
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					return resolve({});
+				});
+
+		}
+	});
+};
+
+/**
+ * Transfer site pages
+ */
+module.exports.transferSitePage = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server;
+	server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var destServerName = argv.destination;
+	var destServer = serverUtils.verifyServer(destServerName, projectDir);
+	if (!destServer || !destServer.valid) {
+		done();
+		return;
+	}
+
+	if (server.url === destServer.url) {
+		console.error('ERROR: source and destination server are the same');
+		done();
+		return;
+	}
+
+	var siteName = argv.name;
+	var pageIds = argv.pages ? argv.pages.toString().split(',') : [];
+
+	var srcSite, destSite;
+	var srcSiteChannelToken;
+	var srcSiteStructure, destSiteStructure;
+	var validPageIds = [];
+	var pageIdsToTransfer = [];
+	// an array of page json objects
+	var pageData = [];
+	// names of components on the pages
+	var components = [];
+	// ID of items on the pages
+	var itemIds = [];
+	// content list queries
+	var contentListQueries = [];
+	// files under site content folder
+	var content = [];
+
+	var contentName = 'page' + pageIds[0] + 'items' + serverUtils.createGUID();
+	contentName = contentName.substring(0, 40);
+
+	var siteContentName = serverUtils.replaceAll(contentName, 'items', 'content');
+
+	var destPagesFolderId;
+
+	serverUtils.loginToServer(server)
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + server.url);
+				return Promise.reject();
+			}
+
+			return serverUtils.loginToServer(destServer);
+		})
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + destServer.url);
+				return Promise.reject();
+			}
+
+			// verify site on source server
+			return sitesRest.getSite({
+				server: server,
+				name: siteName,
+				expand: 'channel'
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				console.error('ERROR: site ' + siteName + ' does not exist on source server');
+				return Promise.reject();
+			}
+			srcSite = result;
+			let tokens = srcSite.channel && srcSite.channel.channelTokens || [];
+			for (var i = 0; i < tokens.length; i++) {
+				if (tokens[i].name === 'defaultToken') {
+					srcSiteChannelToken = tokens[i].token;
+					break;
+				}
+			}
+			if (!srcSiteChannelToken && tokens.length > 0) {
+				srcSiteChannelToken = tokens[0].value;
+			}
+			console.info(' - verify site on source server (Id: ' + srcSite.id + ', channelToken: ' + srcSiteChannelToken + ')');
+
+			// verify site on target server
+			return sitesRest.getSite({
+				server: destServer,
+				name: siteName,
+				expand: 'repository'
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err || !result.id) {
+				console.error('ERROR: site ' + siteName + ' does not exist on destination server');
+				return Promise.reject();
+			}
+			destSite = result;
+			if (!destSite.repository || !destSite.repository.id) {
+				console.error('ERROR: site ' + siteName + ' repository not found on destination server');
+				return Promise.reject();
+			}
+			console.info(' - verify site on destination server (Id: ' + destSite.id + ', repository: ' + destSite.repository.name + ')');
+
+			// get site structure
+			return documentUtils.getFile({ file: 'site:' + siteName + '/structure.json' }, server);
+		})
+		.then(function (result) {
+			if (!result || result.err || !result.data) {
+				console.error('ERROR: failed to get site structure on source server');
+				return Promise.reject();
+			}
+			try {
+				srcSiteStructure = JSON.parse(result.data);
+			} catch (e) {
+				// validate
+			}
+			if (!srcSiteStructure) {
+				console.error('ERROR: site structure on source server is invalid');
+				return Promise.reject();
+			}
+
+			// validate the pages
+			for (let i = 0; i < pageIds.length; i++) {
+				let found = false;
+				for (let j = 0; j < srcSiteStructure.pages.length; j++) {
+					if (pageIds[i].toString() === srcSiteStructure.pages[j].id.toString()) {
+						found = true;
+						validPageIds.push(pageIds[i]);
+						break;
+					}
+				}
+				if (!found) {
+					console.error('ERROR: invalid page ID ' + pageIds[i]);
+				}
+			}
+			if (validPageIds.length === 0) {
+				console.error('ERROR: no valid page to transfer');
+				return Promise.reject();
+			}
+
+			// get site structure on target server
+			return documentUtils.getFile({ file: 'site:' + siteName + '/structure.json' }, destServer);
+		})
+		.then(function (result) {
+			if (!result || result.err || !result.data) {
+				console.error('ERROR: failed to get site structure on destination server');
+				return Promise.reject();
+			}
+			try {
+				destSiteStructure = JSON.parse(result.data);
+			} catch (e) {
+				// validate
+			}
+			if (!destSiteStructure) {
+				console.error('ERROR: site structure on source server is invalid');
+				return Promise.reject();
+			}
+
+			// validate the pages
+			for (let i = 0; i < validPageIds.length; i++) {
+				let found = false;
+				for (let j = 0; j < destSiteStructure.pages.length; j++) {
+					if (validPageIds[i].toString() === destSiteStructure.pages[j].id.toString()) {
+						found = true;
+						pageIdsToTransfer.push(validPageIds[i]);
+						break;
+					}
+				}
+				if (!found) {
+					console.error('ERROR: page ' + validPageIds[i] + ' does not exist on destination server');
+				}
+			}
+			if (pageIdsToTransfer.length === 0) {
+				console.error('ERROR: no valid page to transfer');
+				return Promise.reject();
+			}
+
+			console.info(' - pages to transfer ' + pageIdsToTransfer);
+
+			return _getPages(server, siteName, pageIdsToTransfer);
+
+		})
+		.then(function (result) {
+			pageData = result;
+
+			var pageContent = _getPageInfo(pageData, srcSite.defaultLanguage);
+			components = pageContent && pageContent.components || [];
+			itemIds = pageContent && pageContent.items || [];
+			contentListQueries = pageContent && pageContent.contentLists || [];
+			content = pageContent && pageContent.content || [];
+
+			console.info(' - components: ' + components);
+			console.info(' - content items: ' + itemIds);
+			console.info(' - content lists: ' + contentListQueries);
+			console.info(' - site content: ' + content);
+
+			// execute content list queries to get the items to download
+			return _executeContentListQueries(server, srcSiteChannelToken, contentListQueries);
+
+		})
+		.then(function (result) {
+
+			if (result && result.length > 0) {
+				result.forEach(function (item) {
+					if (!itemIds.includes(item.id)) {
+						itemIds.push(item.id);
+					}
+				});
+			}
+
+			// download all components
+			var downloadCompPromises = [];
+			if (components.length > 0) {
+				let noMsg = true;
+				downloadCompPromises.push(componentUtils.downloadComponents(server, components, argv, noMsg));
+			}
+
+			return Promise.all(downloadCompPromises);
+
+		})
+		.then(function (results) {
+			if (components.length > 0 && results[0].err) {
+				return Promise.reject();
+			}
+
+			// export the components first
+			let downloadCompPromises = [];
+			if (components.length > 0) {
+				let exportArgv = {
+					component: components.join(','),
+					projectDir: projectDir,
+					noOptimize: true,
+					noMsg: true
+				};
+				downloadCompPromises.push(componentUtils.exportComponents(exportArgv));
+			}
+			return Promise.all(downloadCompPromises);
+
+		})
+		.then(function (results) {
+			if (components.length > 0 && results[0].err) {
+				return Promise.reject();
+			}
+
+			let uploadCompPromises = [];
+			if (components.length > 0) {
+				let folder = '';
+				let folderId = 'self';
+				let publish = false;
+				let comps = [];
+				for (let i = 0; i < components.length; i++) {
+					let zipfile = path.join(projectDir, "dist", components[i]) + ".zip";
+					if (fs.existsSync(zipfile)) {
+						comps.push({
+							name: components[i],
+							zipfile: zipfile
+						});
+					}
+				}
+				let noMsg = false;
+				let noDocMsg = true;
+				uploadCompPromises.push(componentUtils.uploadComponents(destServer, folder, folderId, comps, publish, noMsg, noDocMsg));
+			}
+
+			// upload all components to the target server
+			return Promise.all(uploadCompPromises);
+
+		})
+		.then(function (results) {
+			if (components.length > 0 && results[0].err) {
+				return Promise.reject();
+			}
+
+			// download content items
+			var donwloadItemPromises = [];
+			if (itemIds.length > 0) {
+				let downloadItemArgv = { projectDir: projectDir, server: server, assetGUIDS: itemIds, name: contentName };
+				donwloadItemPromises.push(contentUtils.downloadContent(downloadItemArgv));
+			}
+
+			return Promise.all(donwloadItemPromises);
+
+		})
+		.then(function (results) {
+			if (itemIds.length > 0 && results[0].err) {
+				return Promise.reject();
+			}
+
+			var uploadItemPromises = [];
+			if (itemIds.length > 0) {
+				let fileFolder = path.join(projectDir, 'dist');
+				let fileName = contentName + '_export.zip';
+				let uploadItemArgv = {
+					argv: argv,
+					server: destServer,
+					isFile: true,
+					filePath: path.join(fileFolder, fileName),
+					repositoryName: destSite.repository.name,
+					channelName: destSite.name,
+					collectionName: destSite.name + ' Site',
+					reuseContent: true,
+					contentpath: fileFolder,
+					contentfilename: fileName
+				};
+				uploadItemPromises.push(contentUtils.uploadContent(uploadItemArgv));
+			}
+
+			return Promise.all(uploadItemPromises);
+
+		})
+		.then(function (results) {
+			if (itemIds.length > 0 && results[0].err) {
+				return Promise.reject();
+			}
+
+			// transfer site content
+			return _transferSiteContent(server, destServer, srcSite, destSite, siteContentName, content);
+
+		})
+		.then(function (result) {
+			if (result && result.length > 0 && result[0].id) {
+				console.info(' - site content transferred')
+			}
+
+			// find folder pages on the target server 
+			return serverRest.findFolderHierarchy({
+				server: destServer,
+				parentID: destSite.id,
+				folderPath: 'pages'
+			});
+
+		})
+		.then(function (result) {
+			if (!result || !result.id) {
+				return Promise.reject();
+			}
+			destPagesFolderId = result.id;
+
+			if (!fs.existsSync(path.join(documentsSrcDir, siteName))) {
+				fs.mkdirSync(path.join(documentsSrcDir, siteName));
+			}
+			if (!fs.existsSync(path.join(documentsSrcDir, siteName, 'pages'))) {
+				fs.mkdirSync(path.join(documentsSrcDir, siteName, 'pages'));
+			}
+			var uploadPagePromises = [];
+			pageData.forEach(function (page) {
+				let fileName = page.id + '.json';
+				let filePath = path.join(documentsSrcDir, siteName, 'pages', fileName);
+				fs.writeFileSync(filePath, JSON.stringify(page.data, null, 4));
+				uploadPagePromises.push(serverRest.createFile({
+					server: destServer,
+					parentID: destPagesFolderId,
+					filename: fileName,
+					contents: fs.createReadStream(filePath)
+				}));
+			});
+
+			return Promise.all(uploadPagePromises);
+
+		})
+		.then(function (results) {
+
+			pageData.forEach(function (page) {
+				let updated = false;
+				for (let i = 0; i < results.length; i++) {
+					if (page.id + '.json' === results[i].name) {
+						console.info(' - updated page ' + page.id);
+						updated = true;
+						break;
+					}
+				}
+				if (!updated) {
+					console.error(' - failed to update page ' + page.id);
+				}
+			});
+
+			// get site metadata
+			var getUsedDataPromises = [];
+			getUsedDataPromises.push(serverUtils.getIdcToken(destServer));
+			getUsedDataPromises.push(serverUtils.getSiteUsedData(server, srcSite.id));
+			getUsedDataPromises.push(serverUtils.getSiteUsedData(destServer, destSite.id));
+
+			return Promise.all(getUsedDataPromises);
+
+		})
+		.then(function (results) {
+			// update site used data for the pages
+			return _updateSitePageUsedData(destServer, results[0] && results[0].idcToken,
+				destSite, pageIdsToTransfer, results[1], results[2]);
+
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - transfer page ' + pageIdsToTransfer + ' finished');
+			done(true);
+		})
+		.catch((error) => {
+			if (error) {
+				console.error(error);
+			}
+			done();
+		});
+
+};
+
 
 /**
  * control site
@@ -4209,7 +5138,7 @@ module.exports.importSite = function (argv, done) {
 /**
  * unblock import job
  */
- module.exports.unblockImportJob = function (argv, done) {
+module.exports.unblockImportJob = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
@@ -5395,10 +6324,10 @@ module.exports.describeSite = function (argv, done) {
 		var format1 = '%-38s  %-s';
 
 		sitesRest.getSite({
-				server: server,
-				name: name,
-				expand: 'ownedBy,createdBy,lastModifiedBy,members,repository,channel,vanityDomain,siteCategory'
-			})
+			server: server,
+			name: name,
+			expand: 'ownedBy,createdBy,lastModifiedBy,members,repository,channel,vanityDomain,siteCategory'
+		})
 			.then(function (result) {
 				if (!result || result.err || !result.id) {
 					return Promise.reject();

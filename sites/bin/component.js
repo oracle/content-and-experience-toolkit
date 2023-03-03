@@ -330,6 +330,7 @@ module.exports.copyComponent = function (argv, done) {
 };
 
 var _argv_component;
+var _argv_noMsg;
 
 /**
  * Copy one component source to build folder, optimize if needed.
@@ -344,7 +345,9 @@ gulp.task('dist', function (done) {
 		var components = _argv_component.split(',');
 		for (var i = 0; i < components.length; i++) {
 			if (fs.existsSync(componentsSrcDir + '/' + components[i])) {
-				console.info(' - copying ' + components[i] + ' component');
+				if (_argv_noMsg === undefined || !_argv_noMsg) {
+					console.info(' - copying ' + components[i] + ' component');
+				}
 				// Copy the components to the build folder
 				fse.copySync(path.join(componentsSrcDir, components[i]), path.join(componentsBuildDir, components[i]));
 			}
@@ -388,7 +391,9 @@ gulp.task('optimize', function (done) {
 		var components = _argv_component.split(',');
 		for (var i = 0; i < components.length; i++) {
 			if (fs.existsSync(path.join(componentsSrcDir, components[i]))) {
-				console.info(' - optimizing component ' + components[i]);
+				if (_argv_noMsg === undefined || !_argv_noMsg) {
+					console.info(' - optimizing component ' + components[i]);
+				}
 				optimizeComponent(components[i]);
 			}
 		}
@@ -417,7 +422,9 @@ gulp.task('create-component-zip', function (done) {
 				.pipe(gulp.dest(destDir))
 				.on('end', function () {
 					var zippath = path.join(destDir, comp + '.zip');
-					console.info(' - created zip file ' + zippath);
+					if (_argv_noMsg === undefined || !_argv_noMsg) {
+						console.info(' - created zip file ' + zippath);
+					}
 					count = count + 1;
 					if (count === total) {
 						// finish
@@ -449,7 +456,6 @@ module.exports.exportComponent = function (argv, done) {
 
 var _exportComponent = function (argv) {
 	'use strict';
-	verifyRun(argv);
 	return new Promise(function (resolve, reject) {
 
 		if (!fs.existsSync(componentsSrcDir)) {
@@ -477,6 +483,7 @@ var _exportComponent = function (argv) {
 
 			if (validCompNum > 0) {
 				_argv_component = argv.component;
+				_argv_noMsg = argv.noMsg;
 				var exportSeries;
 				if (argv.noOptimize) {
 					exportSeries = gulp.series('dist', 'create-component-zip');
@@ -607,12 +614,13 @@ module.exports.deployComponent = function (argv, done) {
 	}); // export
 };
 
-var _uploadComponents = function (server, folder, folderId, comps, publish) {
+var _uploadComponents = function (server, folder, folderId, comps, publish, noMsg, noDocMsg) {
 	return new Promise(function (resolve, reject) {
 		var err;
 		var doUploadComp = comps.reduce(function (compPromise, comp) {
 			return compPromise.then(function (result) {
-				return _deployOneComponentREST(server, folder, folderId, comp.zipfile, comp.name, publish)
+				let noMsg;
+				return _deployOneComponentREST(server, folder, folderId, comp.zipfile, comp.name, publish, noMsg, noDocMsg)
 					.then(function (result) {
 						if (!result || result.err) {
 							err = 'err';
@@ -655,7 +663,7 @@ var unzipComponent = function (compName, compPath) {
 	});
 };
 
-var _deployOneComponentREST = function (server, folder, folderId, zipfile, name, publish, noMsg) {
+var _deployOneComponentREST = function (server, folder, folderId, zipfile, name, publish, noMsg, noDocMsg) {
 	return new Promise(function (resolve, reject) {
 		var fileId;
 		var fileName = name + '.zip';
@@ -669,7 +677,8 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 		sitesRest.resourceExist({
 			server: server,
 			type: 'components',
-			name: name
+			name: name,
+			showInfo: noMsg ? false : true
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -716,7 +725,8 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 						path: path.join(componentsBuildDir, name) + path.sep,
 						folder: 'component:' + name,
 						retry: false,
-						excludeFiles: ['_folder.json']
+						excludeFiles: ['_folder.json'],
+						noMsg: noDocMsg
 					};
 					uploadPromise = documentUtils.uploadFolder(uploadArgv, server);
 				}
@@ -1008,7 +1018,8 @@ var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {
 		for (i = 0; i < componentNames.length; i++) {
 			compPromises.push(sitesRest.getComponent({
 				server: server,
-				name: componentNames[i]
+				name: componentNames[i],
+				showInfo: noMsg ? false : true
 			}));
 		}
 
@@ -1038,7 +1049,8 @@ var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {
 			for (i = 0; i < comps.length; i++) {
 				exportPromises.push(sitesRest.exportComponent({
 					server: server,
-					id: comps[i].id
+					id: comps[i].id,
+					showInfo: noMsg ? false : true
 				}));
 			}
 
@@ -1097,7 +1109,9 @@ var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {
 						if (exportedComps[i].fileId === results[j].id) {
 							var targetFile = path.join(destdir, exportedComps[i].name + '.zip');
 							fs.writeFileSync(targetFile, results[i].data);
-							console.info(' - save file ' + targetFile);
+							if (showDetail) {
+								console.info(' - save file ' + targetFile);
+							}
 							exportSuccess = true;
 							unzipPromises.push(unzipComponent(exportedComps[i].name, targetFile));
 						}
@@ -1107,7 +1121,7 @@ var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {
 			})
 			.then(function (results) {
 				for (i = 0; i < results.length; i++) {
-					if (results[i].comp && showDetail) {
+					if (results[i].comp) {
 						console.log(' - import component to ' + path.join(componentsSrcDir, results[i].comp));
 					}
 				}
@@ -2003,5 +2017,6 @@ module.exports.describeComponent = function (argv, done) {
 module.exports.utils = {
 	downloadComponents: _downloadComponentsREST,
 	uploadComponent: _deployOneComponentREST,
+	uploadComponents: _uploadComponents,
 	exportComponents: _exportComponent
 };

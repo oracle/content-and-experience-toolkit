@@ -214,14 +214,15 @@
 
 				// function to handle request response into JSON
 				var requestResponse = function (response) {
-					var body = '',
+					var chunksArray = [],
 						responseStatus = response.statusCode;
 
 					response.on('data', function (chunk) {
-						body += chunk;
+						chunksArray.push(chunk);
 					});
 
 					response.on('end', function () {
+						var body = '' + Buffer.concat(chunksArray); // The default character encoding for Buffer.toString() is 'utf8'.
 						if (responseStatus >= 200 && responseStatus < 300) {
 							try {
 								var jsonResponse = JSON.parse(body);

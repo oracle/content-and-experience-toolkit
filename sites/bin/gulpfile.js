@@ -261,6 +261,8 @@ gulp.task('sync-server', function (done) {
 
 	process.env.CEC_TOOLKIT_SYNC_UPDATEITEMONLY = typeof argv.updateitemonly === 'string' && argv.updateitemonly.toLowerCase() === 'true';
 
+	process.env.CEC_TOOLKIT_SYNC_DAYS = argv.days === undefined ? 7 : argv.days;
+
 	var keyPath = argv.key;
 	if (keyPath) {
 		if (!path.isAbsolute(keyPath)) {
@@ -1284,7 +1286,7 @@ gulp.task('control-taxonomy', function (done) {
 /**
  * update taxonomy on server
  */
- gulp.task('update-taxonomy', function (done) {
+gulp.task('update-taxonomy', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	taxonomylib.updateTaxonomy(argv, function (success) {
@@ -1584,7 +1586,7 @@ gulp.task('copy-site', function (done) {
 });
 
 /**
- * Transfer enterprise site
+ * Transfer site
  */
 gulp.task('transfer-site', function (done) {
 	'use strict';
@@ -1606,6 +1608,19 @@ gulp.task('transfer-site-content', function (done) {
 		done();
 	});
 });
+
+/**
+ * Transfer site pages
+ */
+gulp.task('transfer-site-page', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.transferSitePage(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
 
 /**
  * Create non-MLS enterprise site
@@ -1742,7 +1757,7 @@ gulp.task('import-site', function (done) {
 /**
  * Unblock import job
  */
- gulp.task('unblock-import-job', function (done) {
+gulp.task('unblock-import-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.unblockImportJob(argv, function (success) {
@@ -1754,7 +1769,7 @@ gulp.task('import-site', function (done) {
 /**
  * Cancel export job
  */
- gulp.task('cancel-export-job', function (done) {
+gulp.task('cancel-export-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.cancelExportJob(argv, function (success) {
@@ -1766,7 +1781,7 @@ gulp.task('import-site', function (done) {
 /**
  * Cancel import job
  */
- gulp.task('cancel-import-job', function (done) {
+gulp.task('cancel-import-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.cancelImportJob(argv, function (success) {
@@ -1778,7 +1793,7 @@ gulp.task('import-site', function (done) {
 /**
  * Delete export job
  */
- gulp.task('delete-export-job', function (done) {
+gulp.task('delete-export-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.deleteExportJob(argv, function (success) {
@@ -1790,7 +1805,7 @@ gulp.task('import-site', function (done) {
 /**
  * Delete import job
  */
- gulp.task('delete-import-job', function (done) {
+gulp.task('delete-import-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.deleteImportJob(argv, function (success) {
@@ -1802,7 +1817,7 @@ gulp.task('import-site', function (done) {
 /**
  * List export jobs
  */
- gulp.task('list-export-jobs', function (done) {
+gulp.task('list-export-jobs', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.listExportJobs(argv, function (success) {
@@ -1814,7 +1829,7 @@ gulp.task('import-site', function (done) {
 /**
  * Describe export job
  */
- gulp.task('describe-export-job', function (done) {
+gulp.task('describe-export-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.describeExportJob(argv, function (success) {
@@ -1826,7 +1841,7 @@ gulp.task('import-site', function (done) {
 /**
  * List export jobs
  */
- gulp.task('list-import-jobs', function (done) {
+gulp.task('list-import-jobs', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.listImportJobs(argv, function (success) {
@@ -1838,7 +1853,7 @@ gulp.task('import-site', function (done) {
 /**
  * Describe import job
  */
- gulp.task('describe-import-job', function (done) {
+gulp.task('describe-import-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.describeImportJob(argv, function (success) {
@@ -2578,7 +2593,7 @@ gulp.task('download-job-log', function (done) {
 /**
  * Update rendition job
  */
- gulp.task('update-rendition-job', function (done) {
+gulp.task('update-rendition-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	assetlib.updateRenditionJob(argv, function (success) {

@@ -6427,7 +6427,7 @@ module.exports.listAssets = function (argv, done) {
 				return serverRest.queryItems({
 					server: server,
 					q: q,
-					fields: 'name,status,slug,language,publishedChannels,languageIsMaster,createdDate,createdBy,updatedDate,updatedBy,version,versionInfo',
+					fields: 'name,status,slug,language,publishedChannels,languageIsMaster,translatable,createdDate,createdBy,updatedDate,updatedBy,version,versionInfo',
 					includeAdditionalData: true,
 					orderBy: orderBy,
 					rankBy: rankingApiName
@@ -6464,6 +6464,20 @@ module.exports.listAssets = function (argv, done) {
 						});
 					}
 
+					var translationsInDraft = [];
+					items.forEach(function (item) {
+						if (item.translatable && !item.languageIsMaster && item.status === 'draft') {
+							translationsInDraft.push(item);
+						}
+					});
+					if (translationsInDraft.length > 0) {
+						console.log(' - non-master translatable items in draft:');
+						let format = '   %-38s %-38s %-10s %-s';
+						console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name'));
+						translationsInDraft.forEach(function (item) {
+							console.log(sprintf(format, item.type, item.id, item.language, item.name));
+						});
+					}
 				}
 
 				var validatePromises = [];

@@ -1642,6 +1642,23 @@ const transferSiteContent = {
 	]
 };
 
+const transferSitePage = {
+	command: 'transfer-site-page <name>',
+	alias: 'tsp',
+	name: 'transfer-site-page',
+	usage: {
+		'short': 'Transfers site pages from one OCM server to another.',
+		'long': (function () {
+			let desc = 'Transfers site pages from one OCM server to another. It requires that the pages exist on the destination server. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec transfer-site-page Site1 -s SampleServer -d SampleServer1 -p 100', 'Update page 100 on server SampleServer1 based on server SampleServer'],
+		['cec transfer-site-page Site1 -s SampleServer -d SampleServer1 -p 100,200', 'Update page 100 and 200 on server SampleServer1 based on server SampleServer']
+	]
+};
+
 const shareSite = {
 	command: 'share-site <name>',
 	alias: 'ss',
@@ -3727,7 +3744,9 @@ const syncServer = {
 				'Optionally specify -p <port> to set the port, default port is 8086. ' +
 				'To run the sync server over HTTPS, specify the key file with -k <key> and the certificate file with -c <certificate>. ' +
 				'Set authorization option with -a and the valid values are \n\n';
-			return getSyncServerAuths().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = getSyncServerAuths().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'All webhook events are saved in file event.json, when the sync server is started, by default the events that were processed 7 days ago will be deleted. Use -n to set the number of days to keep the processed events.'
+			return desc;
 
 		})()
 	},
@@ -3738,7 +3757,8 @@ const syncServer = {
 		['cec sync-server -s SampleServer -d SampleServer1 -u admin', 'Use Basic authorization and the password will be prompted to enter'],
 		['cec sync-server -s SampleServer -d SampleServer1 -a header -v key1:value1,key2:value2', 'Use Header authorization'],
 		['cec sync-server -s SampleServer -d SampleServer1 -a none', 'No authorization'],
-		['cec sync-server -s SampleServer -d SampleServer1 -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS']
+		['cec sync-server -s SampleServer -d SampleServer1 -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS'],
+		['cec sync-server -s SampleServer -d SampleServer1 -u admin -w SamplePass1 -n 0', 'When start the sync server, delete all processed events from file events.json'],
 	]
 };
 
@@ -4055,6 +4075,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(updateSite) + os.EOL +
 	_getCmdHelp(transferSite) + os.EOL +
 	_getCmdHelp(transferSiteContent) + os.EOL +
+	_getCmdHelp(transferSitePage) + os.EOL +
 	_getCmdHelp(validateSite) + os.EOL +
 	_getCmdHelp(controlSite) + os.EOL +
 	_getCmdHelp(shareSite) + os.EOL +
@@ -6187,6 +6208,29 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${transferSiteContent.command}\n\n${transferSiteContent.usage.long}`);
 		})
+	.command([transferSitePage.command, transferSitePage.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server the site is from',
+				demandOption: true,
+			})
+				.option('destination', {
+					alias: 'd',
+					description: 'The registered OCM server to transfer the content',
+					demandOption: true
+				})
+				.option('pages', {
+					alias: 'p',
+					description: 'The comma separated list of page IDs',
+					demandOption: true
+				})
+				.example(...transferSitePage.example[0])
+				.example(...transferSitePage.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${transferSitePage.command}\n\n${transferSitePage.usage.long}`);
+		})
 	.command([controlSite.command, controlSite.alias], false,
 		(yargs) => {
 			yargs
@@ -6555,11 +6599,11 @@ const argv = yargs.usage(_usage)
 				alias: 's',
 				description: 'The registered OCM server'
 			})
-			.option('ignorewarnings', {
-				alias: 'g',
-				description: 'Ignore all validation warnings'
-			})
-			.example(...unblockImportJob.example[0])
+				.option('ignorewarnings', {
+					alias: 'g',
+					description: 'Ignore all validation warnings'
+				})
+				.example(...unblockImportJob.example[0])
 				.example(...unblockImportJob.example[1])
 				.help(false)
 				.version(false)
@@ -9440,6 +9484,10 @@ const argv = yargs.usage(_usage)
 					alias: 'y',
 					description: 'Content Item Updated event updates the item without updating its references'
 				})
+				.option('days', {
+					alias: 'n',
+					description: 'Number of days to keep processed events'
+				})
 				.check((argv) => {
 					if (argv.authorization && !getSyncServerAuths().includes(argv.authorization)) {
 						throw new Error(`${argv.authorization} is not a valid value for <authorization>`);
@@ -9452,6 +9500,9 @@ const argv = yargs.usage(_usage)
 							throw new Error('The value for authorization header is not valid, should be <key>:<value>');
 						}
 					}
+					if (argv.days !== undefined && (typeof (argv.days) === 'boolean' || isNaN(argv.days) || argv.days < 0)) {
+						throw new Error(os.EOL + 'Please specify the number of days to keep processed events');
+					}
 					return true;
 				})
 				.example(...syncServer.example[0])
@@ -9461,6 +9512,7 @@ const argv = yargs.usage(_usage)
 				.example(...syncServer.example[4])
 				.example(...syncServer.example[5])
 				.example(...syncServer.example[6])
+				.example(...syncServer.example[7])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${syncServer.command}\n\n${syncServer.usage.long}`);
@@ -11230,6 +11282,21 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		transferSiteContentArgs.push(...['--execute', argv.execute]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, transferSiteContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === transferSitePage.name || argv._[0] === transferSitePage.alias) {
+	let transferSitePageArgs = ['run', '-s', transferSitePage.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--server', argv.server,
+		'--destination', argv.destination,
+		'--pages', argv.pages
+	];
+
+	spawnCmd = childProcess.spawnSync(npmCmd, transferSitePageArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -13331,6 +13398,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	}
 	if (argv.updateitemonly) {
 		syncServerArgs.push(...['--updateitemonly', argv.updateitemonly]);
+	}
+	if (!isNaN(argv.days)) {
+		syncServerArgs.push(...['--days', argv.days]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, syncServerArgs, {
 		cwd,

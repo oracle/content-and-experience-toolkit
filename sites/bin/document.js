@@ -2207,6 +2207,8 @@ var _uploadFolder = function (argv, server) {
 			return reject();
 		}
 
+		var showDetail = argv.noMsg ? false : true;
+
 		var folderName = contentOnly ? '' : srcPath.substring(srcPath.lastIndexOf(path.sep) + 1);
 		// console.log(' - path=' + argv.path + ' srcPath=' + srcPath + ' contentOnly=' + contentOnly + ' folderName=' + folderName);
 
@@ -2243,8 +2245,9 @@ var _uploadFolder = function (argv, server) {
 		if (folderName) {
 			folderPath.push(folderName);
 		}
-		console.info(' - target folder: ' + (resourceFolder ? (resourceLabel + ' > ' + resourceName) : 'Documents') + ' > ' + folderPath.join(' > '));
-
+		if (showDetail) {
+			console.info(' - target folder: ' + (resourceFolder ? (resourceLabel + ' > ' + resourceName) : 'Documents') + ' > ' + folderPath.join(' > '));
+		}
 		var rootParentFolderLabel = resourceFolder ? resourceName : 'Home folder';
 
 		var rootParentId = 'self';
@@ -2278,7 +2281,9 @@ var _uploadFolder = function (argv, server) {
 				}
 
 				var files = paths.files;
-				console.info(' - total files: ' + files.length);
+				if (showDetail) {
+					console.info(' - total files: ' + files.length);
+				}
 				// group files under the same folder
 				for (i = 0; i < files.length; i++) {
 					var src = files[i];
@@ -2326,7 +2331,8 @@ var _uploadFolder = function (argv, server) {
 					} else {
 						resourcePromises.push(sitesRest.getComponent({
 							server: server,
-							name: resourceName
+							name: resourceName,
+							showInfo: showDetail
 						}));
 					}
 				}
@@ -2346,7 +2352,7 @@ var _uploadFolder = function (argv, server) {
 						rootParentId = resourceGUID;
 					}
 
-					return _createFolderUploadFiles(server, rootParentId, folderPath, folderContent, rootParentFolderLabel);
+					return _createFolderUploadFiles(server, rootParentId, folderPath, folderContent, rootParentFolderLabel, showDetail);
 				})
 					.then(function (results) {
 						// console.log(results);
@@ -2377,7 +2383,7 @@ var _uploadFolder = function (argv, server) {
 						if (failedFolderContent.length > 0 && retry) {
 							console.info(' - try to upload failed files again ...');
 							// console.log(failedFolderContent);
-							_createFolderUploadFiles(server, rootParentId, folderPath, failedFolderContent, rootParentFolderLabel).then(function (result) {
+							_createFolderUploadFiles(server, rootParentId, folderPath, failedFolderContent, rootParentFolderLabel, showDetail).then(function (result) {
 								return resolve(true);
 							});
 
@@ -2399,7 +2405,7 @@ var _uploadFolder = function (argv, server) {
 	});
 };
 
-var _createFolderUploadFiles = function (server, rootParentId, folderPath, folderContent, rootParentFolderLabel) {
+var _createFolderUploadFiles = function (server, rootParentId, folderPath, folderContent, rootParentFolderLabel, showDetail) {
 	return new Promise(function (resolve, reject) {
 		var format = '   %-8s  %-s';
 		var uploadedFiles = [];
@@ -2418,12 +2424,16 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 						var folderStr = rootParentFolderLabel + '/' + (folders2.length > 0 ? folders2.join('/') : '');
 
 						if (parentFolder.name) {
-							console.info(sprintf(format, 'Folder', folderStr + (folderStr.endsWith('/') ? '' : '/') + parentFolder.name));
+							if (showDetail) {
+								console.info(sprintf(format, 'Folder', folderStr + (folderStr.endsWith('/') ? '' : '/') + parentFolder.name));
+							}
 						} else {
-							console.info(sprintf(format, 'Folder', folderStr));
+							if (showDetail) {
+								console.info(sprintf(format, 'Folder', folderStr));
+							}
 						}
 
-						return _createAllFiles(server, rootParentFolderLabel, folders, parentFolder, param.files, format).then(function (files) {
+						return _createAllFiles(server, rootParentFolderLabel, folders, parentFolder, param.files, format, showDetail).then(function (files) {
 							uploadedFiles = uploadedFiles.concat(files);
 						});
 					}
@@ -2432,15 +2442,17 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 		},
 			// Start with a previousPromise value that is a resolved promise
 			Promise.resolve({}));
-		console.info(' - folder uploaded:');
-		console.info(sprintf(format, 'Type', 'Path'));
+		if (showDetail) {
+			console.info(' - folder uploaded:');
+			console.info(sprintf(format, 'Type', 'Path'));
+		}
 		doCreateFolders.then(function (result) {
 			resolve(uploadedFiles);
 		});
 	});
 };
 
-var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFolder, files, format) {
+var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFolder, files, format, showDetail) {
 	return new Promise(function (resolve, reject) {
 		var total = files.length;
 		// console.log(' - total number of files to create: ' + total);
@@ -2489,7 +2501,9 @@ var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFo
 					for (var i = 0; i < results.length; i++) {
 						var file = results[i];
 						if (file && !file.err) {
-							console.info(sprintf(format, 'File', folderStr + (folderStr.endsWith('/') ? '' : '/') + file.name + ' (Version: ' + file.version + ')'));
+							if (showDetail) {
+								console.info(sprintf(format, 'File', folderStr + (folderStr.endsWith('/') ? '' : '/') + file.name + ' (Version: ' + file.version + ')'));
+							}
 							uploadedFiles.push(file.filepath);
 						}
 					}
