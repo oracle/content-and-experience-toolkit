@@ -59,7 +59,7 @@ var _cmdEnd = function (done, success) {
 
 var _downloadReport = function (url, siteName, server) {
 	return new Promise(function (resolve, reject) {
-		console.info('Download reports from ' + url);
+		console.info('   Download reports from ' + url);
 		var targetStem,
 			namePrefix;
 
@@ -78,7 +78,7 @@ var _downloadReport = function (url, siteName, server) {
 		});
 
 		targetPath = path.join(targetPath, namePrefix + siteName + '_Report.zip');
-		console.info('Save reports to ' + targetPath);
+		console.info('   Save reports to ' + targetPath);
 		var downloadArgs = {
 			server: server,
 			url: url,
@@ -4880,7 +4880,7 @@ module.exports.exportSite = function (argv, done) {
 								};
 
 								documentUtils.downloadFolder(downloadArgv, server, true, true).then(function () {
-									console.info('Downloaded export site files to ' + targetPath);
+									console.info('   Downloaded export site files to ' + targetPath);
 									done(true);
 								});
 							} else if (data.err) {
@@ -5068,16 +5068,13 @@ module.exports.importSite = function (argv, done) {
 				})
 				.then(function (archives) {
 					var archivedata = archives[0];
-					console.info('ImportSite create archive id ' + archivedata.id);
+					console.info('   ImportSite archive id ' + archivedata.id);
 
 					var importSitePromises = [];
 
 					if (archivedata.id) {
 						archivedata.entries.items.forEach((entry) => {
 							var siteId = entry.site.id;
-
-							console.info('ImportSite site name ' + entry.site.name);
-							console.info('ImportSite site default language ' + entry.site.defaultLanguage);
 
 							// TODO: Irrelevant in multiple sites case
 							if (entry.site.name !== siteName) {
@@ -5106,9 +5103,10 @@ module.exports.importSite = function (argv, done) {
 				.then(function (values) {
 					var data = values[0];
 					if (data) {
-						console.info('');
-						console.info('ImportSite job ' + JSON.stringify(data.job));
-						console.info('');
+						// TODO: Comment out before removal
+						// console.info('');
+						// console.info('   ImportSite job ' + JSON.stringify(data.job));
+						// console.info('');
 						_downloadReports(data.reports, siteName, server).then(function () {
 							if (data.err) {
 								done();
@@ -5121,12 +5119,12 @@ module.exports.importSite = function (argv, done) {
 					}
 				})
 				.catch(function (error) {
-					console.error('ImportSite encountered ' + error);
+					console.error('   ImportSite encountered ' + error);
 					done();
 				});
 
 		}).catch(function (error) {
-			console.error('ImportSite encountered ' + error);
+			console.error('   ImportSite encountered ' + error);
 			done();
 		})
 	} catch (e) {
@@ -5730,6 +5728,9 @@ module.exports.describeImportJob = function (argv, done) {
 				// console.info(JSON.stringify(data.job));
 
 				var jobFormat = '  %-28s  %-s',
+					v1Format = '    %-26s  %-s',
+					v2Format = '      %-24s  %-s',
+					v3Format = '        %-22s  %-s',
 					job = data.job;
 
 				var promises = [];
@@ -5803,14 +5804,26 @@ module.exports.describeImportJob = function (argv, done) {
 						console.log(sprintf(jobFormat, 'Duration', duration(job.createdAt, job.completedAt)));
 					}
 
-					if (job.validationResults) {
-						job.validationResults.items.forEach((entry) => {
-							entry.messages.items.forEach(function (message) {
+					console.log(sprintf(jobFormat, 'Validation', ''));
+					if (job.validationSummary) {
+						job.validationSummary.messagesByEntityTypes.forEach((entity) => {
+							if (entity.countsByLevel.error > 0) {
+								console.log(sprintf(v1Format, 'error count', entity.countsByLevel.error));
+							}
+							if (entity.countsByLevel.warning > 0) {
+								console.log(sprintf(v1Format, 'warning count', entity.countsByLevel.warning));
+							}
+							if (entity.countsByLevel.info > 0) {
+								console.log(sprintf(v1Format, 'info count', entity.countsByLevel.info));
+							}
+						})
+					}
 
-								console.log(sprintf(jobFormat, 'Validation', message.level + ' - key ' + message.key + ' parameters:'));
-								Object.keys(message.parameters).forEach(function (k) {
-									console.log(sprintf(jobFormat, '', k + ' : ' + message.parameters[k]));
-								})
+					if (job.validationResults) {
+						job.validationResults.items.forEach((item) => {
+							console.log(sprintf(v2Format, item.entityType, item.entityName));
+							item.messages.items.forEach(function (message) {
+								console.log(sprintf(v3Format, message.level, message.text));
 							});
 						});
 					}

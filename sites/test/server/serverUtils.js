@@ -168,10 +168,10 @@ var _showRequestOptions = function (options) {
 /**
  * Get server and credentials from gradle properties
  */
-module.exports.getConfiguredServer = function (currPath) {
-	return _getConfiguredServer(currPath);
+module.exports.getConfiguredServer = function (currPath, showError) {
+	return _getConfiguredServer(currPath, showError);
 };
-var _getConfiguredServer = function (currPath) {
+var _getConfiguredServer = function (currPath, showError) {
 	var configFile;
 	if (process.env.CEC_PROPERTIES) {
 		configFile = process.env.CEC_PROPERTIES;
@@ -204,11 +204,11 @@ var _getConfiguredServer = function (currPath) {
 				password,
 				oauthtoken,
 				env,
-				useRest,
 				idcs_url,
 				client_id,
 				client_secret,
 				scope,
+				key,
 				srcfolder;
 
 			fs.readFileSync(configFile).toString().split('\n').forEach(function (line) {
@@ -242,20 +242,61 @@ var _getConfiguredServer = function (currPath) {
 				} else if (line.indexOf('cec_token=') === 0) {
 					oauthtoken = line.substring('cec_token='.length);
 					oauthtoken = oauthtoken.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_key=') === 0) {
+					key = line.substring('cec_key='.length);
+					key = key.replace(/(\r\n|\n|\r)/gm, '').trim();
 				}
 			});
-			if (cecurl && (username && password || oauthtoken)) {
-				server.url = cecurl;
-				server.username = username;
-				server.password = password;
-				server.env = env || 'pod_ec';
-				server.oauthtoken = oauthtoken;
-				server.tokentype = '';
-				server.idcs_url = idcs_url;
-				server.client_id = client_id;
-				server.client_secret = client_secret;
-				server.scope = scope;
 
+			server.url = cecurl;
+			server.username = username;
+			server.password = password;
+			server.env = env || 'pod_ec';
+			server.oauthtoken = oauthtoken;
+			server.tokentype = '';
+			server.idcs_url = idcs_url;
+			server.client_id = client_id;
+			server.client_secret = client_secret;
+			server.scope = scope;
+			server.key = key;
+
+			var keyFile = server.key;
+			if (keyFile && fs.existsSync(keyFile)) {
+				var decryptKey = fs.readFileSync(keyFile, 'utf8').toString();
+				if (server.password) {
+					// decrypt the password
+					try {
+						server.password = crypto.privateDecrypt(decryptKey, Buffer.from(server.password, 'base64')).toString('utf8');
+					} catch (e) {
+						if (showError === undefined || showError) {
+							console.error('ERROR: failed to decrypt the password');
+							console.error(e);
+						}
+					}
+				}
+
+				if (server.client_id) {
+					// decrypt the password
+					try {
+						server.client_id = crypto.privateDecrypt(decryptKey, Buffer.from(server.client_id, 'base64')).toString('utf8');
+					} catch (e) {
+						if (showError === undefined || showError) {
+							console.error('ERROR: failed to decrypt the client id');
+							console.error(e);
+						}
+					}
+				}
+				if (server.client_secret) {
+					// decrypt the password
+					try {
+						server.client_secret = crypto.privateDecrypt(decryptKey, Buffer.from(server.client_secret, 'base64')).toString('utf8');
+					} catch (e) {
+						if (showError === undefined || showError) {
+							console.error('ERROR: failed to decrypt the client secret');
+							console.error(e);
+						}
+					}
+				}
 			}
 
 			// console.log('configured server=' + JSON.stringify(server));
@@ -290,6 +331,36 @@ var _setTokenToConfiguredServer = function (server, token) {
 		} else {
 			fileLines.push('cec_token=' + token);
 		}
+		fs.writeFileSync(configServerFilePath, fileLines.join(os.EOL));
+		return true;
+	} else {
+		return false;
+	}
+};
+
+module.exports.saveToConfiguredServer = function (server, properties) {
+	var configServerFilePath = server.fileloc;
+	if (fs.existsSync(configServerFilePath)) {
+		var fileContent = fs.readFileSync(configServerFilePath).toString();
+		var fileLines = fileContent.split(os.EOL);
+		for (let j = 0; j < properties.length; j++) {
+			let name = properties[j].name;
+			let value = properties[j].value || '';
+			var idx;
+			for (var i = 0; i < fileLines.length; i++) {
+				var line = fileLines[i];
+				if (line && line.indexOf(name + '=') === 0) {
+					idx = i;
+					break;
+				}
+			}
+			if (idx >= 0) {
+				fileLines[i] = name + '=' + value;
+			} else {
+				fileLines.push(name + '=' + value);
+			}
+		}
+
 		fs.writeFileSync(configServerFilePath, fileLines.join(os.EOL));
 		return true;
 	} else {
@@ -345,7 +416,7 @@ var _verifyServer = function (serverName, currPath, showError) {
 		}
 	}
 
-	server = serverName ? _getRegisteredServer(currPath, serverName) : _getConfiguredServer(currPath);
+	server = serverName ? _getRegisteredServer(currPath, serverName) : _getConfiguredServer(currPath, showError);
 	if (!serverName) {
 		if (server.fileexist) {
 			if (toShowError) {
@@ -2139,6 +2210,7 @@ var _loginToDevServer = function (server) {
 				Authorization: _getRequestAuthorization(server)
 			}
 		};
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -2909,10 +2981,10 @@ var _getSiteInfo = function (server, site) {
 		'use strict';
 
 		sitesRest.getSite({
-				server: server,
-				name: site,
-				expand: 'channel,repository,defaultCollection'
-			})
+			server: server,
+			name: site,
+			expand: 'channel,repository,defaultCollection'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return resolve({

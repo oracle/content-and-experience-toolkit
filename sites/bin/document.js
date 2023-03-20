@@ -3063,6 +3063,689 @@ module.exports.describeFile = function (argv, done) {
 	});
 };
 
+var _browseTrash = function (server, type) {
+	return new Promise(function (resolve, reject) {
+		var url = '/documents/integration?IdcService=FLD_BROWSE_TRASH&IsJson=1&fileCount=-1'
+		if (type === 'documents') {
+			url = url + 'filesFilterParams=fApplication&foldersFilterParams=fApplication&fApplication-=framework.site,framework.site.theme,framework.site.template,framework.site.app,framework.caas';
+		} else if (type === 'sites') {
+			url = url + 'filesFilterParams=fApplication&fApplication-=framework&foldersFilterParams=fApplication&fApplication=framework.site,framework.site.variant';
+		} else if (type === 'components') {
+			url = url + 'filesFilterParams=fApplication&fApplication-=framework&foldersFilterParams=fApplication&fApplication=framework.site.app';
+		} else if (type === 'templates') {
+			url = url + 'filesFilterParams=fApplication&fApplication-=framework&foldersFilterParams=fApplication&fApplication=framework.site.template';
+		} else if (type === 'themes') {
+			url = url + 'filesFilterParams=fApplication&fApplication-=framework&foldersFilterParams=fApplication&fApplication=framework.site.theme';
+		}
+		serverRest.executeGet({
+			server: server,
+			endpoint: url,
+			noMsg: true
+		}).then(function (result) {
+			var data;
+			try {
+				data = JSON.parse(result);
+			} catch (e) {
+				data = result;
+			}
+			return resolve(data);
+		});
+	});
+};
+
+module.exports.listTrash = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+		_browseTrash(server)
+			.then(function (result) {
+				if (!result || result.err || !result.LocalData) {
+					return Promise.reject();
+				}
+				var childFiles = serverUtils.getIDCServiceResults(result.ResultSets, 'ChildFiles');
+				var childFolders = serverUtils.getIDCServiceResults(result.ResultSets, 'ChildFolders');
+
+				var fileFormat = '  %-44s  %-36s  %-7s  %-10s  %-8s  %-20s  %-s';
+				console.log('Files:');
+				if (childFiles.length > 0) {
+					console.log(sprintf(fileFormat, 'Id', 'Name', 'Version', 'Size', 'Type', 'Date Deleted', 'Deleted By'));
+					childFiles.forEach(function (file) {
+						let name = file.fFileName;
+						let version = file.dRevLabel;
+						let deletedOn = file.fLastModifiedDate;
+						let deletedBy = file.fLastModifierFullName;
+						let size = file.dFileSize || '';
+						let type = file.dExtension || '';
+						let id = file.fFileGUID;
+						console.log(sprintf(fileFormat, id, name, version, size, type, deletedOn, deletedBy));
+					});
+				}
+
+				var folders = [];
+				var sites = [];
+				var components = [];
+				var templates = [];
+				var themes = [];
+				var format = '  %-44s  %-67s  %-20s  %-s';
+				var _display = function (objs) {
+					console.log(sprintf(format, 'Id', 'Name', 'Date Deleted', 'Deleted By'));
+					objs.forEach(function (obj) {
+						let name = obj.name;
+						let deletedOn = obj.deletedOn;
+						let deletedBy = obj.deletedBy;
+						let id = obj.id;
+						console.log(sprintf(format, id, name, deletedOn, deletedBy));
+					});
+				};
+				// console.log(childFolders);
+				if (childFolders.length > 0) {
+					childFolders.forEach(function (folder) {
+						let obj = {
+							id: folder.fFolderGUID,
+							itemGUID: folder.fRealItemGUID,
+							name: folder.fFolderName,
+							deletedOn: folder.fLastModifiedDate,
+							deletedBy: folder.fLastModifierFullName
+						};
+						if (folder.fApplication === 'framework') {
+							folders.push(obj);
+						} else if (folder.fApplication === 'framework.site.app') {
+							components.push(obj);
+						} else if (folder.fApplication === 'framework.site.template') {
+							templates.push(obj);
+						} else if (folder.fApplication === 'framework.site.theme') {
+							themes.push(obj);
+						} else if (folder.fApplication === 'framework.site' || folder.fApplication === 'framework.site.variant') {
+							sites.push(obj);
+						}
+					});
+				}
+				console.log('');
+				console.log('Folders:');
+				if (folders.length > 0) {
+					_display(folders);
+				}
+				console.log('');
+				console.log('Sites:');
+				if (sites.length > 0) {
+					_display(sites);
+				}
+				console.log('');
+				console.log('Components:');
+				if (components.length > 0) {
+					_display(components);
+				}
+				console.log('');
+				console.log('Templates:');
+				if (templates.length > 0) {
+					_display(templates);
+				}
+				console.log('');
+				console.log('Themes:');
+				if (themes.length > 0) {
+					_display(themes);
+				}
+				console.log('');
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
+/**
+ * Delete from trash
+ */
+module.exports.deleteTrash = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name.toString();
+	var id = argv.id;
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var toDelete;
+
+		_browseTrash(server)
+			.then(function (result) {
+				if (!result || result.err || !result.LocalData) {
+					return Promise.reject();
+				}
+				var idcToken = result.LocalData.idcToken;
+				var childFiles = serverUtils.getIDCServiceResults(result.ResultSets, 'ChildFiles');
+				var childFolders = serverUtils.getIDCServiceResults(result.ResultSets, 'ChildFolders');
+
+				var nameMatched = [];
+				var idMatched;
+
+				if (childFiles.length > 0) {
+					childFiles.forEach(function (file) {
+						if (name === file.fFileName) {
+							nameMatched.push({
+								name: name,
+								id: file.fFileGUID,
+								type: 'file',
+								deletedOn: file.fLastModifiedDate,
+								deletedBy: file.fLastModifierFullName
+							});
+						}
+						if (id && id === file.fFileGUID) {
+							idMatched = {
+								name: file.fFileName,
+								id: file.fFileGUID,
+								type: 'file',
+								deletedOn: file.fLastModifiedDate,
+								deletedBy: file.fLastModifierFullName
+							}
+						}
+					});
+				}
+				if (childFolders.length > 0) {
+					childFolders.forEach(function (folder) {
+						let type;
+						if (folder.fApplication === 'framework' || folder.fFolderType === 'soft') {
+							type = 'folder';
+						} else if (folder.fApplication === 'framework.site.app') {
+							type = 'component';
+						} else if (folder.fApplication === 'framework.site.template') {
+							type = 'template';
+						} else if (folder.fApplication === 'framework.site.theme') {
+							type = 'theme';
+						} else if (folder.fApplication === 'framework.site') {
+							type = 'site';
+						} else if (folder.fApplication === 'framework.site.variant') {
+							type = 'site.variant';
+						}
+						if (name === folder.fFolderName) {
+							nameMatched.push({
+								id: folder.fFolderGUID,
+								itemId: folder.fRealItemGUID,
+								name: name,
+								type: type,
+								deletedOn: folder.fLastModifiedDate,
+								deletedBy: folder.fLastModifierFullName
+							});
+						}
+						if (id && id === folder.fFolderGUID) {
+							idMatched = {
+								id: folder.fFolderGUID,
+								itemId: folder.fRealItemGUID,
+								name: folder.fFolderName,
+								type: type,
+								deletedOn: folder.fLastModifiedDate,
+								deletedBy: folder.fLastModifierFullName
+							}
+						}
+					});
+				}
+
+				if (!idMatched && nameMatched.length === 0) {
+					console.error('ERROR: resource ' + name + ' not found in Trash');
+					return Promise.reject();
+				}
+
+				if (idMatched && idMatched.name !== name) {
+					console.error('ERROR: the name of the resource with Id ' + id + ' is ' + idMatched.name + ' not ' + name);
+					return Promise.reject();
+				}
+
+				if (id && !idMatched) {
+					console.error('ERROR: resource with Id ' + id + ' not found in Trash');
+					return Promise.reject();
+				}
+
+				if (!idMatched && nameMatched.length > 1) {
+					console.error('ERROR: there are ' + nameMatched.length + ' resources with name ' + name + ':');
+					var format = '  %-44s  %-10s  %-60s  %-20s  %-s';
+					console.log(sprintf(format, 'Id', 'Type', 'Name', 'Date Deleted', 'Deleted By'));
+					nameMatched.forEach(function (obj) {
+						console.log(sprintf(format, obj.id, (obj.type === 'site.variant' ? 'siteUpdate' : obj.type), obj.name, obj.deletedOn, obj.deletedBy));
+
+					});
+					console.log('Please try again with the Id');
+					return Promise.reject();
+				}
+
+				toDelete = idMatched || nameMatched[0];
+				toDelete.typeLabel = toDelete.type === 'site.variant' ? 'siteUpdate' : toDelete.type;
+				// console.log(toDelete);
+				return _deleteFromTrash(server, idcToken, [toDelete], true);
+
+			})
+			.then(function (result) {
+				var deleteItems = result || [];
+				var found = false;
+				for (let i = 0; i < deleteItems.length; i++) {
+					if (deleteItems[i].name === toDelete.name) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					console.error('ERROR: failed to delete ' + toDelete.typeLabel + ' ' + toDelete.name);
+					return Promise.reject();
+				} else {
+					console.log(' - ' + toDelete.typeLabel + ' ' + toDelete.name + ' deleted from Trash');
+					done(true);
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
+
+var _emptyTrash = function (server, idcToken) {
+	return new Promise(function (resolve, reject) {
+		var url = '/documents/integration?IdcService=FLD_EMPTY_TRASH&IsJson=1';
+		var formData = {
+			'LocalData': {
+				'IdcService': 'FLD_EMPTY_TRASH',
+				'useBackgroundThread': 1
+			}
+		};
+		serverRest.executePost({
+			server: server,
+			endpoint: url,
+			body: formData,
+			noMsg: true
+		}).then(function (result) {
+			var data;
+			try {
+				data = JSON.parse(result);
+			} catch (e) {
+				data = result;
+			}
+
+			var jobId = data && data.LocalData && data.LocalData.JobID;
+			if (!jobId) {
+				if (data && data.LocalData && data.LocalData.StatusCode === '0') {
+					// trash is empty
+					console.info(' - Trash is empty');
+					return resolve({});
+				} else {
+					var errorMsg = data && data.LocalData ? data.LocalData.StatusMessage : '';
+					console.error('ERROR: failed to empty Trash ' + errorMsg);
+					return resolve({ err: 'err' });
+				}
+			} else {
+				// wait job finishes
+				var startTime = new Date();
+				var needNewLine = false;
+				var inter = setInterval(function () {
+					serverUtils.getBackgroundServiceJobStatus(server, idcToken, jobId).then(function (data) {
+						// console.log(data);
+						if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
+							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
+							// try to get error message
+							serverUtils.getBackgroundServiceJobData(server, idcToken, jobId)
+								.then(function (data) {
+									console.error('ERROR: empty Trash failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
+									// console.log(data);
+									return resolve({
+										err: 'err'
+									});
+								});
+						} else if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
+							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
+							serverUtils.getBackgroundServiceJobData(server, idcToken, jobId)
+								.then(function (data) {
+									return resolve(data);
+								});
+						} else {
+							process.stdout.write(' - empty Trash in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
+						}
+					});
+				}, 5000);
+			}
+		});
+	});
+};
+
+var _deleteDocumentFromTrash = function (server, idcToken, id, name, type) {
+	return new Promise(function (resolve, reject) {
+		var url = '/documents/integration?IdcService=FLD_DELETE_FROM_TRASH&IsJson=1';
+		var formData = {
+			'LocalData': {
+				'IdcService': 'FLD_DELETE_FROM_TRASH',
+				'item': (type === 'file' ? 'fFileGUID:' : 'fFolderGUID:') + id
+			}
+		};
+
+		serverRest.executePost({
+			server: server,
+			endpoint: url,
+			body: formData,
+			noMsg: true
+		}).then(function (data) {
+			// console.log(JSON.stringify(data, null, 4));
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				// console.error('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					id: id,
+					name: name,
+					type: type,
+					err: (data && data.LocalData && data.LocalData.StatusMessage || 'failed to delete from Trash')
+				});
+			} else {
+				return resolve({
+					id: id,
+					name: name,
+					type: type,
+					err: ''
+				});
+			}
+		});
+	});
+};
+
+var _deleteFromTrash = function (server, idcToken, items, noMsg) {
+	return new Promise(function (resolve, reject) {
+		// console.log(items);
+		var total = items.length;
+		// console.log(' - total number of files to create: ' + total);
+		var groups = [];
+		var limit = 10;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+		var needNewLine = false;
+		var deletedItems = [];
+		var doDelete = groups.reduce(function (deletePromise, param) {
+			return deletePromise.then(function (result) {
+				var deletePromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					if (items[i].type === 'file' || items[i].type === 'folder' || items[i].type === 'site.variant') {
+						deletePromises.push(_deleteDocumentFromTrash(server, idcToken, items[i].id, items[i].name, items[i].type));
+					} else if (items[i].type === 'site') {
+						deletePromises.push(sitesRest.deleteSite({
+							server: server,
+							id: items[i].itemId,
+							name: items[i].name,
+							hard: true,
+							showInfo: false,
+							showError: false,
+						}));
+					} else if (items[i].type === 'component') {
+						deletePromises.push(sitesRest.deleteComponent({
+							server: server,
+							id: items[i].itemId,
+							name: items[i].name,
+							hard: true,
+							showInfo: false,
+							showError: false,
+						}));
+					} else if (items[i].type === 'template') {
+						deletePromises.push(sitesRest.deleteTemplate({
+							server: server,
+							id: items[i].itemId,
+							name: items[i].name,
+							hard: true,
+							showInfo: false,
+							showError: false,
+						}));
+					} else if (items[i].type === 'theme') {
+						deletePromises.push(sitesRest.deleteTheme({
+							server: server,
+							id: items[i].itemId,
+							name: items[i].name,
+							hard: true,
+							showInfo: false,
+							showError: false,
+						}));
+					}
+				}
+
+				if (console.showInfo() && (noMsg === undefined && !noMsg)) {
+					process.stdout.write(' - deleting from Trash [' + param.start + ', ' + param.end + '] ...');
+					readline.cursorTo(process.stdout, 0);
+					needNewLine = true;
+				}
+				return Promise.all(deletePromises).then(function (results) {
+					deletedItems = deletedItems.concat(results);
+				});
+
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
+
+		doDelete.then(function (result) {
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
+			resolve(deletedItems);
+		});
+	});
+};
+
+var _emptyTrashForType = function (server, idcToken, type) {
+	return new Promise(function (resolve, reject) {
+		_browseTrash(server, type).then(function (result) {
+			var childFiles = serverUtils.getIDCServiceResults(result.ResultSets, 'ChildFiles');
+			var childFolders = serverUtils.getIDCServiceResults(result.ResultSets, 'ChildFolders');
+			var toDelete = [];
+			if (type === 'documents') {
+				if (childFiles.length > 0) {
+					childFiles.forEach(function (file) {
+						toDelete.push({
+							type: 'file',
+							id: file.fFileGUID,
+							name: file.fFileName
+						});
+					});
+				}
+				if (childFolders.length > 0) {
+					childFolders.forEach(function (folder) {
+						if (folder.fApplication === 'framework') {
+							toDelete.push({
+								type: 'folder',
+								id: folder.fFolderGUID,
+								name: folder.fFolderName
+							});
+						}
+					});
+				}
+			} else {
+				if (childFolders.length > 0) {
+					childFolders.forEach(function (folder) {
+						if (folder.fFolderType === 'soft') {
+							// folders of the resource
+							toDelete.push({
+								type: 'folder',
+								id: folder.fFolderGUID,
+								name: folder.fFolderName
+							});
+						} else {
+							if (type === 'components' && folder.fApplication === 'framework.site.app') {
+								toDelete.push({
+									type: 'component',
+									id: folder.fFolderGUID,
+									itemId: folder.fRealItemGUID,
+									name: folder.fFolderName
+								});
+							} else if (type === 'templates' && folder.fApplication === 'framework.site.template') {
+								toDelete.push({
+									type: 'template',
+									id: folder.fFolderGUID,
+									itemId: folder.fRealItemGUID,
+									name: folder.fFolderName
+								});
+							} else if (type === 'themes' && folder.fApplication === 'framework.site.theme') {
+								toDelete.push({
+									type: 'theme',
+									id: folder.fFolderGUID,
+									itemId: folder.fRealItemGUID,
+									name: folder.fFolderName
+								});
+							} else if (type === 'sites' && (folder.fApplication === 'framework.site' || folder.fApplication === 'framework.site.variant')) {
+								toDelete.push({
+									type: serverUtils.replaceAll(folder.fApplication, 'framework.'),
+									id: folder.fFolderGUID,
+									itemId: folder.fRealItemGUID,
+									name: folder.fFolderName
+								});
+							}
+						}
+					});
+				}
+			}
+
+			if (toDelete.length === 0) {
+				console.log(' - no ' + (type === 'documents' ? 'file/folder' : type.substring(0, type.length - 1)) + ' in the Trash');
+				return resolve([]);
+			} else {
+				_deleteFromTrash(server, idcToken, toDelete).then(function (result) {
+					return resolve(result);
+				});
+			}
+		});
+	});
+};
+
+module.exports.emptyTrash = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var type = argv.type;
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+		serverUtils.getIdcToken(server)
+			.then(function (result) {
+				var idcToken = result && result.idcToken;
+				if (!idcToken) {
+					return Promise.reject();
+				}
+				var emptyPromise = type === 'all' ? _emptyTrash(server, idcToken) : _emptyTrashForType(server, idcToken, type);
+
+				return emptyPromise;
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+				var format = '   %-60s  %-10s  %-s';
+				if (type === 'all') {
+					// console.log(JSON.stringify(result, null, 4));
+					var status = serverUtils.getIDCServiceResults(result.ResultSets, 'ActionStatus');
+					if (status && status.length > 0) {
+						console.log(' - Trash emptied');
+						console.info(sprintf(format, 'Name', 'Deleted', 'Message'));
+						status.forEach(function (item) {
+							let deleted = item.isSuccessful === '1' ? '   √' : '';
+							console.info(sprintf(format, item.fDisplayName, deleted, item.statusMessage));
+						});
+						console.info('');
+					}
+				} else {
+					var deleteItems = result || [];
+					if (deleteItems.length > 0) {
+						console.log(' - ' + type + ' Trash emptied');
+						console.info(sprintf(format, 'Name', 'Deleted', 'Message'));
+						deleteItems.forEach(function (item) {
+							let deleted = item.err ? '' : '   √';
+							console.info(sprintf(format, item.name, deleted, item.err || ''));
+						});
+						console.info('');
+					}
+				}
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
 // export non "command line" utility functions
 module.exports.utils = {
 	findFolder: _findFolder,

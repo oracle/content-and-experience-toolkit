@@ -14,6 +14,15 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 23.3.2
+
+**Added**
+- `cec list-activities` - Lists activities on an OCM server
+- `cec list-trash` - Lists content in Trash on an OCM server including documents, sites, components, templates and themes
+- `cec empty-trash` - Deletes content in specified area of Trash on an OCM server
+- `cec delete-trash` - Deletes a resource from Trash permanently on an OCM server
+- `cec config-properties` - Set configuration properties for an OCM server in cec.properties file
+
 
 # New in Release 23.3.1
 

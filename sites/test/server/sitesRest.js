@@ -6,7 +6,8 @@
 var os = require('os'),
 	readline = require('readline'),
 	serverRest = require('./serverRest'),
-	serverUtils = require('./serverUtils');
+	serverUtils = require('./serverUtils'),
+	sprintf = require('sprintf-js').sprintf;
 
 var console = require('./logger.js').console;
 
@@ -1556,8 +1557,7 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 						includeUnpublishedAssets: includeUnpublishedAssets
 					}
 				}
-			}],
-			"ignoreFailures": true
+			}]
 		};
 
 		var options = {
@@ -1610,7 +1610,7 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 								if (needNewLine && console.showInfo()) {
 									process.stdout.write(os.EOL);
 								}
-								console.error('ExportSite job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
+								console.error('   ExportSite job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
 								return resolve({
 									err: 'err',
 									reports: _getReports(response.location, data)
@@ -1623,7 +1623,7 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 									}
 									process.stdout.write(os.EOL);
 								}
-								console.info('  ExportSite job ' + data.id + ' completed [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								console.info('   ExportSite job ' + data.id + ' completed [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 								return resolve({
 									job: data,
 									reports: _getReports(response.location, data)
@@ -1763,14 +1763,35 @@ var _showValidationResults = function (source, job) {
 		return;
 	}
 
-	results.items.forEach(function (entry) {
-		entry.messages.items.forEach(function (message) {
-			console.info(source + ' validation ' + message.level + ' - key ' + message.key + ' parameters:');
-			Object.keys(message.parameters).forEach(function (k) {
-				console.info('   ' + k + ' : ' + message.parameters[k]);
-			})
+	var jobFormat = '   %-28s  %-s',
+		v1Format = '     %-26s  %-s',
+		v2Format = '       %-24s  %-s',
+		v3Format = '         %-22s  %-s';
+
+	console.log(sprintf(jobFormat, 'Validation', ''));
+	if (job.validationSummary) {
+		job.validationSummary.messagesByEntityTypes.forEach((entity) => {
+			if (entity.countsByLevel.error > 0) {
+				console.log(sprintf(v1Format, 'error count', entity.countsByLevel.error));
+			}
+			if (entity.countsByLevel.warning > 0) {
+				console.log(sprintf(v1Format, 'warning count', entity.countsByLevel.warning));
+			}
+			if (entity.countsByLevel.info > 0) {
+				console.log(sprintf(v1Format, 'info count', entity.countsByLevel.info));
+			}
+		})
+	}
+
+	if (job.validationResults) {
+		job.validationResults.items.forEach((item) => {
+			console.log(sprintf(v2Format, item.entityType, item.entityName));
+			item.messages.items.forEach(function (message) {
+				console.log(sprintf(v3Format, message.level, message.text));
+			});
 		});
-	});
+	}
+	console.info('');
 };
 
 var _importSite = function (server, name, archiveId, siteId, repositoryId, localizationPolicyId, sitePrefix, policies, assetspolicy, newsite, ignorewarnings) {
@@ -1800,8 +1821,7 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, local
 			}],
 			"policies": {
 				"ignoreAllValidationWarnings": ignorewarnings
-			},
-			"ignoreFailures": false
+			}
 		};
 
 		switch (policies) {
@@ -1846,7 +1866,7 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, local
 		}
 
 		// TODO: Temporary
-		console.info('importSite payload ' + JSON.stringify(payload));
+		console.info('   ImportSite payload ' + JSON.stringify(payload));
 
 		var options = {
 			method: 'POST',
@@ -1889,7 +1909,8 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, local
 				console.info(' - submit background job for import site');
 				statusUrl += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,currentState,completed,completedPercentage,targets,reports';
 				statusUrl += ',validationSummary.messagesByEntityTypes.entityType,validationSummary.messagesByEntityTypes.countsByLevel.warning,validationSummary.messagesByEntityTypes.countsByLevel.error,validationSummary.messagesByEntityTypes.countsByLevel.info';
-				statusUrl += ',validationResults.assetType,validationResults.assetType.source,validationResults.assetType.target,validationResults.messages';
+				statusUrl += ',validationResults.entityName,validationResults.entityType,validationResults.assetType.source.typeCategory,validationResults.assetType.target.typeCategory,validationResults.messages,validationResults.messages.level,validationResults.messages.text';
+
 				console.info(' - job status: ' + statusUrl);
 				var startTime = new Date();
 				var needNewLine = false;
@@ -1902,7 +1923,7 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, local
 								if (needNewLine && console.showInfo()) {
 									process.stdout.write(os.EOL);
 								}
-								console.error('ImportSite job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
+								console.error('   ImportSite job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
 								_showValidationResults('ImportSite', data);
 								return resolve({
 									err: 'error',
@@ -1917,7 +1938,7 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, local
 									}
 									process.stdout.write(os.EOL);
 								}
-								console.info('  ImportSite job ' + data.id + ' completed [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								console.info('   ImportSite job ' + data.id + ' completed [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 								return resolve({
 									job: data,
 									reports: _getReports(response.location, data)
@@ -2024,7 +2045,7 @@ var _describeImportJob = function (server, id) {
 		url += ',targets.apply.updateSite.site.repository,targets.apply.updateSite.assetsPolicy';
 		url += ',targets.apply.duplicateSite.site.repository,targets.apply.duplicateSite.assetsPolicy';
 		url += ',validationSummary.messagesByEntityTypes.entityType,validationSummary.messagesByEntityTypes.countsByLevel.warning,validationSummary.messagesByEntityTypes.countsByLevel.error,validationSummary.messagesByEntityTypes.countsByLevel.info';
-		url += ',validationResults.assetType,validationResults.assetType.source,validationResults.assetType.target,validationResults.messages';
+		url += ',validationResults.entityName,validationResults.entityType,validationResults.assetType.source.typeCategory,validationResults.assetType.target.typeCategory,validationResults.messages,validationResults.messages.level,validationResults.messages.text';
 		var options = {
 			method: 'GET',
 			url: url,
@@ -2196,7 +2217,7 @@ var _softDeleteResource = function (server, type, id, name) {
 		});
 	});
 };
-var _hardDeleteResource = function (server, type, id, name, showError) {
+var _hardDeleteResource = function (server, type, id, name, showError, showInfo) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
@@ -2206,7 +2227,9 @@ var _hardDeleteResource = function (server, type, id, name, showError) {
 			url = url + 'name:' + name;
 		}
 		url = url + '/hardDelete';
-		console.info(' - post ' + url);
+		if (showInfo === undefined || showInfo) {
+			console.info(' - post ' + url);
+		}
 		var options = {
 			method: 'POST',
 			url: server.url + url,
@@ -2235,6 +2258,7 @@ var _hardDeleteResource = function (server, type, id, name, showError) {
 			} catch (e) {
 				data = body;
 			}
+
 			if (response && response.statusCode < 300) {
 				resolve({
 					id: id,
@@ -2246,6 +2270,8 @@ var _hardDeleteResource = function (server, type, id, name, showError) {
 					console.error('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				}
 				resolve({
+					id: id,
+					name: name,
 					err: msg || 'err'
 				});
 			}
@@ -2265,7 +2291,7 @@ var _hardDeleteResource = function (server, type, id, name, showError) {
 module.exports.deleteTemplate = function (args) {
 	var server = args.server;
 	var showError = args.showError !== undefined ? args.showError : true;
-	return args.hard ? _hardDeleteResource(server, 'templates', args.id, args.name, showError) : _softDeleteResource(server, 'templates', args.id, args.name);
+	return args.hard ? _hardDeleteResource(server, 'templates', args.id, args.name, showError, args.showInfo) : _softDeleteResource(server, 'templates', args.id, args.name);
 };
 
 /**
@@ -2280,7 +2306,7 @@ module.exports.deleteTemplate = function (args) {
 module.exports.deleteSite = function (args) {
 	var server = args.server;
 	var showError = args.showError !== undefined ? args.showError : true;
-	return args.hard ? _hardDeleteResource(server, 'sites', args.id, args.name, showError) : _softDeleteResource(server, 'sites', args.id, args.name);
+	return args.hard ? _hardDeleteResource(server, 'sites', args.id, args.name, showError, args.showInfo) : _softDeleteResource(server, 'sites', args.id, args.name);
 };
 
 /**
@@ -2295,7 +2321,7 @@ module.exports.deleteSite = function (args) {
 module.exports.deleteTheme = function (args) {
 	var server = args.server;
 	var showError = args.showError !== undefined ? args.showError : true;
-	return args.hard ? _hardDeleteResource(server, 'themes', args.id, args.name, showError) : _softDeleteResource(server, 'themes', args.id, args.name);
+	return args.hard ? _hardDeleteResource(server, 'themes', args.id, args.name, showError, args.showInfo) : _softDeleteResource(server, 'themes', args.id, args.name);
 };
 
 /**
@@ -2310,7 +2336,7 @@ module.exports.deleteTheme = function (args) {
 module.exports.deleteComponent = function (args) {
 	var server = args.server;
 	var showError = args.showError !== undefined ? args.showError : true;
-	return args.hard ? _hardDeleteResource(server, 'components', args.id, args.name, showError) : _softDeleteResource(server, 'components', args.id, args.name);
+	return args.hard ? _hardDeleteResource(server, 'components', args.id, args.name, showError, args.showInfo) : _softDeleteResource(server, 'components', args.id, args.name);
 };
 
 var _importComponent = function (server, name, fileId) {
@@ -3141,6 +3167,69 @@ var _createUpdate = function (server, siteId, name) {
 			}
 		});
 	});
+};
+
+var _deleteUpdate = function (server, id, name, updateName) {
+	return new Promise(function (resolve, reject) {
+
+		var url = '/sites/management/api/v1/sites/';
+		if (id) {
+			url = url + id;
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		url = url + '/updates/name:' + updateName;
+		console.info(' - delete ' + url);
+
+		var options = {
+			method: 'DELETE',
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.delete(options, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to delete update ' + updateName + ' from site ' + (name || id) + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
+				resolve({
+					err: error
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode <= 300) {
+				resolve(data);
+			} else {
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.error('ERROR: failed to delete update ' + updateName + ' from site ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Delete an update.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id the id of the site or
+ * @param {string} args.name the name of the site
+ * @param {string} args.updateName the update to delete
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteUpdate = function (args) {
+	return _deleteUpdate(args.server, args.id, args.name, args.updateName);
 };
 
 /**

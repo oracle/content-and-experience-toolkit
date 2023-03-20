@@ -221,6 +221,77 @@ module.exports.registerServer = function (argv, done) {
 	done(true);
 };
 
+module.exports.configProperties = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var server = serverUtils.getConfiguredServer(projectDir, false);
+	if (server && server.fileexist) {
+		console.info(' - configuration file: ' + server.fileloc);
+	} else {
+		console.error('ERROR: no server is configured');
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var value = argv.value;
+	if (name === 'key') {
+		if (!fs.existsSync(value)) {
+			console.error('ERROR: key file ' + value + ' does not exist');
+			done();
+			return;
+		}
+	} else if (name === 'password' || name === 'client_id' || name === 'client_secret') {
+		if (server.key && fs.existsSync(server.key)) {
+			// encrypt 
+			console.info(' - key file ' + server.key);
+			var encryptKey = fs.readFileSync(server.key, 'utf8');
+			try {
+				let encrypted = crypto.publicEncrypt({
+					key: encryptKey
+				}, Buffer.from(value, 'utf8'));
+				value = encrypted.toString('base64');
+				console.info(' - encrypt the ' + name);
+			} catch (e) {
+				console.error('ERROR: failed to encrypt the ' + name);
+				console.error(e);
+				done();
+				return;
+			}
+
+		}
+	}
+
+	var toSave = [{
+		name: 'cec_' + name,
+		value: value
+	}];
+
+	if (serverUtils.saveToConfiguredServer(server, toSave)) {
+		console.log(' - property ' + name + ' saved to ' + server.fileloc);
+		if (name === 'key') {
+			if (server.password) {
+				console.log(' - please set password again to get it encrypted');
+			}
+			if (server.client_id) {
+				console.log(' - please set client_id again to get it encrypted');
+			}
+			if (server.client_secret) {
+				console.log(' - please set client_secret again to get it encrypted');
+			}
+		}
+		done(true);
+	} else {
+		done();
+	}
+};
+
+
 module.exports.setOAuthToken = function (argv, done) {
 	'use strict';
 
@@ -1048,6 +1119,125 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 			});
 	});
 };
+
+
+module.exports.listActivities = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var type = argv.type;
+	var objectType = type === 'site' ? 'Site' : type;
+	var category = argv.category;
+	var eventCategory;
+	if (category) {
+		if (category === 'publishing') {
+			eventCategory = 'SITE_PUBLISHING';
+		} else if (category === 'lifecycle') {
+			eventCategory = 'SITE_LIFECYCLE';
+		} else if (category === 'security') {
+			eventCategory = 'SITE_SECURITY';
+		}
+	}
+
+	var name = argv.name;
+	var objectId;
+
+	var beforeDate = argv.before;
+	var afterDate = argv.after;
+	if (beforeDate && !afterDate) {
+		beforeDate = (new Date(beforeDate)).toISOString();
+		afterDate = (new Date('1900')).toISOString();
+	} else if (!beforeDate && afterDate) {
+		beforeDate = (new Date()).toISOString();
+		afterDate = (new Date(afterDate)).toISOString();
+	}
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var resourcePromises = [];
+		if (name) {
+			if (type === 'site') {
+				resourcePromises.push(sitesRest.getSite({ server: server, name: name }));
+			}
+		}
+		Promise.all(resourcePromises)
+			.then(function (results) {
+				if (name) {
+					if (!results || !results[0] || results[0].err || !results[0].id) {
+						return Promise.reject();
+					}
+					objectId = results[0].id;
+					console.info(' - get resource (Id: ' + objectId + ' name: ' + name);
+				}
+
+				return serverRest.getAllActivities({
+					server: server,
+					objectType: objectType,
+					objectId: objectId,
+					eventCategory: eventCategory,
+					beforeDate: beforeDate,
+					afterDate: afterDate
+				});
+
+			})
+			.then(function (result) {
+				var acts = result || [];
+				// console.log(acts);
+
+				if (!name) {
+					// sort by name
+					var byName = acts.slice(0);
+					byName.sort(function (a, b) {
+						var x = a.activityDetails.name;
+						var y = b.activityDetails.name;
+						var dateA = a.registeredAt;
+						var dateB = b.registeredAt;
+						return (x < y ? -1 : x > y ? 1 : (dateA <= dateB ? 1 : -1));
+					});
+					acts = byName;
+				}
+
+				var format = '  %-36s  %-20s  %-24s  %-32s  %-s';
+				if (acts.length > 0) {
+					console.log(sprintf(format, 'Name', 'Action', 'Date', 'By', 'Message'));
+					acts.forEach(function (event) {
+						var detail = event.activityDetails;
+						var msg = event.message && event.message.text || '';
+						console.log(sprintf(format, detail.name, detail.action, event.registeredAt, detail.updatedBy, msg));
+					});
+					console.log('');
+					console.log(' - total activities: ' + acts.length);
+				} else {
+					console.log(' - no activities found');
+				}
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
 
 module.exports.describeBackgroundJob = function (argv, done) {
 	'use strict';

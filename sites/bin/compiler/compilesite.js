@@ -3465,6 +3465,9 @@ var compileSite = function (args) {
 		// note that we're now compiling for mobile
 		process.env.scsIsMobile = true;
 
+		// clear the detail page list so that it is re-created for mobile pages
+		detailPageList = {}; 
+
 		// compile pages for mobile 
 		return compilePages('mobile').then(function () {
 			compilationReporter.renderReport();

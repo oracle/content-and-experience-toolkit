@@ -3090,6 +3090,34 @@ module.exports.getItemActivities = function (args) {
 	return _getResource(args.server, endpoint, 'item activities');
 };
 
+/**
+ * Get activities of a type
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.objectType The item object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getAllActivities = function (args) {
+	var endpoint = '/system/api/v1/auditlog/activities';
+	var q = 'objectType eq "' + args.objectType + '"';
+	if (args.objectId) {
+		q = q + ' and objectId eq "' + args.objectId + '"';
+	}
+	if (args.eventCategory) {
+		q = q + ' and eventCategory eq "' + args.eventCategory + '"';
+	}
+	if (args.afterDate) {
+		q = q + ' and registeredAt ge "' + args.afterDate + '"';
+	}
+	if (args.beforeDate) {
+		q = q + ' and registeredAt le "' + args.beforeDate + '"';
+	}
+
+	console.info(' - activity query: ' + q);
+	endpoint = endpoint + '?q=' + q + '&expand=activityDetails';
+	return _getAllResources(args.server, endpoint, 'activities');
+};
+
 // CAAS query maximum limit
 const MAX_LIMIT = 500;
 
@@ -8791,6 +8819,7 @@ var _executePost = function (args) {
 							err: 'err'
 						});
 					}
+
 					var data;
 					try {
 						data = JSON.parse(body);

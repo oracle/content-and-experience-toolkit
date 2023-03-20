@@ -694,6 +694,43 @@ gulp.task('describe-file', function (done) {
 });
 
 /**
+ * list Trash
+ */
+gulp.task('list-trash', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	doclib.listTrash(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * list Trash
+ */
+gulp.task('delete-trash', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	doclib.deleteTrash(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * empty Trash
+ */
+gulp.task('empty-trash', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	doclib.emptyTrash(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+
+/**
  * Create component
  * Unzip the zip file of the seeded component and place into the /src
  */
@@ -1535,6 +1572,18 @@ gulp.task('list', function (done) {
 			done();
 		});
 	}
+});
+
+/**
+ * List activities
+ */
+gulp.task('list-activities', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	resourcelib.listActivities(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
 });
 
 /**
@@ -2835,6 +2884,18 @@ gulp.task('register-server', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	resourcelib.registerServer(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Configure server properties
+ */
+gulp.task('config-properties', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	resourcelib.configProperties(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

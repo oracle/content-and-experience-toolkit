@@ -230,6 +230,12 @@ var getServerTypes = function () {
 	return roles;
 };
 
+var getPropertyNames = function () {
+	const names = ['url', 'username', 'password', 'env', 'idcs_url', 'client_id', 'client_secret', 'scope', 'token', 'key'];
+	return names
+};
+
+
 var getSyncServerAuths = function () {
 	const auths = ['none', 'basic', 'header'];
 	return auths;
@@ -337,6 +343,21 @@ var getLoggerLevels = function () {
 var getListAssetProperties = function () {
 	const properties = ['id', 'name', 'type', 'language', 'slug', 'status', 'createdDate', 'createdBy', 'updatedDate', 'updatedBy', 'version', 'publishedVersion', 'size'];
 	return properties;
+};
+
+var getActivityObjectTypes = function () {
+	const types = ['site'];
+	return types;
+};
+
+var getActivityCategories = function () {
+	const types = ['lifecycle', 'publishing', 'security'];
+	return types;
+};
+
+var getTrashTypes = function () {
+	const roles = ['all', 'documents', 'sites', 'components', 'templates', 'themes'];
+	return roles;
 };
 
 /*********************
@@ -1500,6 +1521,31 @@ const listResources = {
 		['cec list -t components,channels -s', 'List components and channels on the server specified in cec.properties file'],
 		['cec list -t components,channels -s SampleServer1', 'List components and channels on the registered server SampleServer1'],
 		['cec list -t backgroundjobs -s SampleServer1', 'List uncompleted background jobs for sites, themes and templates on the registered server SampleServer1']
+	]
+};
+
+const listActivities = {
+	command: 'list-activities',
+	alias: 'lac',
+	name: 'list-activities',
+	usage: {
+		'short': 'Lists activities on OCM server.',
+		'long': (function () {
+			let desc = 'Lists activities on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			desc = desc + 'Specify -t <type> to specify the resource type. The valid value for <type> is : ' + os.EOL + os.EOL;
+			desc = getActivityObjectTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'Optionally specify -c <category> to specify the activity category. The valid values for <category> are:' + os.EOL + os.EOL;
+			desc = getActivityCategories().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-activities -t site', 'List activities for all sites on the server specified in cec.properties file'],
+		['cec list-activities -t site -s SampleServer1', 'List activities for all sites on the registered server SampleServer1'],
+		['cec list-activities -t site -n BlogSite', 'List all activities for site BlgoSite'],
+		['cec list-activities -t site -n BlogSite -c publishing', 'List the publishing activities for site BlgoSite'],
+		['cec list-activities -t site -a 2023-01-01', 'List all site activities created in 2023'],
+		['cec list-activities -t site -a 2022-01-01 -b 2022-12-31', 'List all site activities created in 2022'],
 	]
 };
 
@@ -3474,6 +3520,64 @@ const copyFile = {
 	]
 };
 
+const listTrash = {
+	command: 'list-trash',
+	alias: 'ltr',
+	name: 'list-trash',
+	usage: {
+		'short': 'Displays content in Trash on OCM server.',
+		'long': (function () {
+			let desc = 'Displays content in Trash on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-trash'],
+		['cec list-trash -s SampleServer1']
+	]
+};
+
+const deleteTrash = {
+	command: 'delete-trash <name>',
+	alias: '',
+	name: 'delete-trash',
+	usage: {
+		'short': 'Deletes a resource from Trash permanently on OCM server.',
+		'long': (function () {
+			let desc = 'Deletes a resource from Trash permanently on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec delete-trash File1'],
+		['cec delete-trash File1 -s SampleServer1'],
+		['cec delete-trash Folder1'],
+		['cec delete-trash Site1'],
+		['cec delete-trash Docs -i FE11C3CE54CF30BFEFC8044F9E1DF61A8D907F122AE5']
+	]
+};
+
+const emptyTrash = {
+	command: 'empty-trash <type>',
+	alias: '',
+	name: 'empty-trash',
+	usage: {
+		'short': 'Deletes content in Trash on OCM server.',
+		'long': (function () {
+			let desc = 'Deletes content in Trash on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			desc = desc + ' The valid values for <type> are' + os.EOL + os.EOL;
+			desc = getTrashTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+		})()
+	},
+	example: [
+		['cec empty-trash all', 'Delete all documents, sites, components, templates and themes from Trash'],
+		['cec empty-trash all -s SampleServer1'],
+		['cec empty-trash documents', 'Delete all files and folders from Trash'],
+		['cec empty-trash sites', 'Delete all sites from Trash']
+	]
+};
+
 const downloadRecommendation = {
 	command: 'download-recommendation <name>',
 	alias: 'dlr',
@@ -3639,7 +3743,7 @@ const registerServer = {
 	alias: 'rs',
 	name: 'register-server',
 	usage: {
-		'short': 'Registers a OCM server.',
+		'short': 'Registers an OCM server.',
 		'long': (function () {
 			let desc = 'Registers a OCM server. Specify -e <endpoint> for the server URL. ' +
 				'Specify -u <user> and -p <password> for connecting to the server. ' +
@@ -3657,6 +3761,31 @@ const registerServer = {
 		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -m 60000', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.git.oraclecorp.com.com -u user1 -p SamplePass1 -t dev_ec', 'The server is a standalone development instance'],
 		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -k ~/.ceckey', 'The password will be encrypted']
+	]
+};
+
+const configProperties = {
+	command: 'config-properties <name> <value>',
+	alias: 'cp',
+	name: 'config-properties',
+	usage: {
+		'short': 'Config properties for OCM server.',
+		'long': (function () {
+			let desc = 'Configs properties for OCM server in cec.properties file. ' +
+				'The valid property names are ' + os.EOL + os.EOL;
+			desc = getPropertyNames().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'The valid values for env are:\n\n';
+			desc = getServerTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc) +
+				'\nand the default value is pod_ec.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec config-properties url http://server1.com'],
+		['cec config-properties key ~/.ceckey', 'The key file created by cec create-encryption-key'],
+		['cec config-properties username user1'],
+		['cec config-properties password SamplePass1', 'The password will be encrypted if a key is already configured'],
+		['cec config-properties env dev_ec', 'The server is a standalone development instance']
 	]
 };
 
@@ -4030,7 +4159,10 @@ _usage = _usage + os.EOL + 'Documents' + os.EOL +
 	_getCmdHelp(downloadFile) + os.EOL +
 	_getCmdHelp(uploadFile) + os.EOL +
 	_getCmdHelp(deleteFile) + os.EOL +
-	_getCmdHelp(describeFile) + os.EOL;
+	_getCmdHelp(describeFile) + os.EOL +
+	_getCmdHelp(listTrash) + os.EOL +
+	_getCmdHelp(deleteTrash) + os.EOL +
+	_getCmdHelp(emptyTrash) + os.EOL;
 
 _usage = _usage + os.EOL + 'Components' + os.EOL +
 	_getCmdHelp(createComponent) + os.EOL +
@@ -4209,9 +4341,11 @@ _usage = _usage + os.EOL + 'Environment' + os.EOL +
 	_getCmdHelp(setLoggerLevel) + os.EOL +
 	_getCmdHelp(createEncryptionKey) + os.EOL +
 	_getCmdHelp(registerServer) + os.EOL +
+	_getCmdHelp(configProperties) + os.EOL +
 	_getCmdHelp(setOAuthToken) + os.EOL +
 	_getCmdHelp(refreshOAuthToken) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
+	_getCmdHelp(listActivities) + os.EOL +
 	_getCmdHelp(executeGet) + os.EOL +
 	_getCmdHelp(executePost) + os.EOL +
 	_getCmdHelp(executePut) + os.EOL +
@@ -5941,6 +6075,52 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listResources.command}\n\n${listResources.usage.long}`);
+		})
+	.command([listActivities.command, listActivities.alias], false,
+		(yargs) => {
+			yargs.option('type', {
+				alias: 't',
+				description: 'The resource type [' + getActivityObjectTypes().join(' | ') + ']',
+				demandOption: true
+			})
+				.option('category', {
+					alias: 'c',
+					description: 'The activity category [' + getActivityCategories().join(' | ') + ']',
+				})
+				.option('name', {
+					alias: 'n',
+					description: 'The name of the source'
+				})
+				.option('before', {
+					alias: 'b',
+					description: 'The date when the activities created on or before'
+				})
+				.option('after', {
+					alias: 'a',
+					description: 'The date when the activities created on or after'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.type && !getActivityObjectTypes().includes(argv.type)) {
+						throw new Error(os.EOL + `${argv.type} is not a valid value for <type>`);
+					}
+					if (argv.category && !getActivityCategories().includes(argv.category)) {
+						throw new Error(os.EOL + `${argv.category} is not a valid value for <category>`);
+					}
+					return true;
+				})
+				.example(...listActivities.example[0])
+				.example(...listActivities.example[1])
+				.example(...listActivities.example[2])
+				.example(...listActivities.example[3])
+				.example(...listActivities.example[4])
+				.example(...listActivities.example[5])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listActivities.command}\n\n${listActivities.usage.long}`);
 		})
 	.command([describeBackgroundJob.command, describeBackgroundJob.alias], false,
 		(yargs) => {
@@ -8927,6 +9107,57 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${describeFile.command}\n\n${describeFile.usage.long}`);
 		})
+	.command([listTrash.command, listTrash.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...listTrash.example[0])
+				.example(...listTrash.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listTrash.command}\n\n${listTrash.usage.long}`);
+		})
+	.command([deleteTrash.command], false,
+		(yargs) => {
+			yargs.option('id', {
+				alias: 'i',
+				description: 'The resource Id'
+			})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...deleteTrash.example[0])
+				.example(...deleteTrash.example[1])
+				.example(...deleteTrash.example[2])
+				.example(...deleteTrash.example[3])
+				.example(...deleteTrash.example[4])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${deleteTrash.command}\n\n${deleteTrash.usage.long}`);
+		})
+	.command([emptyTrash.command], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.check((argv) => {
+					if (argv.type && !getTrashTypes().includes(argv.type)) {
+						throw new Error(os.EOL + `${argv.type} is not a valid value for <type>`);
+					}
+					return true;
+				})
+				.example(...emptyTrash.example[0])
+				.example(...emptyTrash.example[1])
+				.example(...emptyTrash.example[2])
+				.example(...emptyTrash.example[3])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${emptyTrash.command}\n\n${emptyTrash.usage.long}`);
+		})
 	.command([createGroup.command, createGroup.alias], false,
 		(yargs) => {
 			yargs.option('type', {
@@ -9283,6 +9514,27 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${registerServer.command}\n\n${registerServer.usage.long}`);
+		})
+	.command([configProperties.command, configProperties.alias], false,
+		(yargs) => {
+			yargs
+				.check((argv) => {
+					if (!getPropertyNames().includes(argv.name)) {
+						throw new Error(os.EOL + `${argv.name} is not a valid property name`);
+					}
+					if (argv.name === 'env' && !getServerTypes().includes(argv.value)) {
+						throw new Error(os.EOL + `${argv.value} is not a valid value for property env`);
+					}
+					return true;
+				})
+				.example(...configProperties.example[0])
+				.example(...configProperties.example[1])
+				.example(...configProperties.example[2])
+				.example(...configProperties.example[3])
+				.example(...configProperties.example[4])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${configProperties.command}\n\n${configProperties.usage.long}`);
 		})
 	.command([setOAuthToken.command, setOAuthToken.alias], false,
 		(yargs) => {
@@ -11010,6 +11262,35 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 	if (argv.types && typeof argv.types !== 'boolean') {
 		listArgs.push(...['--types', argv.types]);
+	}
+	if (argv.server) {
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		listArgs.push(...['--server'], serverVal);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, listArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listActivities.name || argv._[0] === listActivities.alias) {
+	let listArgs = ['run', '-s', listActivities.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	if (argv.type && typeof argv.type !== 'boolean') {
+		listArgs.push(...['--type', argv.type]);
+	}
+	if (argv.category) {
+		listArgs.push(...['--category', argv.category]);
+	}
+	if (argv.name) {
+		listArgs.push(...['--name', argv.name]);
+	}
+	if (argv.before) {
+		listArgs.push(...['--before', argv.before]);
+	}
+	if (argv.after) {
+		listArgs.push(...['--after', argv.after]);
 	}
 	if (argv.server) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
@@ -13117,6 +13398,53 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === listTrash.name || argv._[0] === listTrash.alias) {
+	let listTrashArgs = ['run', '-s', listTrash.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listTrashArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, listTrashArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === deleteTrash.name) {
+	let deleteTrashArgs = ['run', '-s', deleteTrash.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.id) {
+		deleteTrashArgs.push(...['--id', argv.id]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deleteTrashArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, deleteTrashArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === emptyTrash.name) {
+	let emptyTrashArgs = ['run', '-s', emptyTrash.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--type', argv.type
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		emptyTrashArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, emptyTrashArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === downloadRecommendation.name || argv._[0] === downloadRecommendation.alias) {
 	let downloadRecommendationArgs = ['run', '-s', downloadRecommendation.name, '--prefix', appRoot,
 		'--',
@@ -13315,6 +13643,19 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		registerServerArgs.push(...['--timeout'], argv.timeout);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, registerServerArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === configProperties.name || argv._[0] === configProperties.alias) {
+	let configPropertiesArgs = ['run', '-s', configProperties.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--value', argv.value
+	];
+
+	spawnCmd = childProcess.spawnSync(npmCmd, configPropertiesArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
