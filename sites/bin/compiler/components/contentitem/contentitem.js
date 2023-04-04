@@ -240,7 +240,8 @@ ContentItem.prototype.compile = function (args) {
 										showPublishedContent: args.compVM.contentViewing === 'published' ? true : contentClient.getInfo().contentType === 'published',
 										contentClient: contentClient,
 										customSettingsData: args.compVM.customSettingsData || {}
-									}
+									},
+									SCSComponentAPI: SCSCompileAPI.getSCSComponentAPI()
 								},
 								custComp = new CustomLayoutCompiler(compileArgs);
 

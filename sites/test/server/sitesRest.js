@@ -959,7 +959,7 @@ var _setSiteTheme = function (server, site, themeName, showMsg) {
  * @param {object} server the server object
  * @param {object} site the site or template object
  * @param {object} themeName the name of the theme
- * @returns 
+ * @returns
  */
 module.exports.setSiteTheme = function (args) {
 	return _setSiteTheme(args.server, args.site, args.themeName, args.showMsg)
@@ -2339,6 +2339,120 @@ module.exports.deleteComponent = function (args) {
 	return args.hard ? _hardDeleteResource(server, 'components', args.id, args.name, showError, args.showInfo) : _softDeleteResource(server, 'components', args.id, args.name);
 };
 
+var _restoreResource = function (server, type, id, name, showError, showInfo) {
+	return new Promise(function (resolve, reject) {
+
+		var url = '/sites/management/api/v1/' + type + '/';
+		if (id) {
+			url = url + id;
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		url = url + '/undelete';
+		if (showInfo === undefined || showInfo) {
+			console.info(' - post ' + url);
+		}
+		var options = {
+			method: 'POST',
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.delete(options, function (error, response, body) {
+			if (error) {
+				if (showError) {
+					console.error('ERROR: failed to restore ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' (ecid: ' + response.ecid + ')');
+					console.error(error);
+				}
+				resolve({
+					err: error
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode < 300) {
+				resolve({
+					id: id,
+					name: name
+				});
+			} else {
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				if (showError) {
+					console.error('ERROR: failed to restore ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				}
+				resolve({
+					id: id,
+					name: name,
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Restore a template on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} id the id of the template or
+ * @param {string} name the name of the template
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.restoreTemplate = function (args) {
+	var showError = args.showError !== undefined ? args.showError : true;
+	return _restoreResource(args.server, 'templates', args.id, args.name, showError, args.showInfo);
+};
+
+/**
+ * Restore a site on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.restoreSite = function (args) {
+	var showError = args.showError !== undefined ? args.showError : true;
+	return _restoreResource(args.server, 'sites', args.id, args.name, showError, args.showInfo);
+};
+
+/**
+ * Restore a theme on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} id the id of the theme or
+ * @param {string} name the name of the theme
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.restoreTheme = function (args) {
+	var showError = args.showError !== undefined ? args.showError : true;
+	return _restoreResource(args.server, 'themes', args.id, args.name, showError, args.showInfo);
+};
+
+/**
+ * Restore a component on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} id the id of the component or
+ * @param {string} name the name of the component
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.restoreComponent = function (args) {
+	var showError = args.showError !== undefined ? args.showError : true;
+	return _restoreResource(args.server, 'components', args.id, args.name, showError, args.showInfo);
+};
+
 var _importComponent = function (server, name, fileId) {
 	return new Promise(function (resolve, reject) {
 
@@ -2972,7 +3086,13 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.location;
-				console.info(' - copying site (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
+				var governanceEnabled = false;
+				if (statusLocation.indexOf('/requests/') > 0) {
+					governanceEnabled = true;
+					console.info(' - sending request');
+				} else {
+					console.info(' - copying site (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
+				}
 				var startTime = new Date();
 				var needNewLine = false;
 				var inter = setInterval(function () {
@@ -2989,6 +3109,12 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 							// console.log(data);
 							return resolve({
 								err: 'err'
+							});
+						} else if (governanceEnabled && data.progress === 'blocked') {
+							clearInterval(inter);
+							console.log(' - the request is awaiting approval');
+							return resolve({
+								status: 'pending'
 							});
 						} else if (data.completed && data.progress === 'succeeded') {
 							clearInterval(inter);

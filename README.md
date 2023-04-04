@@ -14,6 +14,19 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+
+# New in Release 23.3.3
+
+**Added**
+- `cec restore-trash` - restores the content in Trash on an OCM server
+
+**Updated**
+- `cec transfer-site-page` - supports transfer of new pages from source server to target server
+- `cec create-site-map` - add format xml-variants to include all of the language and region variants for each URL
+- `cec upload-folder` - allow upload folder to a shared folder
+- `cec upload-file` - allow upload file to a shared folder
+
+
 # New in Release 23.3.2
 
 **Added**

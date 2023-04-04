@@ -11,6 +11,7 @@ var path = require('path'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	serverUtils = require('../test/server/serverUtils.js');
+const { result } = require('underscore');
 
 var console = require('../test/server/logger.js').console;
 
@@ -901,7 +902,9 @@ var _generateSiteMapURLs = function (server, languages, excludeLanguages, data, 
 								lastmod: lastmod,
 								priority: priority,
 								changefreq: pageChangefreq,
-								locale: pages[i].locale
+								locale: pages[i].locale,
+								type: 'page',
+								id: pages[i].id.toString()
 							});
 							addedPageUrls.push(loc);
 							if (!locales.includes(pages[i].locale)) {
@@ -923,7 +926,9 @@ var _generateSiteMapURLs = function (server, languages, excludeLanguages, data, 
 												lastmod: lastmod,
 												priority: priority,
 												changefreq: pageChangefreq,
-												locale: otherLocale
+												locale: otherLocale,
+												type: 'page',
+												id: pages[i].id.toString()
 											});
 											addedPageUrls.push(otherLoc);
 											if (!locales.includes(otherLocale)) {
@@ -967,6 +972,7 @@ var _generateSiteMapURLs = function (server, languages, excludeLanguages, data, 
 				queryString = _getQueryString(querystrings, detailPage.name);
 
 				var pageItems = items[i].data || [];
+				// console.log(pageItems);
 				for (let j = 0; j < pageItems.length; j++) {
 					var item = pageItems[j];
 					if (item && item.id) {
@@ -1015,7 +1021,9 @@ var _generateSiteMapURLs = function (server, languages, excludeLanguages, data, 
 												lastmod: lastmod,
 												priority: itemPriority,
 												changefreq: itemChangefreq,
-												locale: itemlanguage
+												locale: itemlanguage,
+												type: 'item',
+												itemId: item.id
 											});
 
 											addedUrls.push(url);
@@ -1035,7 +1043,9 @@ var _generateSiteMapURLs = function (server, languages, excludeLanguages, data, 
 																lastmod: lastmod,
 																priority: itemPriority,
 																changefreq: itemChangefreq,
-																locale: otherLocale
+																locale: otherLocale,
+																type: 'item',
+																itemId: item.id
 															});
 
 															addedUrls.push(otherUrl);
@@ -1104,7 +1114,9 @@ var _generateSiteMapURLs = function (server, languages, excludeLanguages, data, 
 										lastmod: lastmod,
 										priority: itemPriority,
 										changefreq: itemChangefreq,
-										locale: itemlanguage
+										locale: itemlanguage,
+										type: 'item',
+										itemId: item.id
 									});
 
 									addedUrls.push(url);
@@ -1123,7 +1135,9 @@ var _generateSiteMapURLs = function (server, languages, excludeLanguages, data, 
 														lastmod: lastmod,
 														priority: itemPriority,
 														changefreq: itemChangefreq,
-														locale: otherLocale
+														locale: otherLocale,
+														type: 'item',
+														itemId: item.id
 													});
 
 													addedUrls.push(otherUrl);
@@ -1146,9 +1160,11 @@ var _generateSiteMapURLs = function (server, languages, excludeLanguages, data, 
 	return { urls: urls, locales: locales };
 };
 
-var _generateSiteMapXML = function (format, urls, siteMapFile) {
+var _generateSiteMapXML = function (format, urls, siteMapFile, bufs) {
 
 	var buf = '';
+	var ident = '    ',
+		ident2 = ident + ident;
 
 	if (format === 'text') {
 
@@ -1156,13 +1172,81 @@ var _generateSiteMapXML = function (format, urls, siteMapFile) {
 			buf = buf + urls[i].loc + os.EOL;
 		}
 
+		// save to file
+		fs.writeFileSync(siteMapFile, buf);
+		console.log(' - generate file ' + siteMapFile);
+
+	} else if (format === 'xml-variants') {
+		// sort: page first, then by page id or item master id
+		var sortUrls = urls.slice(0);
+		sortUrls.sort(function (a, b) {
+			var x = a.type;
+			var y = b.type;
+			var idA = a.id;
+			var idB = b.id;
+			return (x < y ? 1 : x > y ? -1 : (idA < idB ? -1 : 1));
+		});
+		urls = sortUrls;
+
+		// get all unique Ids
+		var ids = [];
+		urls.forEach(function (url) {
+			if (!ids.includes(url.id)) {
+				ids.push(url.id);
+			}
+		});
+
+		var header = '<?xml version="1.0" encoding="UTF-8"?>' + os.EOL +
+			'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" ' + os.EOL +
+			'  xmlns:xhtml="http://www.w3.org/1999/xhtml">' + os.EOL;
+
+		var footer = '</urlset>' + os.EOL;
+
+		// sitemap file max size 50MB
+		const SITEMAP_FILE_SIZE = 48000000;
+		// const SITEMAP_FILE_SIZE = 1000000;
+		var allbuf = '';
+		ids.forEach(function (id) {
+			let buf = '';
+			for (let i = 0; i < urls.length; i++) {
+				if (urls[i].id === id) {
+					let url = urls[i];
+					buf = buf + ident + '<url>' + os.EOL;
+					buf = buf + ident2 + '<loc>' + url.loc + '</loc>' + os.EOL;
+
+					// alternate urls
+					for (let j = 0; j < urls.length; j++) {
+						if (url.id === urls[j].id) {
+							buf = buf + ident2 + '<xhtml:link rel="alternate" hreflang="' + urls[j].locale + '" href="' + urls[j].loc + '"/>' + os.EOL;
+						}
+					}
+
+					buf = buf + ident + '</url>' + os.EOL;
+				}
+			}
+			if (buf.length + allbuf.length > SITEMAP_FILE_SIZE) {
+				if (allbuf.length > 0) {
+					bufs.push(header + allbuf + footer);
+				}
+				allbuf = buf;
+				buf = '';
+			} else {
+				allbuf = allbuf + buf;
+				buf = '';
+			}
+		});
+
+		if (allbuf.length > 0) {
+			bufs.push(header + allbuf + footer);
+		}
+
+		return bufs;
+
 	} else {
+
 		buf = '<?xml version="1.0" encoding="UTF-8"?>' + os.EOL +
 			'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + os.EOL;
 
-		var ident = '    ',
-			ident2 = ident + ident,
-			ident3 = ident2 + ident;
 		for (let i = 0; i < urls.length; i++) {
 			buf = buf + ident + '<url>' + os.EOL;
 			buf = buf + ident2 + '<loc>' + urls[i].loc + '</loc>' + os.EOL;
@@ -1173,13 +1257,12 @@ var _generateSiteMapXML = function (format, urls, siteMapFile) {
 		}
 
 		buf = buf + '</urlset>' + os.EOL;
+
+		// save to file
+		fs.writeFileSync(siteMapFile, buf);
+		console.log(' - generate file ' + siteMapFile);
 	}
 
-	// save to file
-	fs.writeFileSync(siteMapFile, buf);
-	console.log(' - generate file ' + siteMapFile);
-
-	return buf;
 };
 
 
@@ -1667,6 +1750,64 @@ var _getSiteData = function (server, site, data, locales) {
 	});
 };
 
+var _getItemMasterIds = function (server, itemGUIDs) {
+	return new Promise(function (resolve, reject) {
+		var total = itemGUIDs.length;
+		console.log(' - total number of assets: ' + total);
+		var groups = [];
+		var limit = 10;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+
+		var queriedItems = [];
+		var startTime = new Date();
+		var needNewLine = false;
+		var doQueryItems = groups.reduce(function (itemPromise, param) {
+			return itemPromise.then(function (result) {
+				var itemPromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					itemPromises.push(serverRest.getItem({ server: server, id: itemGUIDs[i], expand: 'variations' }));
+				}
+				return Promise.all(itemPromises).then(function (results) {
+					queriedItems = queriedItems.concat(results);
+					if (console.showInfo()) {
+						process.stdout.write(' - quering items to get master Id [' + param.start + ', ' + param.end + ']' +
+							' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						readline.cursorTo(process.stdout, 0);
+						needNewLine = true;
+					}
+				});
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doQueryItems.then(function (result) {
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
+			// console.log(queriedItems);
+			resolve(queriedItems);
+		});
+	});
+};
+
 var _setLocalAliases = function (aliases, urls) {
 	if (!aliases || Object.keys(aliases).length === 0) {
 		return urls;
@@ -1699,6 +1840,8 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 	var allPageFiles = [];
 	var allItems = [];
 	var allTypeItems = [];
+	var urls = [];
+	var locales = [];
 	var data;
 	var dataPromise = _prepareData(server, site, languages, allTypes, wantedTypes, done);
 	dataPromise
@@ -1781,6 +1924,9 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 				}
 			}
 
+		})
+		.then(function (results) {
+
 			var changefreqPromises = format === 'xml' && changefreq === 'auto' ? [_calculatePageChangeFraq(server, serverName, allPageFiles)] : [];
 
 			return Promise.all(changefreqPromises);
@@ -1803,71 +1949,95 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 			var siteMapData = _generateSiteMapURLs(server, languages, excludeLanguages, data, siteUrl, allPages, allPageFiles, allItems, allTypeItems,
 				changefreq, toppagepriority, newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale, defaultLocale, useDefaultSiteUrl);
 
-			var urls = siteMapData.urls;
-			var locales = siteMapData.locales;
+			urls = siteMapData.urls;
+			locales = siteMapData.locales;
 
 			// use local aliases if defined
 			urls = _setLocalAliases(data.SiteInfo.localeAliases, urls);
 
+			var itemGUIDs = [];
+			urls.forEach(function (data) {
+				if (data.type === 'item' && data.itemId && !itemGUIDs.includes(data.itemId)) {
+					itemGUIDs.push(data.itemId);
+				}
+			});
+
+			var queryMasterItemPromises = format === 'xml-variants' && itemGUIDs.length > 0 ? [_getItemMasterIds(server, itemGUIDs)] : [];
+
+			return Promise.all(queryMasterItemPromises);
+
+		})
+		.then(function (results) {
+			if (format === 'xml-variants' && results && results[0] && results[0].length > 0) {
+				let items = results[0];
+				urls.forEach(function (data) {
+					if (data.type === 'item') {
+						for (let i = 0; i < items.length; i++) {
+							let item = items[i];
+							if (data.itemId === item.id) {
+								if (item.variations && item.variations.data && item.variations.data.length > 0 && item.variations.data[0].varType === 'language') {
+									let masterItemId = item.variations.data[0].masterItem;
+									data.id = masterItemId;
+								}
+								break;
+							}
+						}
+					}
+				});
+			}
+
 			var siteMapFileName = siteMapFile.substring(siteMapFile.lastIndexOf(path.sep) + 1)
 			var generatedFiles = [];
 			var topFile;
-			if (multiple) {
-				// generate multiple files
-				var prefix = siteUrl;
-				if (prefix.substring(prefix.length - 1) === '/') {
-					prefix = prefix.substring(0, prefix.length - 1);
-				}
-				var sitemapIndex = [];
-				for (let i = 0; i < locales.length; i++) {
-					let localeURLs = [];
-					var lastmod;
-					urls.forEach(function (url) {
-						if (url.locale === locales[i]) {
-							localeURLs.push(url);
-							if (!lastmod) {
-								lastmod = url.lastmod
-							} else {
-								// get the latter one
-								let oldDate = new Date(lastmod);
-								let newDate = new Date(url.lastmod);
-								if (newDate > oldDate) {
-									lastmod = url.lastmod;
-								}
-							}
-						}
-					});
 
-					var localeSiteMapFileName;
-					if (format === 'xml') {
-						localeSiteMapFileName = serverUtils.replaceAll(siteMapFileName, '.xml', '_' + locales[i] + '.xml');
-					} else {
-						localeSiteMapFileName = serverUtils.replaceAll(siteMapFileName, '.txt', '_' + locales[i] + '.txt');
+			if (format === 'xml-variants') {
+
+				let bufs = [];
+				_generateSiteMapXML(format, urls, siteMapFileName, bufs);
+				let totalSize = 0;
+				bufs.forEach(function (b) {
+					totalSize = totalSize + b.length;
+				});
+				console.log(' - total size: ' + totalSize + ' files: ' + bufs.length);
+				if (bufs.length === 1) {
+					// single sitemap file
+					topFile = path.join(sitemapSrcDir, site, siteMapFileName);
+					fs.writeFileSync(topFile, bufs[0]);
+					console.log(' - generate file ' + topFile);
+					// continue to save to the cec source folder
+					fs.copyFileSync(topFile, siteMapFile);
+					generatedFiles.push(siteMapFile);
+				} else {
+					// multiple files
+					let prefix = siteUrl;
+					if (prefix.substring(prefix.length - 1) === '/') {
+						prefix = prefix.substring(0, prefix.length - 1);
 					}
-					// console.log(locales[i] + ': ' + localeURLs.length + ' => ' + localeSiteMapFileName);
-					// one file for each locale
-					let filePath = path.join(sitemapSrcDir, site, localeSiteMapFileName);
-					_generateSiteMapXML(format, localeURLs, filePath);
+					let sitemapIndex = [];
+					for (let i = 0; i < bufs.length; i++) {
+						let sizeSiteMapFileName = serverUtils.replaceAll(siteMapFileName, '.xml', '_' + (i + 1) + '.xml');
+						let filePath = path.join(sitemapSrcDir, site, sizeSiteMapFileName);
+						fs.writeFileSync(filePath, bufs[i]);
+						console.log(' - generate file ' + filePath);
+						// free
+						bufs[i] = '';
 
-					sitemapIndex.push({
-						loc: prefix + '/' + localeSiteMapFileName,
-						lastmod: lastmod
-					})
+						sitemapIndex.push({
+							loc: prefix + '/' + sizeSiteMapFileName,
+						})
 
-					generatedFiles.push(filePath);
-				}
-
-				// now create the sitemap index file
-				if (format === 'xml') {
-					var buf = '<?xml version="1.0" encoding="UTF-8"?>' + os.EOL +
+						generatedFiles.push(filePath);
+					}
+					// generate index file
+					let buf = '<?xml version="1.0" encoding="UTF-8"?>' + os.EOL +
 						'<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + os.EOL;
 
-					var ident = '    ',
+					let ident = '    ',
 						ident2 = ident + ident;
+
 					sitemapIndex.forEach(function (index) {
 						buf += ident + '<sitemap>' + os.EOL;
 						buf += ident2 + '<loc>' + index.loc + '</loc>' + os.EOL;
-						buf += ident2 + '<lastmod>' + index.lastmod + '</lastmod>' + os.EOL;
 						buf += ident + '</sitemap>' + os.EOL;
 					});
 
@@ -1878,19 +2048,89 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 					console.log(' - generate sitemap index file ' + topFile);
 
 					generatedFiles.push(topFile);
-
-				} else {
-					// no index file
-					topFile = generatedFiles[0];
 				}
 
 			} else {
-				// single sitemap file
-				topFile = path.join(sitemapSrcDir, site, siteMapFileName);
-				let buf = _generateSiteMapXML(format, urls, topFile);
-				// continue to save to the cec source folder
-				fs.writeFileSync(siteMapFile, buf);
-				generatedFiles.push(siteMapFile);
+				if (multiple) {
+					// generate multiple files
+					var prefix = siteUrl;
+					if (prefix.substring(prefix.length - 1) === '/') {
+						prefix = prefix.substring(0, prefix.length - 1);
+					}
+					var sitemapIndex = [];
+					for (let i = 0; i < locales.length; i++) {
+						let localeURLs = [];
+						var lastmod;
+						urls.forEach(function (url) {
+							if (url.locale === locales[i]) {
+								localeURLs.push(url);
+								if (!lastmod) {
+									lastmod = url.lastmod
+								} else {
+									// get the latter one
+									let oldDate = new Date(lastmod);
+									let newDate = new Date(url.lastmod);
+									if (newDate > oldDate) {
+										lastmod = url.lastmod;
+									}
+								}
+							}
+						});
+
+						var localeSiteMapFileName;
+						if (format === 'xml' || format === 'xml-variants') {
+							localeSiteMapFileName = serverUtils.replaceAll(siteMapFileName, '.xml', '_' + locales[i] + '.xml');
+						} else {
+							localeSiteMapFileName = serverUtils.replaceAll(siteMapFileName, '.txt', '_' + locales[i] + '.txt');
+						}
+						// console.log(locales[i] + ': ' + localeURLs.length + ' => ' + localeSiteMapFileName);
+						// one file for each locale
+						let filePath = path.join(sitemapSrcDir, site, localeSiteMapFileName);
+						_generateSiteMapXML(format, localeURLs, filePath);
+
+						sitemapIndex.push({
+							loc: prefix + '/' + localeSiteMapFileName,
+							lastmod: lastmod
+						})
+
+						generatedFiles.push(filePath);
+					}
+
+					// now create the sitemap index file
+					if (format === 'xml') {
+						var buf = '<?xml version="1.0" encoding="UTF-8"?>' + os.EOL +
+							'<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + os.EOL;
+
+						var ident = '    ',
+							ident2 = ident + ident;
+						sitemapIndex.forEach(function (index) {
+							buf += ident + '<sitemap>' + os.EOL;
+							buf += ident2 + '<loc>' + index.loc + '</loc>' + os.EOL;
+							buf += ident2 + '<lastmod>' + index.lastmod + '</lastmod>' + os.EOL;
+							buf += ident + '</sitemap>' + os.EOL;
+						});
+
+						buf += '</sitemapindex>' + os.EOL;
+
+						topFile = path.join(sitemapSrcDir, site, siteMapFileName);
+						fs.writeFileSync(topFile, buf);
+						console.log(' - generate sitemap index file ' + topFile);
+
+						generatedFiles.push(topFile);
+
+					} else {
+						// no index file
+						topFile = generatedFiles[0];
+					}
+
+				} else {
+					// single sitemap file
+					topFile = path.join(sitemapSrcDir, site, siteMapFileName);
+					_generateSiteMapXML(format, urls, topFile);
+					// continue to save to the cec source folder
+					fs.copyFileSync(topFile, siteMapFile);
+					generatedFiles.push(siteMapFile);
+				}
 			}
 
 			if (publish) {
@@ -2102,7 +2342,7 @@ module.exports.createSiteMap = function (argv, done) {
 
 	// site map file
 	var siteMapFile = argv.file || (site + (format === 'text' ? 'SiteMap.txt' : 'SiteMap.xml'));
-	if (format === 'xml' && siteMapFile.split('.').pop() !== 'xml') {
+	if ((format === 'xml' || format === 'xml-variants') && siteMapFile.split('.').pop() !== 'xml') {
 		siteMapFile = siteMapFile + '.xml';
 	} else if (format === 'text' && siteMapFile.split('.').pop() !== 'txt') {
 		siteMapFile = siteMapFile + '.txt';

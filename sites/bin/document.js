@@ -216,7 +216,8 @@ module.exports.copyFolder = function (argv, done) {
 		// console.log(' - argv.name=' + argv.name + ' resource name=' + resourceName + ' type=' + resourceType + ' folder=' + srcPath);
 
 		var sameFolder = argv.folder === undefined;
-		var targetPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
+
+		var targetPath = argv.folder === '/' || argv.folder === undefined ? '' : serverUtils.trimString(argv.folder, '/');
 		info = _getResourceInfo(server, targetPath);
 		var targetResName = info.resourceName;
 		var targetResType = info.resourceType;
@@ -318,7 +319,7 @@ module.exports.copyFolder = function (argv, done) {
 						targetFolderId = results[0].id;
 					}
 				} else {
-					targetFolderId = srcFolder.parentID;
+					targetFolderId = srcFolder.parentID || 'self';
 				}
 
 				var targetFolderLabel;
@@ -349,7 +350,7 @@ module.exports.copyFolder = function (argv, done) {
 				if (!result || result.err || !result.id) {
 					return Promise.reject();
 				}
-				// console.log(result);
+
 				console.log(' - folder copied (Id: ' + result.id + ')');
 				done(true);
 			})
@@ -1882,7 +1883,8 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 				.then(function (result) {
 					// console.log(' _files: ' + _files.length);
 
-					return _readAllFiles(server, _files, showDetail);
+					// 50 per group
+					return _readAllFiles(server, _files, showDetail, 50);
 				})
 				.then(function (results) {
 					// check if there is any failed file
@@ -2002,7 +2004,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 	});
 };
 
-var _readAllFiles = function (server, files, showDetail) {
+var _readAllFiles = function (server, files, showDetail, groupSize) {
 	var showInfo = showDetail !== undefined ? showDetail : true;
 	return new Promise(function (resolve, reject) {
 		var total = files.length;
@@ -2010,7 +2012,7 @@ var _readAllFiles = function (server, files, showDetail) {
 			console.info(' - total number of files: ' + total);
 		}
 		var groups = [];
-		var limit = 10;
+		var limit = groupSize === undefined ? 10 : groupSize;
 		var start, end;
 		for (var i = 0; i < total / limit; i++) {
 			start = i * limit;
@@ -2652,6 +2654,15 @@ var _deleteFolder = function (argv, server, noMsg) {
 			.then(function (result) {
 				if (!result || result.err || !result.id) {
 					return Promise.reject();
+				}
+
+				if (!resourceFolder) {
+					let createdBy = result.createdBy && result.createdBy.loginName;
+					let ownedBy = result.ownedBy && result.ownedBy.loginName;
+					if (createdBy && createdBy.toLowerCase() !== server.username.toLowerCase() && ownedBy && ownedBy.toLowerCase() !== server.username.toLowerCase()) {
+						console.error('ERROR: folder ' + inputPath + ' is created by ' + createdBy + ' owned by ' + ownedBy);
+						return Promise.reject();
+					}
 				}
 				folderId = result.id;
 
@@ -3379,6 +3390,236 @@ module.exports.deleteTrash = function (argv, done) {
 	});
 };
 
+
+var _restoreDocumentFromTrash = function (server, idcToken, id, name, type) {
+	return new Promise(function (resolve, reject) {
+		var service = type === 'file' || type === 'folder' ? 'FLD_RESTORE' : 'SCS_RESTORE_FROM_TRASH';
+		var url = '/documents/integration?IdcService=' + service + '&IsJson=1';
+		var formData = {
+			'LocalData': {
+				'IdcService': service,
+				'items': (type === 'file' ? 'fFileGUID:' : 'fFolderGUID:') + id
+			}
+		};
+
+		serverRest.executePost({
+			server: server,
+			endpoint: url,
+			body: formData,
+			noMsg: true
+		}).then(function (data) {
+			// console.log(JSON.stringify(data, null, 4));
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				// console.error('ERROR: failed to restore from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					id: id,
+					name: name,
+					type: type,
+					err: (data && data.LocalData && data.LocalData.StatusMessage || 'failed to restore from Trash')
+				});
+			} else {
+				return resolve({
+					id: id,
+					name: name,
+					type: type,
+					err: ''
+				});
+			}
+		});
+	});
+};
+/**
+ * restore from trash
+ */
+module.exports.restoreTrash = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name.toString();
+	var id = argv.id;
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var toRestore;
+
+		_browseTrash(server)
+			.then(function (result) {
+				if (!result || result.err || !result.LocalData) {
+					return Promise.reject();
+				}
+				var idcToken = result.LocalData.idcToken;
+				var childFiles = serverUtils.getIDCServiceResults(result.ResultSets, 'ChildFiles');
+				var childFolders = serverUtils.getIDCServiceResults(result.ResultSets, 'ChildFolders');
+
+				var nameMatched = [];
+				var idMatched;
+
+				if (childFiles.length > 0) {
+					childFiles.forEach(function (file) {
+						if (name === file.fFileName) {
+							nameMatched.push({
+								name: name,
+								id: file.fFileGUID,
+								type: 'file',
+								deletedOn: file.fLastModifiedDate,
+								deletedBy: file.fLastModifierFullName
+							});
+						}
+						if (id && id === file.fFileGUID) {
+							idMatched = {
+								name: file.fFileName,
+								id: file.fFileGUID,
+								type: 'file',
+								deletedOn: file.fLastModifiedDate,
+								deletedBy: file.fLastModifierFullName
+							}
+						}
+					});
+				}
+				if (childFolders.length > 0) {
+					childFolders.forEach(function (folder) {
+						let type;
+						if (folder.fApplication === 'framework' || folder.fFolderType === 'soft') {
+							type = 'folder';
+						} else if (folder.fApplication === 'framework.site.app') {
+							type = 'component';
+						} else if (folder.fApplication === 'framework.site.template') {
+							type = 'template';
+						} else if (folder.fApplication === 'framework.site.theme') {
+							type = 'theme';
+						} else if (folder.fApplication === 'framework.site') {
+							type = 'site';
+						} else if (folder.fApplication === 'framework.site.variant') {
+							type = 'site.variant';
+						}
+						if (name === folder.fFolderName) {
+							nameMatched.push({
+								id: folder.fFolderGUID,
+								itemId: folder.fRealItemGUID,
+								name: name,
+								type: type,
+								deletedOn: folder.fLastModifiedDate,
+								deletedBy: folder.fLastModifierFullName
+							});
+						}
+						if (id && id === folder.fFolderGUID) {
+							idMatched = {
+								id: folder.fFolderGUID,
+								itemId: folder.fRealItemGUID,
+								name: folder.fFolderName,
+								type: type,
+								deletedOn: folder.fLastModifiedDate,
+								deletedBy: folder.fLastModifierFullName
+							}
+						}
+					});
+				}
+
+				if (!idMatched && nameMatched.length === 0) {
+					console.error('ERROR: resource ' + name + ' not found in Trash');
+					return Promise.reject();
+				}
+
+				if (idMatched && idMatched.name !== name) {
+					console.error('ERROR: the name of the resource with Id ' + id + ' is ' + idMatched.name + ' not ' + name);
+					return Promise.reject();
+				}
+
+				if (id && !idMatched) {
+					console.error('ERROR: resource with Id ' + id + ' not found in Trash');
+					return Promise.reject();
+				}
+
+				if (!idMatched && nameMatched.length > 1) {
+					console.error('ERROR: there are ' + nameMatched.length + ' resources with name ' + name + ':');
+					var format = '  %-44s  %-10s  %-60s  %-20s  %-s';
+					console.log(sprintf(format, 'Id', 'Type', 'Name', 'Date Deleted', 'Deleted By'));
+					nameMatched.forEach(function (obj) {
+						console.log(sprintf(format, obj.id, (obj.type === 'site.variant' ? 'siteUpdate' : obj.type), obj.name, obj.deletedOn, obj.deletedBy));
+
+					});
+					// console.log('Please try again with the Id');
+					return Promise.reject();
+				}
+
+				toRestore = idMatched || nameMatched[0];
+				toRestore.typeLabel = toRestore.type === 'site.variant' ? 'siteUpdate' : toRestore.type;
+				// console.log(toRestore);
+
+				var restorePromise;
+
+				if (toRestore.type === 'file' || toRestore.type === 'folder' || toRestore.type === 'site.variant') {
+					restorePromise = _restoreDocumentFromTrash(server, idcToken, toRestore.id, toRestore.name, toRestore.type);
+				} else if (toRestore.type === 'site') {
+					restorePromise = sitesRest.restoreSite({
+						server: server,
+						id: toRestore.itemId,
+						name: toRestore.name,
+						showInfo: false,
+						showError: false,
+					});
+				} else if (toRestore.type === 'component') {
+					restorePromise = sitesRest.restoreComponent({
+						server: server,
+						id: toRestore.itemId,
+						name: toRestore.name,
+						showInfo: false,
+						showError: false,
+					});
+				} else if (toRestore.type === 'template') {
+					restorePromise = sitesRest.restoreTemplate({
+						server: server,
+						id: toRestore.itemId,
+						name: toRestore.name,
+						showInfo: false,
+						showError: false,
+					});
+				} else if (toRestore.type === 'theme') {
+					restorePromise = sitesRest.restoreTheme({
+						server: server,
+						id: toRestore.itemId,
+						name: toRestore.name,
+						showInfo: false,
+						showError: false,
+					});
+				}
+
+				return restorePromise;
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					console.error('ERROR: failed to restore ' + toRestore.typeLabel + ' ' + toRestore.name + ' from Trash');
+					return Promise.reject();
+				} else {
+					console.log(' - ' + toRestore.typeLabel + ' ' + toRestore.name + ' restored from Trash');
+					done(true);
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
 
 var _emptyTrash = function (server, idcToken) {
 	return new Promise(function (resolve, reject) {

@@ -245,10 +245,12 @@ Component.prototype.compileComponent = function (args) {
 			}
 
 			custComp = new CustCompImpl({
+				id: self.componentId,
 				componentId: self.componentId,
 				componentInstanceObject: self.componentInstanceObject,
 				componentsFolder: self.componentsFolder,
-				SCSCompileAPI: args.SCSCompileAPI
+				SCSCompileAPI: args.SCSCompileAPI,
+				SCSComponentAPI: args.SCSCompileAPI.getSCSComponentAPI()
 			});
 
 			// passing these in to compile as well for backwards compability

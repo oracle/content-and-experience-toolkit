@@ -706,12 +706,24 @@ gulp.task('list-trash', function (done) {
 });
 
 /**
- * list Trash
+ * delete from Trash
  */
 gulp.task('delete-trash', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	doclib.deleteTrash(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * restore from Trash
+ */
+gulp.task('restore-trash', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	doclib.restoreTrash(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

@@ -24,6 +24,7 @@ var fs = require('fs'),
 	url = require('url'),
 	merge = require('deepmerge'),
 	request = require('request'),
+	SCSComponentAPI = require('./api/CompileComponentAPI'),
 	serverUtils = require('../../test/server/serverUtils'),
 	documentUtils = require('../document').utils,
 	ContentCompiler = require('./components/contentitem/contentcompiler');
@@ -494,7 +495,9 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 		if (useModuleCompiler) {
 			const { default: PageCompiler } = await import(url.pathToFileURL(moduleFile));
 			if (PageCompiler) {
-				pageCompiler = new PageCompiler();
+				pageCompiler = new PageCompiler({
+					SCSComponentAPI: compiler.getSCSCompileAPI().getSCSComponentAPI()
+				});
 			} else {
 				compilationReporter.error({
 					message: 'failed to import: "' + moduleFile,
@@ -502,6 +505,7 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 				});
 			}
 		} else {
+			// Note: we don't get the opportunity to set the value on create for non-module components
 			pageCompiler = require(compileFile);
 		}
 
@@ -883,6 +887,44 @@ function combineUrlSegments(segment1, segment2) {
 	}
 
 	return url;
+}
+
+function addUrlParams(pageUrl, urlParams) {
+	if (pageUrl && urlParams) {
+		// Preserve the existing hash fragment
+		var hash = '';
+		var hashIndex = pageUrl.indexOf('#');
+		if (hashIndex >= 0) {
+			hash = pageUrl.substring(hashIndex);
+			pageUrl = pageUrl.substring(0, hashIndex);
+		}
+
+		var joinChar = (pageUrl.indexOf('?') === -1) ? '?' : '&';
+		if (typeof urlParams === 'string') {
+			pageUrl += joinChar + urlParams;
+		} else if (typeof urlParams === 'object') {
+			Object.keys(urlParams).forEach(function (key) {
+				pageUrl += joinChar + encodeURIComponent(key) + '=' + encodeURIComponent(urlParams[key]);
+				joinChar = '&';
+			});
+		}
+
+		pageUrl += hash;
+	}
+
+	return pageUrl;
+}
+
+function addUrlFragment(pageUrl, fragment) {
+	if (pageUrl && fragment && (typeof fragment === 'string')) {
+		var hashIndex = pageUrl.indexOf('#');
+		if (hashIndex >= 0) {
+			pageUrl = pageUrl.substring(0, hashIndex);
+		}
+		pageUrl += "#" + encodeURIComponent(fragment);
+	}
+
+	return pageUrl;
 }
 
 function getTokenValue(token, evaluationContext) {
@@ -1353,11 +1395,13 @@ var compiler = {
 	},
 	getSCSCompileAPI: function () {
 		var self = this;
-		return {
+		var _scsComponentAPI;
+		var scsCompileAPI = {
 			navigationRoot: self.navigationRoot,
 			navigationCurr: self.navigationCurr,
 			structureMap: self.structureMap,
 			siteInfo: self.siteInfo,
+			pageInfo: self.pageInfo,
 			siteFolder: siteFolder,
 			componentsFolder: componentsFolder,
 			themesFolder: themesFolder,
@@ -1368,6 +1412,9 @@ var compiler = {
 			channelAccessToken: channelAccessToken,
 			deviceInfo: self.context.deviceInfo,
 			snippetOnly: creatingDetailPages && detailPageContentLayoutSnippet,
+			getSCSComponentAPI: function () {
+				return _scsComponentAPI;
+			},
 			/**
 			 * Get the contentClient object that can be used to make OCM Content REST calls
 			 * @memberof SCSCompileAPI 
@@ -1379,86 +1426,62 @@ var compiler = {
 			 *      console.log(contentClient.getInfo());
 			 *  });
 			 */
-			getContentClient: function (type) {
-				return new Promise(function (resolve, reject) {
-					var contentType = type === 'published' ? 'published' : defaultContentType,
-						clientKey = type || 'default',
-						contentSDK = require('../../test/server/npm/contentSDK.js'),
-						beforeSend = function () {
-							return true;
-						},
-						getLocalTemplateURL = '';
+			getContentClientSync: function (type) {
+				var contentType = type === 'published' ? 'published' : defaultContentType,
+					clientKey = type || 'default',
+					contentSDK = require('../../test/server/npm/contentSDK.js'),
+					beforeSend = function () {
+						return true;
+					};
 
-					// get/create the content client cache
-					self.contentClients = self.contentClients || {};
+				// get/create the content client cache
+				self.contentClients = self.contentClients || {};
 
-					// create the content client if it doesn't exist in the cache
-					if (!self.contentClients[clientKey]) {
-						var serverURL,
-							authorization = '';
+				// create the content client if it doesn't exist in the cache
+				if (!self.contentClients[clientKey]) {
+					var serverURL,
+						authorization = '';
 
-						if (server && server.username && server.password) {
-							// use the configured server
-							serverURL = server.url;
+					if (server && server.username && server.password) {
+						// use the configured server
+						serverURL = server.url;
 
-							// set the header
-							var requestAuth = serverUtils.getRequestAuth(server);
-							if (requestAuth.bearer) {
-								authorization = 'Bearer ' + requestAuth.bearer;
-							} else {
-								authorization = 'Basic ' + Buffer.from(requestAuth.user + ':' + requestAuth.password).toString('base64');
-							}
-							beforeSend = function (options) {
-								options.headers = options.headers || {};
-								options.headers.authorization = authorization;
-							};
-						} else if (process.env.CEC_TOOLKIT_SERVER) {
-							// no server, use the environment server
-							serverURL = 'http://' + process.env.CEC_TOOLKIT_SERVER + ':' + (process.env.CEC_TOOLKIT_PORT || '8085');
-							contentType = 'published'; // only support published URLs on local server
-
-							// set the template to use for the local server requests
-							getLocalTemplateURL = serverURL + '/templates/' + templateName;
+						// set the header
+						var requestAuth = serverUtils.getRequestAuth(server);
+						if (requestAuth.bearer) {
+							authorization = 'Bearer ' + requestAuth.bearer;
 						} else {
-							// no server available, default
-							serverURL = 'http://localhost:8085';
-							contentType = 'published'; // only support published URLs on local server
-
-							// set the template to use for the local server requests
-							getLocalTemplateURL = serverURL + '/templates/' + templateName;
+							authorization = 'Basic ' + Buffer.from(requestAuth.user + ':' + requestAuth.password).toString('base64');
 						}
-
-						self.contentClients[type || 'default'] = contentSDK.createPreviewClient({
-							contentServer: serverURL,
-							authorization: authorization,
-							contentType: contentType,
-							beforeSend: beforeSend,
-							contentVersion: 'v1.1',
-							channelToken: channelAccessToken || '',
-							isCompiler: true
-						});
-
-						// override the expand macros function to use the compiler tokens expansion
-						// this is because the relative page URLs are only known to the compiler 
-						self.contentClients[type || 'default'].expandMacros = function (value) {
-							return resolveLinks(value, self.context, self.sitePrefix, true);
+						beforeSend = function (options) {
+							options.headers = options.headers || {};
+							options.headers.authorization = authorization;
 						};
-					}
-
-					if (getLocalTemplateURL) {
-						// do a get on the template before proceeding to setup the template to use
-						// this is required so that the content REST calls know which template to query against
-						var options = {
-							url: getLocalTemplateURL
-						};
-						request(options, function (error, response, body) {
-							// this is just to wait for the template name to inserted into the server context via the URL, no need to check response
-							resolve(self.contentClients[clientKey]);
-						});
 					} else {
-						resolve(self.contentClients[clientKey]);
+						contentType = 'published'; // only support published URLs on local server
 					}
-				});
+
+					self.contentClients[type || 'default'] = contentSDK.createPreviewClient({
+						contentServer: serverURL,
+						authorization: authorization,
+						contentType: contentType,
+						beforeSend: beforeSend,
+						contentVersion: 'v1.1',
+						channelToken: channelAccessToken || '',
+						isCompiler: true
+					});
+
+					// override the expand macros function to use the compiler tokens expansion
+					// this is because the relative page URLs are only known to the compiler 
+					self.contentClients[type || 'default'].expandMacros = function (value) {
+						return resolveLinks(value, self.context, self.sitePrefix, true);
+					};
+				}
+
+				return self.contentClients[clientKey];
+			},
+			getContentClient: function (type) {
+				return Promise.resolve(this.getContentClientSync(type));
 			},
 			/**
 			 * Compile another content item, returning the HTML created by the content item's compiler.<br/>
@@ -1541,6 +1564,36 @@ var compiler = {
 			 */
 			getDetailPageId: function () {
 				return getDefaultPage(self.structureMap, self.navigationRoot, 'isDetailPage');
+			},
+			getPageLinkInfo: function (pageId, options) {
+				// get the page data for the detail page
+				var pageData = this.getPageLinkData(pageId);
+				var pageUrl = pageData && pageData.href;
+
+				// now add in any options values to the href
+				if ( pageUrl ) {
+					// get the entry in the navigation
+					var navNode = self.structureMap[pageId];
+
+					// Also, formulate a URL to a detail page (only support slug format)
+					if ( options && navNode.isDetailPage && options.contentItem && options.contentItem.slug) {
+						var dotPos = pageUrl.lastIndexOf( '.' );
+						var slashPos = pageUrl.lastIndexOf( '/' );
+
+						if ( dotPos > slashPos + 1 ) {
+							pageUrl = pageUrl.substring( 0, dotPos );
+						} 
+						pageUrl = pageUrl + '/' + options.contentItem.slug;
+					}
+
+					pageUrl = addUrlParams(pageUrl, options && options.queryParams); 
+					pageUrl = addUrlFragment(pageUrl, options && options.fragment); 
+
+					// update the URL entry in the page Data
+					pageData.href = pageUrl;
+				}
+
+				return pageData;
 			},
 			/**
 			 * Get the information to navigate to another page in the site.<br/>
@@ -1795,8 +1848,48 @@ var compiler = {
 				} else {
 					return Promise.resolve();
 				}
+			},
+			getCDNPrefix: function () {
+				compilationReporter.warn({
+					message: 'getCDNPrefix: CDN prefix not available during compile'
+				});
+				return '';
+			},
+			getContentUrlPrefix: function () {
+				return '<!--$SCS_CONTENT_URL-->';
+			},
+			getComponentCatalogUrlPrefix: function () {
+				return '<!--$SCS_COMP_CATALOG_URL-->';
+			},
+			getDistDirUrlPrefix: function () {
+				return '<!--$SCS_DIST_FOLDER-->';
+			},
+			getSitePathPrefix: function () {
+				return '<!--$SCS_SITE_PATH-->';
+			},
+			getSitePrefix: function () {
+				return self.sitePrefix;
+			},
+			getThemeDesignUrlPrefix: function () {
+				return '_scs_theme_root_/designs/_scs_design_name_';
+			},
+			getThemeUrlPrefix: function () {
+				return '_scs_theme_root_';
+			},
+			getCacheKey: function (keyName) {
+				return cacheKeys[keyName];
+			},
+			getDeviceInfo: function () {
+				return self.context.deviceInfo || {
+					isMobile: false
+				}; 
 			}
 		};
+
+		// create a new SCSComponentAPI based on the SCSCompileAPI
+		_scsComponentAPI = new SCSComponentAPI(scsCompileAPI);
+
+		return scsCompileAPI; 
 	},
 	compileComponentInstance: function (compId, compInstance) {
 		var self = this;
@@ -3255,6 +3348,40 @@ function writeCommonSiteInfo(context) {
 	writePage(fileName, js);
 };
 
+// this registers the template to use when running content queries with the local server
+var registerTemplateWithServer = function () {
+	if (server && server.username && server.password) {
+		// for remote server, nothing to do
+		return Promise.resolve();
+	} else {
+		return new Promise(function (resolve, reject) {
+			var serverURL;
+			var getLocalTemplateURL;
+
+			// setup the template to use when calls are made to the local server
+			if (process.env.CEC_TOOLKIT_SERVER) {
+				// no server, use the environment server
+				serverURL = 'http://' + process.env.CEC_TOOLKIT_SERVER + ':' + (process.env.CEC_TOOLKIT_PORT || '8085');
+			} else {
+				// no server available, default
+				serverURL = 'http://localhost:8085';
+			}
+
+			getLocalTemplateURL = serverURL + '/templates/' + templateName;
+
+			// do a get on the template before proceeding to setup the template to use
+			// this is required so that the content REST calls know which template to query against
+			var options = {
+				url: getLocalTemplateURL
+			};
+			request(options, function (error, response, body) {
+				// this is just to wait for the template name to inserted into the server context via the URL, no need to check response
+				resolve();
+			});
+		});
+	}
+};
+
 var compilePages = function (compileTargetDevice) {
 	if (!targetDevice) {
 		// no device type specified, if trying to compile mobile, check against RegEx
@@ -3458,20 +3585,23 @@ var compileSite = function (args) {
 		defaultLocale = rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.defaultLanguage;
 	}
 
-	// compile pages for desktop 
-	return compilePages('desktop').then(function () {
-		console.log('');
+	// if using the local server, register the template that will be used for content queries
+	return registerTemplateWithServer().then(function () {
+		// compile pages for desktop 
+		return compilePages('desktop').then(function () {
+			console.log('');
 
-		// note that we're now compiling for mobile
-		process.env.scsIsMobile = true;
+			// note that we're now compiling for mobile
+			process.env.scsIsMobile = true;
 
-		// clear the detail page list so that it is re-created for mobile pages
-		detailPageList = {}; 
+			// clear the detail page list so that it is re-created for mobile pages
+			detailPageList = {}; 
 
-		// compile pages for mobile 
-		return compilePages('mobile').then(function () {
-			compilationReporter.renderReport();
-			return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();
+			// compile pages for mobile 
+			return compilePages('mobile').then(function () {
+				compilationReporter.renderReport();
+				return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();
+			});
 		});
 	});
 };

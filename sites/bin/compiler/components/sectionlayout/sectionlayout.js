@@ -129,6 +129,7 @@ SectionLayout.prototype = {
 	compileComponent: function (parameters) {
 		var self = this;
 		var instanceObject = this.componentInstanceObject || {};
+		var SCSCompileAPI = parameters.SCSCompileAPI;
 
 		return new Promise(async function (resolve, reject) {
 			try {
@@ -201,7 +202,8 @@ SectionLayout.prototype = {
 							logic = new SectionLayoutImpl({
 								componentId: self.componentId,
 								componentInstanceObject: self.componentInstanceObject,
-								componentsFolder: self.componentsFolder
+								componentsFolder: self.componentsFolder,
+								SCSComponentAPI: SCSCompileAPI.getSCSComponentAPI()
 							});
 						}
 						if (logic && (typeof logic.compile === 'function')) {

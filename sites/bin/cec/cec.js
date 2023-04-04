@@ -144,7 +144,7 @@ var getTemplateSources = function () {
 };
 
 var getSiteMapFormats = function () {
-	const values = ['text', 'xml'];
+	const values = ['text', 'xml', 'xml-variants'];
 	return values;
 };
 var getSiteMapChangefreqValues = function () {
@@ -2098,7 +2098,8 @@ const createSiteMap = {
 				'Optionally specify -m to generate multiple sitemaps, one for each locale. ' +
 				'Also optionally specify <file> as the file name for the site map.' + os.EOL + os.EOL +
 				'The valid values for <format> are:' + os.EOL + os.EOL;
-			desc = getSiteMapFormats().reduce((acc, item) => acc + '  ' + item + '\n', desc) + os.EOL + os.EOL;
+			desc = getSiteMapFormats().reduce((acc, item) => acc + '  ' + item + '\n', desc) + os.EOL;
+			desc = desc + 'A site map in format xml-variants includes language and region variants.' + os.EOL + os.EOL;
 			desc = desc + 'The valid values for <changefreq> are:' + os.EOL + os.EOL;
 			desc = getSiteMapChangefreqValues().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
@@ -3557,6 +3558,26 @@ const deleteTrash = {
 	]
 };
 
+const restoreTrash = {
+	command: 'restore-trash <name>',
+	alias: 'rtr',
+	name: 'restore-trash',
+	usage: {
+		'short': 'Restores a resource in Trash on OCM server.',
+		'long': (function () {
+			let desc = 'Restores a resource in Trash to its original location on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec restore-trash File1'],
+		['cec restore-trash File1 -s SampleServer1'],
+		['cec restore-trash Folder1'],
+		['cec restore-trash Site1'],
+		['cec restore-trash Docs -i FE11C3CE54CF30BFEFC8044F9E1DF61A8D907F122AE5']
+	]
+};
+
 const emptyTrash = {
 	command: 'empty-trash <type>',
 	alias: '',
@@ -4162,6 +4183,7 @@ _usage = _usage + os.EOL + 'Documents' + os.EOL +
 	_getCmdHelp(describeFile) + os.EOL +
 	_getCmdHelp(listTrash) + os.EOL +
 	_getCmdHelp(deleteTrash) + os.EOL +
+	_getCmdHelp(restoreTrash) + os.EOL +
 	_getCmdHelp(emptyTrash) + os.EOL;
 
 _usage = _usage + os.EOL + 'Components' + os.EOL +
@@ -7044,7 +7066,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('multiple', {
 					alias: 'm',
-					description: 'Generate multiple sitemaps, one for each locale'
+					description: 'Generate multiple sitemaps, one for each locale, not applicable for format xml-variants '
 				})
 				.option('defaultlocale', {
 					alias: 'd',
@@ -9137,6 +9159,25 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${deleteTrash.command}\n\n${deleteTrash.usage.long}`);
+		})
+	.command([restoreTrash.command, restoreTrash.alias], false,
+		(yargs) => {
+			yargs.option('id', {
+				alias: 'i',
+				description: 'The resource Id'
+			})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...restoreTrash.example[0])
+				.example(...restoreTrash.example[1])
+				.example(...restoreTrash.example[2])
+				.example(...restoreTrash.example[3])
+				.example(...restoreTrash.example[4])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${restoreTrash.command}\n\n${restoreTrash.usage.long}`);
 		})
 	.command([emptyTrash.command], false,
 		(yargs) => {
@@ -13426,6 +13467,24 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, deleteTrashArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === restoreTrash.name || argv._[0] === restoreTrash.alias) {
+	let restoreTrashArgs = ['run', '-s', restoreTrash.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.id) {
+		restoreTrashArgs.push(...['--id', argv.id]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		restoreTrashArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, restoreTrashArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

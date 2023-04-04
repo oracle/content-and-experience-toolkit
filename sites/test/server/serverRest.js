@@ -266,7 +266,7 @@ var _findFolderItems = function (server, parentId, parentPath, _files) {
 				if (results && results.length > 0) {
 					for (i = 0; i < results.length; i++) {
 						// console.log(' - ' + i + ' offset: ' + results[i].offset + ' count: ' + results[i].count);
-						var items2 = results[i] && results[i].items;
+						var items2 = results[i] && results[i].items || [];
 						if (items2.length > 0) {
 							items = items.concat(items2);
 						}
@@ -373,7 +373,8 @@ module.exports.deleteFolder = function (args) {
 // Get child items with the parent folder
 var _getChildItems = function (server, parentID, limit, offset) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/api/1.2/folders/' + parentID + '/items';
+		// var url = server.url + '/documents/api/1.2/folders/' + parentID + '/items';
+		var url = server.url + '/documents/api/1.2/folders' + (parentID === 'self' ? '' : '/' + parentID) + '/items';
 		if (limit) {
 			url = url + '?limit=' + limit;
 		}
@@ -534,7 +535,8 @@ module.exports.getFolderMetadata = function (args) {
 // Find file by name with the parent folder
 var _findFile = function (server, parentID, filename, showError, itemtype) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/api/1.2/folders/' + parentID + '/items?limit=9999';
+		// var url = server.url + '/documents/api/1.2/folders/' + parentID + '/items?limit=9999';
+		var url = server.url + '/documents/api/1.2/folders' + (parentID === 'self' ? '' : '/' + parentID) + '/items?limit=9999';
 		url = url + '&filterName=' + encodeURIComponent(filename);
 		var options = {
 			method: 'GET',
@@ -8629,8 +8631,6 @@ var _executeGet = function (server, endpoint, noMsg) {
 		if (showDetail) {
 			console.log(' - executing endpoint: ' + endpoint);
 		}
-
-		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
