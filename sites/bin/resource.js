@@ -611,6 +611,69 @@ module.exports.listServerResources = function (argv, done) {
 
 };
 
+var _querySiteTotalItems = function (server, sites) {
+	return new Promise(function (resolve, reject) {
+		var total = sites.length;
+		var groups = [];
+		var limit = 20;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+
+		var totalItems = [];
+		var doGetItems = groups.reduce(function (itemPromise, param) {
+			return itemPromise.then(function (result) {
+				var itemPromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					let site = sites[i];
+					if (site.isEnterprise && site.channel && site.channel.id) {
+						var q = 'channels co "' + site.channel.id + '"';
+						itemPromises.push(serverRest.queryItems({
+							server: server,
+							q: q,
+							limit: 1,
+							showTotal: false
+						}));
+					}
+				}
+
+				return Promise.all(itemPromises).then(function (results) {
+					results.forEach(function (result) {
+						if (result.query) {
+							totalItems.push({
+								query: result.query,
+								totalItems: result.limit || 0
+							});
+						}
+					});
+				});
+
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
+
+		doGetItems.then(function (result) {
+			resolve(totalItems);
+		});
+
+	});
+};
 
 var _listServerResourcesRest = function (server, serverName, argv, done) {
 
@@ -643,6 +706,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 	var format = '  %-36s';
 	var format2 = '  %-36s  %-36s';
 	var format3 = '  %-36s  %-36s  %-s';
+
+	var sites = [];
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -902,26 +967,43 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 				}
 
 				promises = listSites ? [sitesRest.getSites({
-					server: server
+					server: server,
+					expand: 'channel'
 				})] : [];
+				return Promise.all(promises);
+			})
+			.then(function (results) {
+				sites = results.length > 0 ? results[0] : [];
+
+				// query items in a site
+				promises = listSites ? [_querySiteTotalItems(server, sites)] : [];
+
 				return Promise.all(promises);
 			})
 			.then(function (results) {
 				//
 				// list sites
 				//
-				var sites = results.length > 0 ? results[0] : [];
 				if (listSites) {
-					var siteFormat = '  %-36s  %-36s  %-10s  %-10s  %-6s  %-s';
+					var siteTotalItems = results && results[0] || [];
+					var siteFormat = '  %-36s  %-36s  %-10s  %-10s  %-6s  %-6s  %-s';
 					console.log('Sites:');
-					console.log(sprintf(siteFormat, 'Name', 'Theme', 'Type', 'Published', 'Online', 'Secure'));
+					console.log(sprintf(siteFormat, 'Name', 'Theme', 'Type', 'Published', 'Online', 'Secure', 'Total Items'));
 					for (var i = 0; i < sites.length; i++) {
 						var site = sites[i];
 						var type = site.isEnterprise ? 'Enterprise' : 'Standard';
 						var published = site.publishStatus !== 'unpublished' ? '    √' : '';
 						var online = site.runtimeStatus === 'online' ? '  √' : '';
 						var secure = site.security && site.security.access && !site.security.access.includes('everyone') ? '  √' : '';
-						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online, secure));
+						var totalItems = 0;
+						if (site.isEnterprise && site.channel && site.channel.id) {
+							for (let j = 0; j < siteTotalItems.length; j++) {
+								if (siteTotalItems[j].query.indexOf(site.channel.id) > 0) {
+									totalItems = siteTotalItems[j].totalItems;
+								}
+							}
+						}
+						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online, secure, totalItems));
 					}
 					if (sites.length > 0) {
 						console.log('Total: ' + sites.length);
@@ -1137,29 +1219,35 @@ module.exports.listActivities = function (argv, done) {
 	}
 
 	var type = argv.type;
-	var objectType = type === 'site' ? 'Site' : type;
+	var objectType = type === 'site' ? 'Site' : (type === 'repository' ? 'Repository' : (type === 'channel' ? 'Channel' : type));
 	var category = argv.category;
 	var eventCategory;
 	if (category) {
 		if (category === 'publishing') {
-			eventCategory = 'SITE_PUBLISHING';
+			eventCategory = type === 'site' ? 'SITE_PUBLISHING' : 'ASSET_PUBLISHING';
 		} else if (category === 'lifecycle') {
 			eventCategory = 'SITE_LIFECYCLE';
 		} else if (category === 'security') {
-			eventCategory = 'SITE_SECURITY';
+			eventCategory = type === 'site' ? 'SITE_SECURITY' : 'ASSET_SECURITY'
+		} else if (category === 'administration') {
+			eventCategory = 'ASSET_ADMINISTRATION';
 		}
 	}
 
 	var name = argv.name;
 	var objectId;
 
-	var beforeDate = argv.before;
-	var afterDate = argv.after;
+	var beforeDate = argv.before === undefined ? '' : argv.before.toString();
+	var afterDate = argv.after === undefined ? '' : argv.after.toString();
+
 	if (beforeDate && !afterDate) {
 		beforeDate = (new Date(beforeDate)).toISOString();
 		afterDate = (new Date('1900')).toISOString();
 	} else if (!beforeDate && afterDate) {
 		beforeDate = (new Date()).toISOString();
+		afterDate = (new Date(afterDate)).toISOString();
+	} else if (beforeDate && afterDate) {
+		beforeDate = (new Date(beforeDate)).toISOString();
 		afterDate = (new Date(afterDate)).toISOString();
 	}
 
@@ -1175,16 +1263,26 @@ module.exports.listActivities = function (argv, done) {
 		if (name) {
 			if (type === 'site') {
 				resourcePromises.push(sitesRest.getSite({ server: server, name: name }));
+			} else if (type === 'repository') {
+				resourcePromises.push(serverRest.getRepositoryWithName({ server: server, name: name }));
+			} else if (type === 'channel') {
+				resourcePromises.push(serverRest.getChannelWithName({ server: server, name: name }));
 			}
 		}
 		Promise.all(resourcePromises)
 			.then(function (results) {
 				if (name) {
-					if (!results || !results[0] || results[0].err || !results[0].id) {
+					if (!results || !results[0] || results[0].err) {
+						console.error('ERROR: ' + type + ' ' + name + ' not found');
 						return Promise.reject();
 					}
-					objectId = results[0].id;
-					console.info(' - get resource (Id: ' + objectId + ' name: ' + name);
+					let obj = type === 'site' ? results[0] : results[0].data;
+					if (!obj || !obj.id) {
+						console.error('ERROR: ' + type + ' ' + name + ' not found');
+						return Promise.reject();
+					}
+					objectId = obj.id;
+					console.info(' - get resource (Id: ' + objectId + ' name: ' + name + ')');
 				}
 
 				return serverRest.getAllActivities({
@@ -1216,14 +1314,24 @@ module.exports.listActivities = function (argv, done) {
 
 				var format = '  %-36s  %-20s  %-24s  %-32s  %-s';
 				if (acts.length > 0) {
+					// console.log(acts[0]);
 					console.log(sprintf(format, 'Name', 'Action', 'Date', 'By', 'Message'));
+					var cats = [];
 					acts.forEach(function (event) {
+						if (event.event && event.event.categories) {
+							if (!cats.includes(event.event.categories[0].name)) {
+								cats.push(event.event.categories[0].name);
+							}
+						}
 						var detail = event.activityDetails;
 						var msg = event.message && event.message.text || '';
-						console.log(sprintf(format, detail.name, detail.action, event.registeredAt, detail.updatedBy, msg));
+						var action = detail.action || detail.source || '';
+						var updatedBy = detail.updatedBy || '';
+						console.log(sprintf(format, detail.name, action.toLowerCase(), event.registeredAt, updatedBy, msg));
 					});
 					console.log('');
 					console.log(' - total activities: ' + acts.length);
+					// console.log(cats);
 				} else {
 					console.log(' - no activities found');
 				}

@@ -60,6 +60,7 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	targetDevice = '', // 'mobile' or 'desktop' (no value implies compile for both if RegEx is specified)
 	mobilePages = false, // whether we are compiling mobile pages
 	localeGroup = [], // list of locales to compile
+	useFallbackLocale, // locale to use is requested locale does not exist
 	folderProperties; // _folder.json values
 
 
@@ -144,17 +145,32 @@ function initialize() {
 function getAvailableLanguages() {
 	var defaultLanguage = rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.defaultLanguage;
 	var languages = [''];
-	var filePath = path.join(siteFolder, '');
-	var entries = fs.readdirSync(filePath);
-	(entries || []).forEach(function (entry) {
-		var index = entry.indexOf('_structure.json');
-		if (index > 0) {
-			var language = entry.substring(0, index);
-			languages.push(language);
-		}
-	});
 
-	trace("Available Languages: " + languages);
+	// if useLocaleFallback defined, and localeGroup, then add all languages in the localeGroup
+	// Note: The group list will be further filterd by fallbacks defined for locales within the site
+	if (useFallbackLocale && Array.isArray(localeGroup) && localeGroup.length > 0) {
+		localeGroup.forEach(function (entry) {
+			var locale = entry === defaultLanguage ? '' : entry;
+			if (languages.indexOf(locale) === -1) {
+				languages.push(locale);
+			}
+		});
+
+		trace("Group Languages: " + languages);
+	} else {
+		// else get list of available translations
+		var filePath = path.join(siteFolder, '');
+		var entries = fs.readdirSync(filePath);
+		(entries || []).forEach(function (entry) {
+			var index = entry.indexOf('_structure.json');
+			if (index > 0) {
+				var language = entry.substring(0, index);
+				languages.push(language);
+			}
+		});
+
+		trace("Available Languages: " + languages);
+	}
 
 	// remove any languages that have locale fallbacks
 	if (rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.localeFallbacks &&
@@ -229,21 +245,15 @@ function getFolderProperties() {
 
 // Read the structure.json
 function readStructure(locale) {
-	var prefix = locale ? (locale + '_') : '';
-
-	var filePath = path.join(siteFolder, prefix + "structure.json");
-	var structureJson = fs.readFileSync(filePath, {
-		encoding: 'utf8'
-	});
+	// get locale version of structure.json
+	var structureJson = getLocaleFileData(siteFolder, "structure.json", locale, true);
 	var structureObject = JSON.parse(structureJson) || {};
 
 	// Set site global variables here
 	var tempSiteInfo = structureObject.siteInfo && structureObject.siteInfo.base;
 	if (!tempSiteInfo) {
-		var siteInfoFilePath = path.join(siteFolder, prefix + "siteinfo.json");
-		tempSiteInfo = JSON.parse(fs.readFileSync(siteInfoFilePath, {
-			encoding: 'utf8'
-		})) || {};
+		var tempSiteInfoData = getLocaleFileData(siteFolder, "siteinfo.json", locale, true);
+		tempSiteInfo = JSON.parse(tempSiteInfoData) || {}; 
 	}
 	var tempStructure = structureObject.base || structureObject;
 
@@ -389,6 +399,51 @@ function produceSiteNavigationStructure(context) {
 	context.navRoot = navRoot;
 }
 
+function getLocaleFileData(resourcePath, fileName, locale, loadBaseFile) {
+	var filePath = path.join(resourcePath, (locale ? locale + "_" : '') + fileName);
+	var fileContent = '';
+
+	try {
+		// try to load the requested locale file
+		fileContent = fs.readFileSync(filePath, {
+			encoding: 'utf8'
+		});
+	} catch (localeErr) {
+		// if locale was defined and we failed to load the locale file and there is a locale fallback to try...
+		if (locale && localeErr && localeErr.code === 'ENOENT' && useFallbackLocale) {
+			// tell the user we failed to load the requested page locale version
+			compilationReporter.info({
+				message: 'failed to load file: ' + filePath + ' will use fallback locale page.'
+			});
+
+			// check if the locale fallback was set to: 'siteLocale'
+			// This is the value when the user does not define a specific locale with the --useFallbackLocale option
+			if (useFallbackLocale === 'siteLocale') {
+				// load the base file if requested, the base file may already have been loaded and they only want the locale version
+				if (loadBaseFile) {
+					filePath = path.join(resourcePath, fileName);
+
+					fileContent = fs.readFileSync(filePath, {
+						encoding: 'utf8'
+					});
+				}
+			} else {
+				// try to load the fallback locale version of the page
+				filePath = path.join(resourcePath, useFallbackLocale + "_" + fileName);
+
+				fileContent = fs.readFileSync(filePath, {
+					encoding: 'utf8'
+				});
+			}
+		} else {
+			// rethrow the error
+			throw localeErr;
+		}
+	}
+
+	return fileContent; 
+}
+
 function getPageData(context, pageId) {
 	trace('getPageData: pageId=' + pageId + ', locale=' + context.locale);
 
@@ -406,39 +461,39 @@ function getPageData(context, pageId) {
 	// Load the locale page data, if any
 	var localePageData;
 	if (context.locale) {
-		filePath = path.join(siteFolder, "pages", context.locale + "_" + pageId + ".json");
-		pageJson = fs.readFileSync(filePath, {
-			encoding: 'utf8'
-		});
-		localePageData = JSON.parse(pageJson);
-		localePageData = (localePageData && localePageData.base) || localePageData;
+		pageJson = getLocaleFileData(path.join(siteFolder, "pages"), pageId + ".json", context.locale);
 
-		// For Localized Page Data files we only expect a select list of "properties".  Filter out
-		// any others, including those that are null, since those were likely introduced by the server.
-		if (localePageData && localePageData.properties) {
-			var props = {},
-				propertyValue,
-				allowedProperties = [
-					"title",
-					"pageDescription",
-					"keywords",
-					"header",
-					"footer"
-				];
+		if (pageJson) {
+			localePageData = JSON.parse(pageJson);
+			localePageData = (localePageData && localePageData.base) || localePageData;
 
-			for (const propertyName of allowedProperties) {
-				propertyValue = localePageData.properties[propertyName];
-				if (typeof propertyValue === 'string') {
-					props[propertyName] = propertyValue;
+			// For Localized Page Data files we only expect a select list of "properties".  Filter out
+			// any others, including those that are null, since those were likely introduced by the server.
+			if (localePageData && localePageData.properties) {
+				var props = {},
+					propertyValue,
+					allowedProperties = [
+						"title",
+						"pageDescription",
+						"keywords",
+						"header",
+						"footer"
+					];
+
+				for (const propertyName of allowedProperties) {
+					propertyValue = localePageData.properties[propertyName];
+					if (typeof propertyValue === 'string') {
+						props[propertyName] = propertyValue;
+					}
 				}
+
+				localePageData.properties = props;
 			}
 
-			localePageData.properties = props;
-		}
-
-		// Layer the properties of the localePageData into the pageData
-		if (pageData.properties && localePageData.properties) {
-			mergeObjects(pageData.properties, localePageData.properties, true);
+			// Layer the properties of the localePageData into the pageData
+			if (pageData.properties && localePageData.properties) {
+				mergeObjects(pageData.properties, localePageData.properties, true);
+			}
 		}
 	}
 
@@ -1459,6 +1514,15 @@ var compiler = {
 						};
 					} else {
 						contentType = 'published'; // only support published URLs on local server
+
+						// setup the template to use when calls are made to the local server
+						if (process.env.CEC_TOOLKIT_SERVER) {
+							// no server, use the environment server
+							serverURL = 'http://' + process.env.CEC_TOOLKIT_SERVER + ':' + (process.env.CEC_TOOLKIT_PORT || '8085');
+						} else {
+							// no server available, default
+							serverURL = 'http://localhost:8085';
+						}
 					}
 
 					self.contentClients[type || 'default'] = contentSDK.createPreviewClient({
@@ -3474,6 +3538,7 @@ var compileSite = function (args) {
 	recurse = args.recurse;
 	includeLocale = args.includeLocale;
 	localeGroup = args.localeGroup ? args.localeGroup.split(',') : [];
+	useFallbackLocale = args.useFallbackLocale;
 	verbose = args.verbose;
 	useInlineSiteInfo = args.useInlineSiteInfo;
 	targetDevice = args.targetDevice;

@@ -346,12 +346,22 @@ var getListAssetProperties = function () {
 };
 
 var getActivityObjectTypes = function () {
-	const types = ['site'];
+	const types = ['site', 'channel', 'repository'];
 	return types;
 };
 
-var getActivityCategories = function () {
+var getSiteActivityCategories = function () {
 	const types = ['lifecycle', 'publishing', 'security'];
+	return types;
+};
+
+var getRepoActivityCategories = function () {
+	const types = ['administration', 'security'];
+	return types;
+};
+
+var getChannelActivityCategories = function () {
+	const types = ['administration', 'publishing'];
 	return types;
 };
 
@@ -811,6 +821,7 @@ const compileTemplate = {
 				'Optionally specify -a <targetDevice> [desktop | mobile] target device type when using adaptive layouts.\n' +
 				'Optionally specify -v <verbose> to display all warning messages during compilation.\n' +
 				'Optionally specify -g <localeGroup> comma separated list of locales to compile.\n' +
+				'Optionally specify -f <useFallbackLocale> the locale of the page file to use if the selected locale page file does not exist.\n' +
 				'Optionally specify -i <ignoreErrors> ignore compilation errors when calculating the exit code for the process.\n';
 			return desc;
 		})()
@@ -971,7 +982,7 @@ const listServerContentTypes = {
 	usage: {
 		'short': 'Lists all content types from server.',
 		'long': (function () {
-			let desc = 'Lists all content types from server.';
+			let desc = 'Lists all content types from server. Optionally specify -v to validate custom field editors.';
 			return desc;
 		})()
 	},
@@ -1532,10 +1543,14 @@ const listActivities = {
 		'short': 'Lists activities on OCM server.',
 		'long': (function () {
 			let desc = 'Lists activities on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
-			desc = desc + 'Specify -t <type> to specify the resource type. The valid value for <type> is : ' + os.EOL + os.EOL;
+			desc = desc + 'Specify -t <type> to specify the resource type. The valid values for <type> are: ' + os.EOL + os.EOL;
 			desc = getActivityObjectTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + 'Optionally specify -c <category> to specify the activity category. The valid values for <category> are:' + os.EOL + os.EOL;
-			desc = getActivityCategories().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'Optionally specify -c <category> to specify the activity category. The valid site activity categories are:' + os.EOL + os.EOL;
+			desc = getSiteActivityCategories().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'The valid channel activity categories are:' + os.EOL + os.EOL;
+			desc = getChannelActivityCategories().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'The valid repository activity categories are:' + os.EOL + os.EOL;
+			desc = getRepoActivityCategories().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 		})()
 	},
@@ -1862,14 +1877,14 @@ const exportSite = {
 		'short': 'Export Enterprise Site <name>.',
 		'long': (function () {
 			let desc = 'Export Enterprise Site on OCM server to a folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
-			desc = desc + 'Specify the folder with -f <folder> and specify the export name with -n <export-name>. '
+			desc = desc + 'Specify the folder with -f <folder> and specify the job name with -j <job-name>. ';
 			desc = desc + 'NOTE: This command is not available for production use.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec export-site Site1', 'Export Site1 as Site1 to home folder on the OCM server'],
-		['cec export-site Site1 -f Export -e Site1Export -i', 'Export Site1 and include unpublished assets as Site1Export to Export folder on the OCM server'],
+		['cec export-site Site1 -f Export -j Site1ExportJob -i', 'Export Site1 and include unpublished assets as Site1ExportJob to Export folder on the OCM server'],
 		['cec export-site Site1 -d', 'Export Site1 as Site1 to home folder on the OCM server and download the export folder to src/siteExport/Site1'],
 		['cec export-site Site1 -d -p /dev/folder', 'Export Site1 as Site1 to home folder on the OCM server and download the export folder to /dev/folder']
 	]
@@ -1894,7 +1909,7 @@ const importSite = {
 	example: [
 		['cec import-site Site1 -r repository', 'Import site in src/siteExport/Site1 to the OCM server'],
 		['cec import-site Site1 -r repository -p /dev/folder', 'Import site in /dev/folder to the OCM server'],
-		['cec import-site Site1 -e ImportName -r repository', 'Import src/siteExport/Site1 to the OCM server with ImportName as name'],
+		['cec import-site Site1 -j Site1ImportJob -r repository', 'Import src/siteExport/Site1 to the OCM server as Site1ImportJob'],
 		['cec import-site Site1 -i duplicateSite -n Site1Copy -r repository -x site1copy -l EnglishPolicy', 'Import site to the OCM server by duplicating it as Site1Copy'],
 		['cec import-site Site1 -a createOrUpdate -r repository', 'Import src/siteExport/Site1 to the OCM server with createOrUpdate assets policy'],
 		['cec import-site Site1 -f Site1_72D365DB55C94BF1BB023299B4AB64B0 -r repository', 'Import from the given folder on the OCM server'],
@@ -4248,7 +4263,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(deleteStaticSite) + os.EOL +
 	_getCmdHelp(refreshPrerenderCache) + os.EOL +
 	_getCmdHelp(migrateSite) + os.EOL;
-/*
+
 _usage = _usage + os.EOL + 'Site Export and Import' + os.EOL +
 	_getCmdHelp(exportSite) + os.EOL +
 	_getCmdHelp(importSite) + os.EOL +
@@ -4261,7 +4276,7 @@ _usage = _usage + os.EOL + 'Site Export and Import' + os.EOL +
 	_getCmdHelp(describeExportJob) + os.EOL +
 	_getCmdHelp(listImportJobs) + os.EOL +
 	_getCmdHelp(describeImportJob) + os.EOL;
-*/
+
 _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(downloadContent) + os.EOL +
 	_getCmdHelp(uploadContent) + os.EOL +
@@ -4833,6 +4848,10 @@ const argv = yargs.usage(_usage)
 					alias: 'g',
 					description: 'Comma separated list of locales to compile.'
 				})
+				.option('useFallbackLocale', {
+					alias: 'f',
+					description: 'The locale of the page file to use if the selected locale page file does not exist.'
+				})
 				.option('ignoreErrors', {
 					alias: 'i',
 					description: 'Ignore compilation errors when calculating the exit code for the process.'
@@ -5137,6 +5156,10 @@ const argv = yargs.usage(_usage)
 					alias: 'e',
 					description: 'Show type dependency hierarchy',
 					hidden: true
+				})
+				.option('validate', {
+					alias: 'v',
+					description: 'Validate custom field editors in types'
 				})
 				.option('file', {
 					alias: 'f',
@@ -6107,7 +6130,7 @@ const argv = yargs.usage(_usage)
 			})
 				.option('category', {
 					alias: 'c',
-					description: 'The activity category [' + getActivityCategories().join(' | ') + ']',
+					description: 'The activity category',
 				})
 				.option('name', {
 					alias: 'n',
@@ -6129,8 +6152,16 @@ const argv = yargs.usage(_usage)
 					if (argv.type && !getActivityObjectTypes().includes(argv.type)) {
 						throw new Error(os.EOL + `${argv.type} is not a valid value for <type>`);
 					}
-					if (argv.category && !getActivityCategories().includes(argv.category)) {
-						throw new Error(os.EOL + `${argv.category} is not a valid value for <category>`);
+					if (argv.category) {
+						if (argv.type === 'site' && !getSiteActivityCategories().includes(argv.category)) {
+							throw new Error(os.EOL + `${argv.category} is not a valid value for <category>`);
+						}
+						if (argv.type === 'channel' && !getChannelActivityCategories().includes(argv.category)) {
+							throw new Error(os.EOL + `${argv.category} is not a valid value for <category>`);
+						}
+						if (argv.type === 'repository' && !getRepoActivityCategories().includes(argv.category)) {
+							throw new Error(os.EOL + `${argv.category} is not a valid value for <category>`);
+						}
 					}
 					return true;
 				})
@@ -6678,9 +6709,9 @@ const argv = yargs.usage(_usage)
 				alias: 'f',
 				description: '<folder> Folder to export the site to'
 			})
-				.option('exportname', {
-					alias: 'e',
-					description: 'name of the export',
+				.option('jobname', {
+					alias: 'j',
+					description: 'job name',
 				})
 				.option('includeunpublishedassets', {
 					alias: 'i',
@@ -6721,9 +6752,9 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'Site prefix'
 				})
-				.option('importname', {
-					alias: 'e',
-					description: 'name of the import',
+				.option('jobname', {
+					alias: 'j',
+					description: 'job name',
 				})
 				.option('path', {
 					alias: 'p',
@@ -10473,6 +10504,15 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.localeGroup && typeof argv.localeGroup === 'string') {
 		compileTemplateArgs.push(...['--localeGroup', argv.localeGroup]);
 	}
+	if (argv.useFallbackLocale) {
+		if (typeof argv.useFallbackLocale === 'boolean') {
+			// use the site default locale
+			compileTemplateArgs.push(...['--useFallbackLocale', 'siteLocale']);
+		} else if (typeof argv.useFallbackLocale === 'string') {
+			// use the locale provided as the default to fallback to
+			compileTemplateArgs.push(...['--useFallbackLocale', argv.useFallbackLocale]);
+		}
+	}
 	if (argv.secureSite) {
 		compileTemplateArgs.push(...['--secureSite', argv.secureSite]);
 	}
@@ -11285,6 +11325,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.expand) {
 		listServerContentTypesArgs.push(...['--expand', argv.expand]);
 	}
+	if (argv.validate) {
+		listServerContentTypesArgs.push(...['--validate', argv.validate]);
+	}
 	if (argv.file && typeof argv.file !== 'boolean') {
 		listServerContentTypesArgs.push(...['--file', argv.file]);
 	}
@@ -11818,8 +11861,8 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.folder && typeof argv.folder !== 'boolean') {
 		exportSiteArgs.push(...['--folder', argv.folder]);
 	}
-	if (argv.exportname && typeof argv.exportname !== 'boolean') {
-		exportSiteArgs.push(...['--exportname', argv.exportname]);
+	if (argv.jobname && typeof argv.jobname !== 'boolean') {
+		exportSiteArgs.push(...['--jobname', argv.jobname]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		exportSiteArgs.push(...['--server', argv.server]);
@@ -11847,8 +11890,8 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		importSiteArgs.push(...['--server', argv.server]);
 	}
-	if (argv.importname && typeof argv.importname !== 'boolean') {
-		importSiteArgs.push(...['--importname', argv.importname]);
+	if (argv.jobname && typeof argv.jobname !== 'boolean') {
+		importSiteArgs.push(...['--jobname', argv.jobname]);
 	}
 	if (argv.repository && typeof argv.repository !== 'boolean') {
 		importSiteArgs.push(...['--repository', argv.repository]);

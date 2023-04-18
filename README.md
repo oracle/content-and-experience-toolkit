@@ -15,6 +15,17 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.4.1
+
+**Added**
+- `cec list-activities` - Can now list repository and channel activities on an OCM server
+
+**Updated**
+- `cec list-server-content-types` - Now has option to validate if custom field editors are properly set
+- `cec list` - Now also shows the total number of items in a site
+- `cec compile-template` - Added `--useFallbackLocale` option to allow the compile to use this locale’s page files if the requested page translation file does not exist.  If no value given, it will use the sites default locale pages as the fallback.
+
+
 # New in Release 23.3.3
 
 **Added**

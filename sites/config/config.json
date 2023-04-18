@@ -3,6 +3,7 @@
     {
         "libs": ["es6-promise",
             "@oracle/oraclejet",
+            "@oracle/oraclejet-preact",
             "requirejs",
             "requirejs-text",
             "require-css",            

@@ -1264,6 +1264,9 @@
                 return i.sendAndWait("openEditItemDrawer", e);
             }, this.createAsset = function(e) {
                 return i.sendAndWait("openCreateItemDrawer", e);
+            }, this.canCreateAsset = function(e) {
+                if (!e || !e.type) throw new Error('Invalid params. {"type" : "<asset type name>" must be provided');
+                return i.sendAndWait("canCreateAsset", e);
             }, this.resize = function(e) {
                 if (!e) {
                     var t = d.getBoundingClientRect();

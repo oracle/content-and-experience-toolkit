@@ -3120,8 +3120,8 @@ module.exports.getAllActivities = function (args) {
 	return _getAllResources(args.server, endpoint, 'activities');
 };
 
-// CAAS query maximum limit
-const MAX_LIMIT = 500;
+// CAAS query maximum limit for resources other than assets
+const MAX_LIMIT = 200;
 
 var _getResources = function (server, endpoint, type, fields, offset, q, orderBy) {
 	return new Promise(function (resolve, reject) {

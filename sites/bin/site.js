@@ -59,7 +59,7 @@ var _cmdEnd = function (done, success) {
 
 var _downloadReport = function (url, siteName, server) {
 	return new Promise(function (resolve, reject) {
-		console.info('   Download reports from ' + url);
+		console.info(' - Download reports from ' + url);
 		var targetStem,
 			namePrefix;
 
@@ -78,7 +78,7 @@ var _downloadReport = function (url, siteName, server) {
 		});
 
 		targetPath = path.join(targetPath, namePrefix + siteName + '_Report.zip');
-		console.info('   Save reports to ' + targetPath);
+		console.info(' - Save reports to ' + targetPath);
 		var downloadArgs = {
 			server: server,
 			url: url,
@@ -4947,12 +4947,8 @@ module.exports.exportSite = function (argv, done) {
 		}
 
 		var siteName = argv.name;
-		var exportname = argv.exportname || argv.name;
+		var jobName = argv.jobname || argv.name;
 		var includeunpublishedassets = argv.includeunpublishedassets;
-		var downloadPath = argv.path || '';
-
-		// TODO: Temporary workaround for job name
-		exportname = exportname.replace('-', '_');
 
 		// folder path on the server
 		var folder = argv.folder && argv.folder.toString();
@@ -5023,7 +5019,7 @@ module.exports.exportSite = function (argv, done) {
 
 					sitesRest.exportSite({
 						server: server,
-						name: exportname,
+						name: jobName,
 						siteName: siteName,
 						siteId: siteInfo.id,
 						folderId: folderId,
@@ -5060,7 +5056,7 @@ module.exports.exportSite = function (argv, done) {
 								};
 
 								documentUtils.downloadFolder(downloadArgv, server, true, true).then(function () {
-									console.info('   Downloaded export site files to ' + targetPath);
+									console.info(' - Downloaded export site files to ' + targetPath);
 									done(true);
 								});
 							} else if (data.err) {
@@ -5108,7 +5104,7 @@ module.exports.importSite = function (argv, done) {
 			uploadPath = argv.path || path.join(projectDir, 'src', 'siteExport', siteName),
 			folderName = uploadPath.split(path.sep).pop(),
 			folderPathName = inputFolder || folderName,
-			importName = argv.importname || siteName,
+			jobName = argv.jobname || siteName,
 			repository = argv.repository,
 			localizationPolicy = argv.localizationPolicy,
 			sitePrefix = argv.sitePrefix && argv.sitePrefix.toLowerCase(),
@@ -5231,8 +5227,6 @@ module.exports.importSite = function (argv, done) {
 					return Promise.all(findFolderPromises);
 				})
 				.then(function (folders) {
-					// console.info('ImportSite uploadFolder id ' + folders[0].id);
-
 					if (!folders[0] || !folders[0].id) {
 						return Promise.reject('ImportSite: import folder ' + folderPathName + ' not found');
 					} else {
@@ -5248,7 +5242,7 @@ module.exports.importSite = function (argv, done) {
 				})
 				.then(function (archives) {
 					var archivedata = archives[0];
-					console.info('   ImportSite archive id ' + archivedata.id);
+					console.info(' - Import site archive id ' + archivedata.id);
 
 					var importSitePromises = [];
 
@@ -5264,7 +5258,7 @@ module.exports.importSite = function (argv, done) {
 							}
 							importSitePromises.push(sitesRest.importSite({
 								server: server,
-								name: importName,
+								name: jobName,
 								archiveId: archivedata.id,
 								siteId: siteId,
 								repositoryId: importRepo.id,
@@ -5364,6 +5358,8 @@ module.exports.unblockImportJob = function (argv, done) {
 					console.info('Failed to unblock import job ' + argv.id + ' : ' + (data ? data.title : ''));
 				} else {
 					console.info('Unblocked import job ' + argv.id);
+					console.info('To monitor the job progress and download the report, run the following command:');
+					console.info('cec describe-import-job ' + argv.id + ' -d -s ' + serverName);
 				}
 
 				done(true);
@@ -5598,7 +5594,7 @@ module.exports.listExportJobs = function (argv, done) {
 				return;
 			}
 			var url = '/system/export/api/v1/exports';
-			url += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,completed,currentState';
+			url += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,completed';
 
 			serverRest.executeGet({
 				server: server,
@@ -5823,7 +5819,7 @@ module.exports.listImportJobs = function (argv, done) {
 
 			var url = '/system/export/api/v1/imports';
 
-			url += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,currentState,completed';
+			url += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,state,completed';
 			serverRest.executeGet({
 				server: server,
 				endpoint: url,
@@ -5847,14 +5843,15 @@ module.exports.listImportJobs = function (argv, done) {
 								job.augmentedSiteName = sites.at(index) && sites.at(index).name;
 							});
 						}
-						var format = '%-28s  %-34s  %-12s  %-12s  %-26s  %-14s  %-28s';
+						var format = '%-28s  %-34s  %-12s  %-12s  %-22s  %-26s  %-14s  %-28s';
 						console.log('Site import jobs:');
-						console.log(sprintf(format, 'Site Name', 'Id', 'Completed', 'Progress', 'Created At', 'Duration', 'Job Name'));
+						console.log(sprintf(format, 'Site Name', 'Id', 'Completed', 'Progress', 'State', 'Created At', 'Duration', 'Job Name'));
 						data.items.forEach(function (job) {
+							var state = job.state || '';
 							if (job.completed) {
-								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, job.createdAt || '', duration(job.createdAt, job.completedAt), job.name));
+								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, state, job.createdAt || '', duration(job.createdAt, job.completedAt), job.name));
 							} else {
-								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, job.createdAt || '', '', job.name));
+								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, state, job.createdAt || '', '', job.name));
 							}
 						});
 					});
@@ -5978,6 +5975,9 @@ module.exports.describeImportJob = function (argv, done) {
 					});
 
 					console.log(sprintf(jobFormat, 'Progress', job.progress));
+					if (job.state) {
+						console.log(sprintf(jobFormat, 'State', job.state));
+					}
 					console.log(sprintf(jobFormat, 'Created At', job.createdAt));
 					if (job.completed) {
 						console.log(sprintf(jobFormat, 'Completed At', job.completedAt));
@@ -6008,13 +6008,26 @@ module.exports.describeImportJob = function (argv, done) {
 						});
 					}
 
-					if (argv.download) {
-						var siteName = data.job.targets[0].select.site.name;
-						_downloadReports(data.reports, siteName, server).then(function () {
+					var checkDownload = function (dataForDownload) {
+						if (argv.download) {
+							var siteName = dataForDownload.job.targets[0].select.site.name;
+							_downloadReports(dataForDownload.reports, siteName, server).then(function () {
+								done(true);
+							});
+						} else {
 							done(true);
+						}
+					}
+
+					if (job.progress === 'processing' && !job.completed) {
+						sitesRest.pollImportJobStatus({
+							server: server,
+							id: argv.id
+						}).then(function (polldata) {
+							checkDownload(polldata);
 						});
 					} else {
-						done(true);
+						checkDownload(data);
 					}
 				});
 			});
@@ -6259,7 +6272,11 @@ var _validateSiteREST = function (server, siteName, done) {
 						var assetsValidation = data.result.body.operations.validatePublish.validationResults;
 						_displayAssetValidation(assetsValidation);
 					} else {
-						console.log('  no assets');
+						console.log('  no result');
+						// console.log(data);
+						if (data.result.body.operations) {
+							console.log(JSON.stringify(data.result.body.operations, null, 4));
+						}
 					}
 
 					done(true);
@@ -6430,7 +6447,6 @@ module.exports.validateAssets = function (argv, done) {
 				console.info(' - submit validation job (' + statusId + ')');
 				_getValidateAssetsStatus(server, statusId)
 					.then(function (data) {
-
 						//
 						// Display result
 						//
@@ -6439,7 +6455,11 @@ module.exports.validateAssets = function (argv, done) {
 							var assetsValidation = data.result.body.operations.validatePublish.validationResults;
 							_displayAssetValidation(assetsValidation);
 						} else {
-							console.log('  no assets');
+							console.log('  no result');
+							// console.log(data);
+							if (data.result.body.operations) {
+								console.log(JSON.stringify(data.result.body.operations, null, 4));
+							}
 						}
 
 						done(true);

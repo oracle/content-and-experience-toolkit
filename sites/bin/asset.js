@@ -180,6 +180,7 @@ module.exports.listServerContentTypes = function (argv, done) {
 	var repoName = argv.repository;
 
 	var showRef = typeof argv.expand === 'string' && argv.expand.toLowerCase() === 'true';
+	var validate = typeof argv.validate === 'string' && argv.validate.toLowerCase() === 'true';
 
 	var types = [];
 	var repo;
@@ -319,6 +320,28 @@ module.exports.listServerContentTypes = function (argv, done) {
 					}
 				};
 
+				if (validate) {
+					types.forEach(function (type) {
+						var fields = type.fields;
+						var fieldEditors = [];
+						for (let i = 0; i < fields.length; i++) {
+							let field = fields[i];
+							if (field.settings && field.settings.caas && field.settings.caas.editor &&
+								field.settings.caas.editor.options && field.settings.caas.editor.options.name &&
+								field.settings.caas.editor.isCustom) {
+								if (!fieldEditors.includes(field.settings.caas.editor.options.name)) {
+									fieldEditors.push(field.settings.caas.editor.options.name);
+								}
+							}
+						}
+
+						for (let i = 0; i < fieldEditors.length; i++) {
+							if (!type.properties || !type.properties.customEditors || !type.properties.customEditors.includes(fieldEditors[i])) {
+								console.log('ERROR: type ' + type.name + ' custom field editor ' + fieldEditors[i] + ' is not included in properties.customEditors');
+							}
+						}
+					});
+				}
 				if (showRef) {
 					_getAllTypes(server, types)
 						.then(function (result) {
@@ -2722,9 +2745,9 @@ module.exports.describeType = function (argv, done) {
 					var groupAttr = group.hidden ? 'Hidden' : (group.collapse ? 'Collapsed by default' : 'Expanded by default');
 					console.log(sprintf('  %-s', group.title + ' (' + groupAttr + ')'));
 
-					var fieldFormat = '    %-20s  %-40s  %-8s %-8s %-9s %-11s  %-s';
-					console.log(sprintf(fieldFormat, 'Type', 'Name', 'Required', 'Multiple', 'Do not', 'Inherit', 'Reference types'));
-					console.log(sprintf(fieldFormat, '', '', '', '', 'translate', 'from master', ''));
+					var fieldFormat = '    %-20s  %-40s  %-8s %-8s %-9s %-11s  %-30s %-s';
+					console.log(sprintf(fieldFormat, 'Type', 'Name', 'Required', 'Multiple', 'Do not', 'Inherit', 'Reference types', 'Custom FieldEditor'));
+					console.log(sprintf(fieldFormat, '', '', '', '', 'translate', 'from master', '', ''));
 					type.fields.forEach(function (field) {
 						if (field.settings && (!field.settings.hasOwnProperty('groupIndex') || field.settings.groupIndex === i)) {
 							let required = field.required ? '   √' : '';
@@ -2733,7 +2756,13 @@ module.exports.describeType = function (argv, done) {
 							let notranslate = translation.hasOwnProperty('translate') && !translation.translate ? '   √' : '';
 							let inheritFromMaster = translation.hasOwnProperty('inheritFromMaster') && translation.inheritFromMaster ? '   √' : '';
 							let refTypes = field.hasOwnProperty('referenceType') ? (field.referenceType.type ? field.referenceType.types : 'DigitalAsset') : '';
-							console.log(sprintf(fieldFormat, field.datatype, field.name, required, multiple, notranslate, inheritFromMaster, refTypes));
+							let fieldEditor = '';
+							if (field.settings && field.settings.caas && field.settings.caas.editor &&
+								field.settings.caas.editor.options && field.settings.caas.editor.options.name &&
+								field.settings.caas.editor.isCustom) {
+								fieldEditor = field.settings.caas.editor.options.name;
+							}
+							console.log(sprintf(fieldFormat, field.datatype, field.name, required, multiple, notranslate, inheritFromMaster, refTypes, fieldEditor));
 						}
 					});
 					console.log('');
@@ -2745,6 +2774,7 @@ module.exports.describeType = function (argv, done) {
 
 				console.log(sprintf(format1, 'Default preview layout', type.properties.previewLayout ? type.properties.previewLayout.layout : 'Content Form View'));
 				console.log(sprintf(format1, 'Content item editor', type.properties.customForms && type.properties.customForms.length > 0 ? type.properties.customForms : 'System Form'));
+				console.log(sprintf(format1, 'Content field editors', type.properties.customEditors && type.properties.customEditors.length > 0 ? type.properties.customEditors : ''));
 
 				if (type.inplacePreview && type.inplacePreview.data && type.inplacePreview.data.length > 0) {
 					var previewFormat = '%-38s  %-30s  %-s';
@@ -6626,6 +6656,9 @@ var _displayAssets = function (server, propertiesToShow, repository, collection,
 	}
 
 	// help to find item issues
+	if (!fs.existsSync(buildDir)) {
+		fs.mkdirSync(buildDir);
+	}
 	fs.writeFileSync(path.join(buildDir, '__cec_la_itemids.json'), JSON.stringify(allIds.sort(), null, 4));
 
 	// sort types

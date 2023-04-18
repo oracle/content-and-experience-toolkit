@@ -3148,6 +3148,7 @@ module.exports.compileTemplate = function (argv, done) {
 		secureSite = typeof argv.secureSite === 'boolean' ? argv.secureSite : argv.secureSite === 'true',
 		includeLocale = typeof argv.includeLocale === 'boolean' ? argv.includeLocale : argv.includeLocale === 'true',
 		localeGroup = argv.localeGroup || '',
+		useFallbackLocale = argv.useFallbackLocale,
 		noDetailPages = typeof argv.noDetailPages === 'boolean' ? argv.noDetailPages : argv.noDetailPages === 'true',
 		noDefaultDetailPageLink = typeof argv.noDefaultDetailPageLink === 'boolean' ? argv.noDefaultDetailPageLink : argv.noDefaultDetailPageLink === 'true',
 		contentLayoutSnippet = typeof argv.contentLayoutSnippet === 'boolean' ? argv.contentLayoutSnippet : argv.contentLayoutSnippet === 'true',
@@ -3214,6 +3215,7 @@ module.exports.compileTemplate = function (argv, done) {
 		contentLayoutSnippet: contentLayoutSnippet,
 		includeLocale: includeLocale,
 		localeGroup: localeGroup,
+		useFallbackLocale: useFallbackLocale,
 		logLevel: 'log',
 		outputURL: serverURL + '/templates/' + tempName + '/'
 	}).then(function (result) {
