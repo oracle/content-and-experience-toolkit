@@ -4,6 +4,7 @@
  */
 
 const e = require('express');
+const { all } = require('underscore');
 
 
 var serverUtils = require('../test/server/serverUtils.js'),
@@ -5579,6 +5580,349 @@ module.exports.deleteEditorialRole = function (argv, done) {
 	});
 };
 
+/**
+ * transfer Editorial Role
+ */
+module.exports.transferEditorialRole = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var destServerName = argv.destination;
+	var destServer = serverUtils.verifyServer(destServerName, projectDir);
+	if (!destServer || !destServer.valid) {
+		done();
+		return;
+	}
+
+	if (server.url === destServer.url) {
+		console.error('ERROR: source and destination server are the same');
+		done();
+		return;
+	}
+
+	var roleNames = argv.name.split(',');
+	var goodRoleNames = [];
+
+	var srcRoles = [];
+	var roleInfo = [];
+	var rolesToTransfer = [];
+	var roleNamesToTransfer = [];
+	var rolesToCreate = [];
+	var rolesToUpdate = [];
+	var typeNames = [];
+	var typesOnTarget = [];
+	var taxIds = [];
+	var taxNames = [];
+	var taxOnTarget = [];
+	var allFailed = true;
+
+	serverUtils.loginToServer(server)
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + server.url);
+				return Promise.reject();
+			}
+
+			return serverUtils.loginToServer(destServer);
+		})
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + destServer.url);
+				return Promise.reject();
+			}
+
+			let rolePromises = [];
+			roleNames.forEach(function (name) {
+				rolePromises.push(serverRest.getEditorialRoleWithName({ server: server, name: name, fields: 'all' }));
+			});
+
+			return Promise.all(rolePromises);
+		})
+		.then(function (results) {
+			let roles = results || [];
+			roleNames.forEach(function (name) {
+				let found = false;
+				for (let i = 0; i < roles.length; i++) {
+					if (roles[i] && roles[i].data && roles[i].data.name === name) {
+						found = true;
+						srcRoles.push(roles[i].data);
+						goodRoleNames.push(name);
+						break;
+					}
+				}
+				if (!found) {
+					console.error('ERROR: role ' + name + ' does not exist on the source server');
+				}
+			});
+			if (goodRoleNames.length === 0) {
+				return Promise.reject();
+			}
+			// console.log(JSON.stringify(srcRoles, null, 4));
+
+			// get type names and taxonomy Ids used in the roles
+			srcRoles.forEach(function (role) {
+				var cntPrivs = role.contentPrivileges || [];
+				var roleTypeNames = [];
+				for (let i = 0; i < cntPrivs.length; i++) {
+					if (cntPrivs[i].typeName && !typeNames.includes(cntPrivs[i].typeName)) {
+						typeNames.push(cntPrivs[i].typeName);
+					}
+					if (cntPrivs[i].typeName && !roleTypeNames.includes(cntPrivs[i].typeName)) {
+						roleTypeNames.push(cntPrivs[i].typeName);
+					}
+				}
+				var taxPrivs = role.taxonomyPrivileges || [];
+				var roleTaxIds = [];
+				for (let i = 0; i < taxPrivs.length; i++) {
+					if (taxPrivs[i].taxonomyId && !taxIds.includes(taxPrivs[i].taxonomyId)) {
+						taxIds.push(taxPrivs[i].taxonomyId);
+					}
+					if (taxPrivs[i].taxonomyId && !roleTaxIds.includes(taxPrivs[i].taxonomyId)) {
+						roleTaxIds.push(taxPrivs[i].taxonomyId);
+					}
+				}
+				roleInfo.push({
+					name: role.name,
+					role: role,
+					types: roleTypeNames,
+					taxonomyIds: roleTaxIds
+				});
+			});
+
+			console.info(' - content types: ' + typeNames);
+
+			// query to get taxonomy names
+			let taxPromises = [];
+			taxIds.forEach(function (taxId) {
+				taxPromises.push(serverRest.getTaxonomy({ server: server, id: taxId }));
+			});
+
+			return Promise.all(taxPromises);
+
+		})
+		.then(function (results) {
+			var taxonomies = results || [];
+			taxonomies.forEach(function (tax) {
+				taxNames.push(tax.name);
+			});
+			console.info(' - taxonomies: ' + taxNames);
+
+			roleInfo.forEach(function (role) {
+				var roleTax = [];
+				for (let i = 0; i < role.taxonomyIds.length; i++) {
+					for (let j = 0; j < taxonomies.length; j++) {
+						if (role.taxonomyIds[i] === taxonomies[j].id) {
+							roleTax.push({
+								id: taxonomies[j].id,
+								name: taxonomies[j].name,
+								shortName: taxonomies[j].shortName
+							});
+							break;
+						}
+					}
+				}
+				role.taxonomies = roleTax;
+			});
+			// console.log(roleInfo);
+
+			// query the types on the target server
+			let typePromises = [];
+			typeNames.forEach(function (typeName) {
+				typePromises.push(serverRest.getContentType({ server: destServer, name: typeName, showError: false }));
+			});
+
+			return Promise.all(typePromises);
+
+		})
+		.then(function (results) {
+			typesOnTarget = results || [];
+
+			// query the taxonomies on the target server, require ID match
+			let taxPromises = [];
+			taxIds.forEach(function (taxId) {
+				taxPromises.push(serverRest.getTaxonomy({ server: destServer, id: taxId, showError: false }));
+			});
+
+			return Promise.all(taxPromises);
+
+		})
+		.then(function (results) {
+			taxOnTarget = results || [];
+			// console.log(taxOnTarget);
+
+			roleInfo.forEach(function (info) {
+				var noneExistTypes = [];
+				for (let i = 0; i < info.types.length; i++) {
+					let found = false;
+					for (let j = 0; j < typesOnTarget.length; j++) {
+						if (info.types[i] === typesOnTarget[j].name) {
+							found = true;
+							break;
+						}
+					}
+					if (!found) {
+						noneExistTypes.push(info.types[i]);
+					}
+				}
+				var noneExistTax = [];
+				for (let i = 0; i < info.taxonomies.length; i++) {
+					let found = false;
+					for (let j = 0; j < taxOnTarget.length; j++) {
+						if (info.taxonomies[i].id === taxOnTarget[j].id) {
+							found = true;
+							break;
+						}
+					}
+					if (!found) {
+						noneExistTax.push(info.taxonomies[i].name + '(' + info.taxonomies[i].shortName + ')');
+					}
+				}
+				if (noneExistTypes.length > 0 || noneExistTax.length > 0) {
+					console.error('ERROR: role ' + info.name + ' ' +
+						(noneExistTypes.length > 0 ? 'type ' + noneExistTypes + ' not exist on destination server ' : '') +
+						(noneExistTax.length > 0 ? 'taxonomy ' + noneExistTax + ' not exist on destination server ' : ''));
+				} else {
+					rolesToTransfer.push(info.role);
+					roleNamesToTransfer.push(info.name);
+				}
+			});
+
+			if (roleNamesToTransfer.length === 0) {
+				return Promise.reject();
+			}
+
+			console.info(' - will transfer role ' + roleNamesToTransfer);
+
+			// update the type ID with the one on target server
+			rolesToTransfer.forEach(function (role) {
+				var cntPrivs = role.contentPrivileges || [];
+				for (let i = 0; i < cntPrivs.length; i++) {
+					if (cntPrivs[i].typeName) {
+						let idOnTarget = undefined;
+						for (let j = 0; j < typesOnTarget.length; j++) {
+							if (cntPrivs[i].typeName === typesOnTarget[j].name) {
+								idOnTarget = typesOnTarget[j].id;
+								break;
+							}
+						}
+
+						if (idOnTarget) {
+							cntPrivs[i].typeId = idOnTarget;
+						} else {
+							console.error('ERROR: type ' + cntPrivs[i].typeName + ' ID not found on destination server');
+						}
+					}
+				}
+			});
+
+			// check if the roles exist on the target server
+			let rolePromises = [];
+			roleNamesToTransfer.forEach(function (name) {
+				rolePromises.push(serverRest.getEditorialRoleWithName({ server: destServer, name: name }));
+			});
+
+			return Promise.all(rolePromises);
+
+		})
+		.then(function (results) {
+			let rolesOnTarget = results || [];
+
+			rolesToTransfer.forEach(function (role) {
+				let roleIdOnTarget = undefined;
+				for (let i = 0; i < rolesOnTarget.length; i++) {
+					if (rolesOnTarget[i].data && role.name === rolesOnTarget[i].data.name) {
+						roleIdOnTarget = rolesOnTarget[i].data.id;
+						break;
+					}
+				}
+				if (roleIdOnTarget) {
+					role.id = roleIdOnTarget;
+					rolesToUpdate.push(role);
+				} else {
+					rolesToCreate.push(role);
+				}
+			});
+
+			let createPromises = [];
+			rolesToCreate.forEach(function (role) {
+				createPromises.push(serverRest.createEditorialRole({
+					server: destServer,
+					name: role.name,
+					description: role.description,
+					contentPrivileges: role.contentPrivileges,
+					taxonomyPrivileges: role.taxonomyPrivileges
+				}));
+			});
+
+			return Promise.all(createPromises);
+		})
+		.then(function (results) {
+			var createdRoles = results || [];
+			rolesToCreate.forEach(function (role) {
+				let found = false;
+				for (let i = 0; i < createdRoles.length; i++) {
+					if (role.name === createdRoles[i].name) {
+						found = true;
+						break;
+					}
+				}
+				if (found) {
+					allFailed = false;
+					console.log(' - created role ' + role.name + ' on destination server')
+				} else {
+					console.error('ERROR: failed to create role ' + role.name + ' on destination server');
+				}
+			});
+
+			let updatePromises = [];
+			rolesToUpdate.forEach(function (role) {
+				updatePromises.push(serverRest.updateEditorialRole({
+					server: destServer,
+					role: role
+				}));
+			});
+
+			return Promise.all(updatePromises);
+		})
+		.then(function (results) {
+			var updatedRoles = results || [];
+			rolesToUpdate.forEach(function (role) {
+				let found = false;
+				for (let i = 0; i < updatedRoles.length; i++) {
+					if (role.name === updatedRoles[i].name) {
+						found = true;
+						break;
+					}
+				}
+				if (found) {
+					allFailed = false;
+					console.log(' - updated role ' + role.name + ' on destination server')
+				} else {
+					console.error('ERROR: failed to update role ' + role.name + ' on destination server');
+				}
+			});
+
+			done(!allFailed);
+		})
+		.catch((error) => {
+			if (error) {
+				console.error(error);
+			}
+			done();
+		});
+};
+
 
 module.exports.createLocalizationPolicy = function (argv, done) {
 	'use strict';
@@ -6298,6 +6642,42 @@ module.exports.listAssets = function (argv, done) {
 	}
 	console.log(' - properties to show: ' + propertiesToShow);
 
+	//
+	// hidden param
+	//
+	var assetsFile = argv.assetsfile;
+	var assetsInFile = [];
+	if (assetsFile) {
+		var filePath = assetsFile;
+		if (!path.isAbsolute(filePath)) {
+			filePath = path.join(projectDir, filePath);
+		}
+		filePath = path.resolve(filePath);
+
+		if (!fs.existsSync(filePath)) {
+			console.error('ERROR: file ' + filePath + ' does not exist');
+			done();
+			return;
+		}
+		if (fs.statSync(filePath).isDirectory()) {
+			console.error('ERROR: file ' + filePath + ' is not a file');
+			done();
+			return;
+		}
+
+		try {
+			assetsInFile = JSON.parse(fs.readFileSync(filePath));
+		} catch (e) {
+			console.error(e);
+		}
+		if (assetsInFile.length === 0) {
+			console.error('ERROR: file ' + filePath + ' does not contain any asset GUID');
+			done();
+			return;
+		}
+		// console.log(' - total asset GUIDs in file ' + assetsFile + ': ' + assetsInFile.length);
+	}
+
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.error(result.statusMessage);
@@ -6446,22 +6826,25 @@ module.exports.listAssets = function (argv, done) {
 					}
 					q = q + '(' + query + ')';
 				}
-
-				if (q) {
+				if (assetsInFile.length > 0) {
+					console.info(' - query assets from file');
+				} else if (q) {
 					console.info(' - query: ' + q);
 				} else {
 					console.info(' - query all assets');
 				}
 
 				startTime = new Date();
-				return serverRest.queryItems({
-					server: server,
-					q: q,
-					fields: 'name,status,slug,language,publishedChannels,languageIsMaster,translatable,createdDate,createdBy,updatedDate,updatedBy,version,versionInfo',
-					includeAdditionalData: true,
-					orderBy: orderBy,
-					rankBy: rankingApiName
-				});
+				let fields = 'name,status,slug,language,publishedChannels,languageIsMaster,translatable,createdDate,createdBy,updatedDate,updatedBy,version,versionInfo,typeCategory';
+				return (assetsInFile.length > 0 ? contentUtils.queryItemsWithIds(server, '', assetsInFile, fields) :
+					serverRest.queryItems({
+						server: server,
+						q: q,
+						fields: fields,
+						includeAdditionalData: true,
+						orderBy: orderBy,
+						rankBy: rankingApiName
+					}));
 			})
 			.then(function (result) {
 				if (result.err) {
@@ -6469,9 +6852,9 @@ module.exports.listAssets = function (argv, done) {
 				}
 
 				var timeSpent = serverUtils.timeUsed(startTime, new Date());
-				items = result && result.data || [];
+				items = assetsInFile.length > 0 ? result || [] : result && result.data || [];
 				total = items.length;
-				limit = result.limit;
+				limit = result.limit || total;
 
 				console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
 
@@ -6511,7 +6894,7 @@ module.exports.listAssets = function (argv, done) {
 				}
 
 				var validatePromises = [];
-				if (validate && items.length > 0) {
+				if (validate && items.length > 0 && !assetsFile) {
 					var ids = [];
 					items.forEach(function (item) {
 						ids.push(item.id);
@@ -6523,32 +6906,63 @@ module.exports.listAssets = function (argv, done) {
 
 			})
 			.then(function (results) {
-				if (validate && items.length > 0) {
-					var notFound = [];
-					var validatedItems = results[0];
-					if (validatedItems.length !== items.length) {
-						items.forEach(function (item) {
+				var validatedItems = [];
+				if (assetsFile) {
+					// always validate existence
+					validatedItems = items;
+					let notFound = [];
+					if (validatedItems.length !== assetsInFile.length) {
+						assetsInFile.forEach(function (itemId) {
 							var found = false;
 							for (var i = 0; i < validatedItems.length; i++) {
-								if (item.id === validatedItems[i].id) {
+								if (itemId === validatedItems[i].id) {
 									found = true;
 									break;
 								}
 							}
 							if (!found) {
-								notFound.push(item);
+								notFound.push(itemId);
 							}
 						});
 					}
 					if (notFound.length > 0) {
 						console.log(' - items not found:');
-						var format = '   %-38s %-38s %-s';
-						console.log(sprintf(format, 'Type', 'Id', 'Name'));
-						notFound.forEach(function (item) {
-							console.log(sprintf(format, item.type, item.id, item.name));
+						let format = '   %-s';
+						notFound.forEach(function (itemId) {
+							console.log(sprintf(format, itemId));
 						});
-						console.log(JSON.stringify(notFound, null, 4));
+						// console.log(JSON.stringify(notFound, null, 4));
 					}
+				}
+				if (validate && items.length > 0) {
+					if (!assetsFile) {
+						var notFound = [];
+						validatedItems = results[0];
+						if (validatedItems.length !== items.length) {
+							items.forEach(function (item) {
+								var found = false;
+								for (var i = 0; i < validatedItems.length; i++) {
+									if (item.id === validatedItems[i].id) {
+										found = true;
+										break;
+									}
+								}
+								if (!found) {
+									notFound.push(item);
+								}
+							});
+						}
+						if (notFound.length > 0) {
+							console.log(' - items not found:');
+							let format = '   %-38s %-38s %-s';
+							console.log(sprintf(format, 'Type', 'Id', 'Name'));
+							notFound.forEach(function (item) {
+								console.log(sprintf(format, item.type, item.id, item.name));
+							});
+							// console.log(JSON.stringify(notFound, null, 4));
+						}
+					}
+
 					var digitalAssets = [];
 					validatedItems.forEach(function (item) {
 						if (item.typeCategory === 'DigitalAssetType') {
@@ -8187,5 +8601,6 @@ var _createItemFromWord = function (server, filePath, repository) {
 
 // export non "command line" utility functions
 module.exports.utils = {
+	getAllTypes: _getAllTypes,
 	renameAssetIds: _renameAssetIds
 };

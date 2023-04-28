@@ -1758,7 +1758,7 @@ module.exports.downloadFolder = function (argv, done) {
 	});
 };
 
-var _downloadFolder = function (argv, server, showError, showDetail, excludeFolder) {
+var _downloadFolder = function (argv, server, showError, showDetail, excludeFolder, fileGroupSize) {
 	return new Promise(function (resolve, reject) {
 		var targetPath;
 		if (argv.folder) {
@@ -1776,6 +1776,8 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 				return reject();
 			}
 		}
+
+		var groupSize = fileGroupSize === undefined ? 50 : fileGroupSize;
 
 		var inputPath = argv.path === '/' ? '' : serverUtils.trimString(argv.path, '/');
 		var resourceFolder = false;
@@ -1884,7 +1886,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 					// console.log(' _files: ' + _files.length);
 
 					// 50 per group
-					return _readAllFiles(server, _files, showDetail, 50);
+					return _readAllFiles(server, _files, showDetail, groupSize);
 				})
 				.then(function (results) {
 					// check if there is any failed file
@@ -1957,7 +1959,8 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 					if (failedFiles.length > 0) {
 						// console.log(failedFiles);
 						console.info(' - try to download failed files again ...');
-						readFilesRetryPromises.push(_readAllFiles(server, failedFiles, showDetail));
+						let retryGroupSize = groupSize > 10 ? 10 : groupSize;
+						readFilesRetryPromises.push(_readAllFiles(server, failedFiles, showDetail, retryGroupSize));
 					}
 
 					return Promise.all(readFilesRetryPromises);

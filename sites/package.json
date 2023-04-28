@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "23.4.1",
+	"version": "23.4.2",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -97,6 +97,7 @@
 		"list": "gulp -LL --gulpfile bin/gulpfile.js list ",
 		"list-activities": "gulp -LL --gulpfile bin/gulpfile.js list-activities ",
 		"create-site": "gulp -LL --gulpfile bin/gulpfile.js create-site ",
+		"create-site-page": "gulp -LL --gulpfile bin/gulpfile.js create-site-page ",
 		"copy-site": "gulp -LL --gulpfile bin/gulpfile.js copy-site ",
 		"transfer-site": "gulp -LL --gulpfile bin/gulpfile.js transfer-site ",
 		"transfer-site-content": "gulp -LL --gulpfile bin/gulpfile.js transfer-site-content ",
@@ -106,6 +107,7 @@
 		"unshare-site": "gulp -LL --gulpfile bin/gulpfile.js unshare-site ",
 		"delete-site": "gulp -LL --gulpfile bin/gulpfile.js delete-site ",
 		"describe-site": "gulp -LL --gulpfile bin/gulpfile.js describe-site ",
+		"describe-site-page": "gulp -LL --gulpfile bin/gulpfile.js describe-site-page ",
 		"get-site-security": "gulp -LL --gulpfile bin/gulpfile.js get-site-security ",
 		"set-site-security": "gulp -LL --gulpfile bin/gulpfile.js set-site-security ",
 		"update-site": "gulp -LL --gulpfile bin/gulpfile.js update-site ",
@@ -144,6 +146,7 @@
 		"create-editorial-role": "gulp -LL --gulpfile bin/gulpfile.js create-editorial-role ",
 		"set-editorial-role": "gulp -LL --gulpfile bin/gulpfile.js set-editorial-role ",
 		"delete-editorial-role": "gulp -LL --gulpfile bin/gulpfile.js delete-editorial-role ",
+		"transfer-editorial-role": "gulp -LL --gulpfile bin/gulpfile.js transfer-editorial-role ",
 		"share-type": "gulp -LL --gulpfile bin/gulpfile.js share-type ",
 		"unshare-type": "gulp -LL --gulpfile bin/gulpfile.js unshare-type ",
 		"download-type": "gulp -LL --gulpfile bin/gulpfile.js download-type ",
@@ -224,8 +227,8 @@
 		"@oracle/oraclejet": "14.0.4",
 		"body-parser": "1.19.2",
 		"chai": "4.3.7",
-		"cheerio": "1.0.0-rc.9",
-		"deepmerge": "4.2.2",
+		"cheerio": "1.0.0-rc.12",
+		"deepmerge": "4.3.1",
 		"express": "4.17.3",
 		"extract-zip": "2.0.1",
 		"fast-xml-parser": "4.0.12",
@@ -248,7 +251,7 @@
 		"sprintf-js": "1.1.2",
 		"uglify-js": "3.17.4",
 		"underscore": "1.13.6",
-		"yargs": "17.0.1"
+		"yargs": "17.7.1"
 	},
 	"overrides": {
 		"es5-ext": "0.10.53",

@@ -58,6 +58,9 @@ var channelAccessToken = '', // channel access token for the site
 	lastStatusUpdate = 0, // the last time an update was sent
 	zipFileName = "items.zip",
 	zipFile, // the complete path to the zip file
+	partialContentCompile, // this is true if we are doing multiple processes to compile content
+	assetFile, // file containing list of IDs to compile
+	fileBoundary, // start,end values within the asset file (if it doens't exist, all assets listed will be compiled)
 	installedNodePackages = [],
 	itemResults = {}, // results of compilation for each item
 	systemFormats = ['contentlistdefault', 'contentplaceholderdefault', 'default', 'emptycontentlistdefault'];
@@ -140,14 +143,27 @@ var compiler = {
 
 				(Array.isArray(packages) ? packages : (typeof packages === 'string' ? [packages] : [])).forEach(function (package) {
 					if (installedNodePackages.indexOf(package) === -1) {
-						// try to install this package
-						nodePackages.push(package);
+						// check if it has already been installed
+						var alreadyInstalled = false; 
+						try {
+							var checkPackage = require(package);
+							var checkVersion = require(package + '/package.json').version
+							alreadyInstalled = true; 
+						} catch (err) {
+							// not installed, install the package
+						}
+
+						if (!alreadyInstalled) {
+							// try to install this package
+							nodePackages.push(package);
+						}
 
 						// don't try to install this package again
 						installedNodePackages.push(package);
 					}
 				});
 
+				// see if the node package has already been installed
 				if (nodePackages.length > 0) {
 					compilationReporter.info({
 						message: 'Installing node packages: "' + nodePackages + '"'
@@ -227,14 +243,8 @@ var customContentCompilers = {};
 var getCustomContentCompiler = function (contentContext, componentName) {
 	if (!customContentCompilers[componentName]) {
 		customContentCompilers[componentName] = new Promise(function (resolve, reject) {
-			console.log(' - downloading component: ' + componentName);
 
-			// download the custom content layout component from the server
-			componentLib.downloadComponent({
-				server: server.name,
-				component: componentName,
-				projectDir: projectDir
-			}, function () {
+			var checkComponentDetails = function () {
 				// see if the custom component has a compile.js or compile.mjs file
 				var compileFile = path.normalize(componentsFolder + '/' + componentName + '/assets/compile'),
 					moduleFile = path.join(componentsFolder + '/' + componentName + '/assets/compile.mjs'),
@@ -258,7 +268,22 @@ var getCustomContentCompiler = function (contentContext, componentName) {
 						resolve('');
 					}
 				}
-			});
+			};
+
+			// download the custom content layout component from the server if it doesn't exist
+			if (fs.existsSync(path.join(componentsFolder, componentName))) {
+				console.log(' - using downloaded component: ' + componentName);
+				checkComponentDetails();
+			} else {
+				console.log(' - downloading component: ' + componentName);
+				componentLib.downloadComponent({
+					server: server.name,
+					component: componentName,
+					projectDir: projectDir
+				}, function () {
+					checkComponentDetails();
+				});
+			}
 		});
 	}
 	return customContentCompilers[componentName];
@@ -727,6 +752,11 @@ var zipCompiledContent = function (contentContext) {
 			console.log('Creating zip file of compiled content: ' + zipFile);
 			compilationReporter.renderReport();
 
+			// if this is a partial compile, we are done. Final zip will happen after all partial compiles are complete
+			if (partialContentCompile) { 
+				return resolve(); 
+			}
+
 			// zip up all the files
 			if (isWindowsOS) {
 				// for windows machines, try using gulp-zip
@@ -749,6 +779,11 @@ var zipCompiledContent = function (contentContext) {
 
 // update the rendition status on the server
 var updateStatus = function (args) {
+	// if this is a partial compile, don't update status
+	if (partialContentCompile) {
+		return Promise.resolve();
+	}
+
 	var status = args.status,
 		progress = args.progress;
 
@@ -812,7 +847,29 @@ var initializeContent = function () {
 	// get the content Ids
 	var getContentItems = function () {
 		return new Promise(function (resolve, reject) {
-			if (contentIds) {
+			if (assetFile) {
+				// load the IDs from the file
+				try {
+					var fileData = fs.readFileSync(assetFile, { encoding: 'utf8' });
+					var fileIds = JSON.parse(fileData); 
+
+					if (fileBoundary) {
+					 	if (fileBoundary.length > 1) {
+							fileIds = fileIds.slice(fileBoundary[0], fileBoundary[1]);
+						} else {
+							fileIds = fileIds.slice(fileBoundary[0]);
+						}
+					} 
+
+					return resolve(fileIds);
+				} catch (e) {
+					compilationReporter.error({
+						message: 'publishingJob: failed to load or parse asset file: ' + assetFile,
+						error: e
+					});
+					return resolve([]);
+				}
+			} else if (contentIds) {
 				// coerce format to expected value without version
 				// currently don't support versions when specifying individual items
 				var items = contentIds.map(function (id) {
@@ -962,7 +1019,16 @@ var compileContent = function (args) {
 	channelAccessToken = args.channelToken || '';
 	server = args.server;
 	projectDir = args.currPath;
-	itemsDir = path.join(projectDir, 'dist', 'items');
+	assetFile = args.assetFile || '';
+	fileBoundary = typeof args.fileBoundary === 'string' ? args.fileBoundary.split(',') : '';
+	partialContentCompile = (assetFile && fileBoundary); // if we have an asset file and file boundary then we are doing a partial compile
+
+	if (partialContentCompile) {
+		// if splitting by boundary, put each group of items into separate folder
+		itemsDir = path.join(projectDir, 'dist', 'items' + fileBoundary[0]);
+	} else {
+		itemsDir = path.join(projectDir, 'dist', 'items');
+	}
 
 	console.log("Oracle Content Management Content Compiler");
 	console.log("");

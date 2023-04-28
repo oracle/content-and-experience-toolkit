@@ -3,8 +3,6 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
-const { end } = require('cheerio/lib/api/traversing.js');
-
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),

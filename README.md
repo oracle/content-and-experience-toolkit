@@ -15,6 +15,26 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.4.2
+
+**Added**
+- `cec transfer-editorial-role` - Transfer editorial roles from one OCM server to another
+- `cec export-site` - Exports an Enterprise Site
+- `cec cancel-export-job` - Cancels a site export job
+- `cec delete-export-job` - Deletes a site export job
+- `cec list-export-jobs` - Lists site export jobs
+- `cec describe-export-job` - Lists the properties of a site export job
+- `cec import-site` - Imports an Enterprise Site
+- `cec cancel-import-job` - Cancels a site import job
+- `cec delete-import-job` - Deletes a site import job
+- `cec list-import-jobs` - Lists site import jobs
+- `cec describe-import-job` - Lists the properties of a site import job
+- `cec unblock-import-job` - Unblocks a site import job
+
+**Updated**
+- `cec create-component` - Now supports creating React and Preact local components
+
+
 # New in Release 23.4.1
 
 **Added**

@@ -2021,6 +2021,10 @@ var _describeExportJob = function (server, id) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		// Note: Export service on dev instances requires additional header
+		if (server.env === 'dev_ec') {
+			options.headers.IDCS_REMOTE_USER = server.username;
+		}
 		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
@@ -2085,6 +2089,10 @@ var _describeImportJob = function (server, id) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		// Note: Export service on dev instances requires additional header
+		if (server.env === 'dev_ec') {
+			options.headers.IDCS_REMOTE_USER = server.username;
+		}
 		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;

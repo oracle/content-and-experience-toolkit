@@ -3,10 +3,6 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
-const {
-	end
-} = require('cheerio/lib/api/traversing');
-const { off } = require('process');
 var request = require('request'),
 	os = require('os'),
 	fs = require('fs'),
@@ -852,8 +848,10 @@ module.exports.downloadFileSave = function (args) {
 module.exports.downloadByURLSave = function (args) {
 	var url = args.url;
 	var noMsg = true;
+	var noError = true;
+	var headers = args.headers;
 	var writer = fs.createWriteStream(args.saveTo);
-	return _executeGetStream(args.server, url, writer, noMsg);
+	return _executeGetStream(args.server, url, writer, noMsg, noError, headers);
 };
 
 // Delete file from server
@@ -4568,6 +4566,7 @@ module.exports.getTaxonomy = function (args) {
 		if (!args.id) {
 			return resolve({});
 		}
+		var showError = args.showError === undefined ? true : args.showError;
 		var taxonomyId = args.id;
 		var server = args.server;
 
@@ -4588,8 +4587,10 @@ module.exports.getTaxonomy = function (args) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: failed to get taxonomy ' + taxonomyId);
-				console.error(error);
+				if (showError) {
+					console.error('ERROR: failed to get taxonomy ' + taxonomyId);
+					console.error(error);
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -4605,7 +4606,9 @@ module.exports.getTaxonomy = function (args) {
 				return resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.error('ERROR: failed to get taxonomy ' + taxonomyId + '  : ' + msg);
+				if (showError) {
+					console.error('ERROR: failed to get taxonomy ' + taxonomyId + '  : ' + msg);
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -5426,7 +5429,7 @@ module.exports.getEditorialRoleWithName = function (args) {
 };
 
 // Create an editorial role on server
-var _createEditorialRole = function (server, name, description) {
+var _createEditorialRole = function (server, name, description, contentPrivilegesToCreate, taxonomyPrivilegesToCreate) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -5434,12 +5437,12 @@ var _createEditorialRole = function (server, name, description) {
 			} else {
 				var csrfToken = result && result.token;
 
-				var contentPrivileges = [{
+				var contentPrivileges = contentPrivilegesToCreate || [{
 					typeId: '',
 					typeName: 'any',
 					operations: ['view']
 				}];
-				var taxonomyPrivileges = [{
+				var taxonomyPrivileges = taxonomyPrivilegesToCreate || [{
 					taxonomyId: 'any',
 					categoryId: '',
 					operations: ['view']
@@ -5502,10 +5505,12 @@ var _createEditorialRole = function (server, name, description) {
  * @param {object} args.server the server object
  * @param {string} args.name The name of the editorial role to create.
  * @param {string} args.description The description of the editorial role.
+ * @param {string} args.contentPrivileges The contentPrivileges of the editorial role.
+ * @param {string} args.taxonomyPrivileges The taxonomyPrivileges of the editorial role.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createEditorialRole = function (args) {
-	return _createEditorialRole(args.server, args.name, args.description);
+	return _createEditorialRole(args.server, args.name, args.description, args.contentPrivileges, args.taxonomyPrivileges);
 };
 
 // Update an editorial role on server
@@ -8599,14 +8604,15 @@ module.exports.removeMembersFromGroup = function (args) {
  * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server The server object
  * @param {string} args.endpoint The REST endpoint
+ * @param {string} args.headers The additional headers
  * @returns {Promise.<object>} The data returned by the server.
  * @returns
  */
 module.exports.executeGet = function (args) {
-	return _executeGet(args.server, args.endpoint, args.noMsg);
+	return _executeGet(args.server, args.endpoint, args.noMsg, args.headers);
 };
 
-var _executeGet = function (server, endpoint, noMsg) {
+var _executeGet = function (server, endpoint, noMsg, headers) {
 	return new Promise(function (resolve, reject) {
 		var showDetail = noMsg ? false : true;
 		var url;
@@ -8616,16 +8622,19 @@ var _executeGet = function (server, endpoint, noMsg) {
 			url = server.url + endpoint;
 		}
 
+		var hdrs = Object.assign(headers || {}, {
+			Authorization: serverUtils.getRequestAuthorization(server)
+		});
+
 		var options = {
 			url: url,
 			encoding: null,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
+			headers: hdrs
 		};
 		if (server.cookies) {
 			options.headers.Cookie = server.cookies;
 		}
+
 		serverUtils.showRequestOptions(options);
 
 		if (showDetail) {
@@ -8664,10 +8673,10 @@ var _executeGet = function (server, endpoint, noMsg) {
 };
 
 module.exports.executeGetStream = function (args) {
-	return _executeGetStream(args.server, args.endpoint, args.writer, args.noMsg, args.noError);
+	return _executeGetStream(args.server, args.endpoint, args.writer, args.noMsg, args.noError, args.headers);
 };
 
-var _executeGetStream = function (server, endpoint, writer, noMsg, noError) {
+var _executeGetStream = function (server, endpoint, writer, noMsg, noError, headers) {
 	return new Promise(function (resolve, reject) {
 		var showDetail = noMsg ? false : true;
 		var showError = noError ? false : true;
@@ -8678,12 +8687,13 @@ var _executeGetStream = function (server, endpoint, writer, noMsg, noError) {
 			url = server.url + endpoint;
 		}
 
+		var hdrs = Object.assign(headers || {}, {
+			Authorization: serverUtils.getRequestAuthorization(server)
+		});
 		var options = {
 			url: url,
 			encoding: null,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
+			headers: hdrs
 		};
 		if (server.cookies) {
 			options.headers.Cookie = server.cookies;
@@ -8744,6 +8754,7 @@ var _executeGetStream = function (server, endpoint, writer, noMsg, noError) {
  * @param {string} args.contentType The request content type
  * @param {string} args.body The JSON object for the request payload
  * @param {boolean} args.async Send asynchronous request
+ * @param {string} args.headers The additional headers
  * @returns
  */
 module.exports.executePost = function (args) {
@@ -9060,6 +9071,7 @@ module.exports.executePatch = function (args) {
  * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server The server object
  * @param {string} args.endpoint The REST endpoint
+ * @param {string} args.headers The additional headers
  * @returns
  */
 module.exports.executeDelete = function (args) {
@@ -9082,15 +9094,15 @@ module.exports.executeDelete = function (args) {
 		Promise.all(caasTokenPromises)
 			.then(function (results) {
 				var csrfToken = results && results[0] && results[0].token;
-
+				var hdrs = Object.assign(args.headers || {}, {
+					'Content-Type': 'application/json',
+					'X-REQUESTED-WITH': 'XMLHttpRequest',
+					Authorization: serverUtils.getRequestAuthorization(server)
+				});
 				var options = {
 					method: 'DELETE',
 					url: url,
-					headers: {
-						'Content-Type': 'application/json',
-						'X-REQUESTED-WITH': 'XMLHttpRequest',
-						Authorization: serverUtils.getRequestAuthorization(server)
-					}
+					headers: hdrs
 				};
 
 				if (csrfToken) {

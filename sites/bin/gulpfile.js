@@ -1638,6 +1638,18 @@ gulp.task('create-site', function (done) {
 });
 
 /**
+ * Create new site page
+ */
+gulp.task('create-site-page', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.createSitePage(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Copy enterprise site
  */
 gulp.task('copy-site', function (done) {
@@ -1753,6 +1765,18 @@ gulp.task('describe-site', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.describeSite(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Describe site page
+ */
+gulp.task('describe-site-page', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.describeSitePage(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -2177,6 +2201,18 @@ gulp.task('delete-editorial-role', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	assetlib.deleteEditorialRole(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Transfer an Editorial Role
+ */
+gulp.task('transfer-editorial-role', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.transferEditorialRole(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
