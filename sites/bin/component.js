@@ -11,7 +11,6 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	childProcess = require('child_process'),
 	gulp = require('gulp'),
 	fs = require('fs'),
-	fse = require('fs-extra'),
 	path = require('path'),
 	os = require('os'),
 	readline = require('readline'),
@@ -252,7 +251,7 @@ module.exports.copyComponent = function (argv, done) {
 		}
 
 		// copy all files
-		fse.copySync(path.join(componentsSrcDir, srcCompName), path.join(componentsSrcDir, compName));
+		fileUtils.copy(path.join(componentsSrcDir, srcCompName), path.join(componentsSrcDir, compName));
 
 		// update itemGUID
 		if (serverUtils.updateItemFolderJson(projectDir, 'component', compName)) {
@@ -349,7 +348,7 @@ gulp.task('dist', function (done) {
 					console.info(' - copying ' + components[i] + ' component');
 				}
 				// Copy the components to the build folder
-				fse.copySync(path.join(componentsSrcDir, components[i]), path.join(componentsBuildDir, components[i]));
+				fileUtils.copy(path.join(componentsSrcDir, components[i]), path.join(componentsBuildDir, components[i]));
 			}
 		}
 	}

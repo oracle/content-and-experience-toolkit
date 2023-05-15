@@ -17,7 +17,6 @@ var gulp = require('gulp'),
 	childProcess = require('child_process'),
 	cleanCSS = require('gulp-clean-css'),
 	fs = require('fs'),
-	fse = require('fs-extra'),
 	os = require('os'),
 	readline = require('readline'),
 	sprintf = require('sprintf-js').sprintf,
@@ -1469,7 +1468,7 @@ module.exports.copyTemplate = function (argv, done) {
 		}
 
 		// copy template files
-		fse.copySync(path.join(templatesSrcDir, srcTempName), path.join(templatesSrcDir, tempName));
+		fileUtils.copy(path.join(templatesSrcDir, srcTempName), path.join(templatesSrcDir, tempName));
 
 		// update itemGUID for the new template
 		serverUtils.updateItemFolderJson(projectDir, 'template', tempName, 'siteName', tempName);
@@ -1484,7 +1483,7 @@ module.exports.copyTemplate = function (argv, done) {
 		}
 
 		// copy theme files
-		fse.copySync(path.join(themesSrcDir, srcThemeName), path.join(themesSrcDir, themeName));
+		fileUtils.copy(path.join(themesSrcDir, srcThemeName), path.join(themesSrcDir, themeName));
 
 		// update itemGUID for the new theme
 		serverUtils.updateItemFolderJson(projectDir, 'theme', themeName, 'themeName', themeName);
@@ -2492,14 +2491,14 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 				fileUtils.remove(themeSrcDir);
 
 				// move theme to the themes dir
-				fse.moveSync(path.join(tempSrcDir, 'theme'), themeSrcDir);
+				fs.renameSync(path.join(tempSrcDir, 'theme'), themeSrcDir);
 
 				// create soft links
 				var currdir = process.cwd();
 				try {
 					if (fs.existsSync(path.join(themeSrcDir, 'layouts'))) {
 						process.chdir(path.join(themeSrcDir, 'layouts'));
-						fse.ensureSymlinkSync('..', '_scs_theme_root_');
+						fs.symlinkSync('..', '_scs_theme_root_');
 						console.info(' - create link _scs_theme_root_');
 					} else {
 						console.info(' Path does not exist: ' + path.join(themeSrcDir, 'layouts'));
@@ -2507,7 +2506,7 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 
 					if (fs.existsSync(path.join(themeSrcDir, 'designs', 'default'))) {
 						process.chdir(path.join(themeSrcDir, 'designs'));
-						fse.ensureSymlinkSync('default', '_scs_design_name_');
+						fs.symlinkSync('default', '_scs_design_name_');
 						console.info(' - create link _scs_design_name_');
 					} else {
 						console.info(' Path does not exist: ' + path.join(themeSrcDir, 'designs', 'default'));
@@ -2521,7 +2520,7 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 				// move all files under /template up 
 				var files = fs.readdirSync(path.join(tempSrcDir, 'template'));
 				for (var i = 0; i < files.length; i++) {
-					fse.moveSync(path.join(tempSrcDir, 'template', files[i]), path.join(tempSrcDir, files[i]), true);
+					fs.renameSync(path.join(tempSrcDir, 'template', files[i]), path.join(tempSrcDir, files[i]));
 				}
 				fileUtils.remove(path.join(tempSrcDir, 'template'));
 
@@ -2533,7 +2532,7 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 							fileUtils.remove(path.join(componentsSrcDir, comps[i]));
 							console.info(' - override component ' + componentsSrcDir + '/' + comps[i]);
 						}
-						fse.moveSync(path.join(tempSrcDir, 'components', comps[i]), path.join(componentsSrcDir, comps[i]), true);
+						fs.renameSync(path.join(tempSrcDir, 'components', comps[i]), path.join(componentsSrcDir, comps[i]));
 					}
 					fileUtils.remove(path.join(tempSrcDir, 'components'));
 				}
@@ -2648,7 +2647,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 		fileUtils.remove(tempBuildDir);
 
 		// copy template files to build dir: <template name>/template/
-		fse.copySync(tempSrcDir, path.join(tempBuildDir, 'template'));
+		fileUtils.copy(tempSrcDir, path.join(tempBuildDir, 'template'));
 		console.info(' - template ' + name);
 
 		// remove static folder 
@@ -2708,7 +2707,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 		}
 
 		// copy theme files to build dir: <template name>/theme/
-		fse.copySync(themeSrcDir, path.join(tempBuildDir, 'theme'));
+		fileUtils.copy(themeSrcDir, path.join(tempBuildDir, 'theme'));
 		console.info(' - theme ' + themeName);
 
 		// remove soft links
@@ -2795,7 +2794,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 			if (optimize) {
 
 				if (!fs.existsSync(componentsBuildDir)) {
-					fse.mkdirpSync(componentsBuildDir);
+					fs.mkdirSync(componentsBuildDir);
 				}
 
 				// now run gulp on any component's gulp files
@@ -2809,7 +2808,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 
 						fs.mkdirSync(compBuildSrc);
 
-						fse.copySync(compSrcDir, compBuildSrc);
+						fileUtils.copy(compSrcDir, compBuildSrc);
 
 						console.info(' - optimize component ' + comps[i]);
 						// Run 'gulp' under the theme directory
@@ -2833,7 +2832,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 					var optimizePath = path.join(componentsBuildDir, comps[i]);
 					var srcPath = optimize && fs.existsSync(optimizePath) ? optimizePath : compSrcDir;
 					// console.log(' - copy component ' + comps[i] + ' from ' + srcPath);
-					fse.copySync(srcPath, path.join(tempBuildDir, 'components', comps[i]));
+					fileUtils.copy(srcPath, path.join(tempBuildDir, 'components', comps[i]));
 					console.info(' - component ' + comps[i]);
 				}
 			}

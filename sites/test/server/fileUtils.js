@@ -8,7 +8,6 @@
  */
 
 var fs = require('fs'),
-	fse = require('fs-extra'),
 	extract = require('extract-zip');
 
 var console = require('./logger.js').console;
@@ -20,18 +19,19 @@ module.exports.remove = function (srcPath) {
 			if (stat.isFile()) {
 				fs.unlinkSync(srcPath);
 			} else if (stat.isDirectory()) {
-				/* this works only for node 12+ */
-				/*
-				fs.rmdirSync(srcPath, {
-					recursive: true
-				});
-				*/
-
-				fse.removeSync(srcPath);
+				fs.rmSync(srcPath, { recursive: true, force: true });
 			} else if (stat.isSymbolicLink()) {
 				fs.unlinkSync(srcPath);
 			}
 		}
+	} catch (e) {
+		console.error(e);
+	}
+};
+
+module.exports.copy = function (srcPath, destPath) {
+	try {
+		fs.cpSync(srcPath, destPath, { force: true, recursive: true });
 	} catch (e) {
 		console.error(e);
 	}

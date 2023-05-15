@@ -130,7 +130,7 @@ router.get('/*', (req, res) => {
 
 	_setupSourceDir();
 
-	console.info('*** Content: ' + req.url);
+	console.info('*** Content: GET ' + req.url);
 
 	//
 	// redirect the request to the server
@@ -862,7 +862,6 @@ router.post('/*', (req, res) => {
 	// res.end();
 
 	let app = req.app,
-		request = app.locals.request,
 		requestUrl = req.originalUrl;
 
 	if (!app.locals.connectToServer) {
@@ -871,7 +870,7 @@ router.post('/*', (req, res) => {
 		return;
 	}
 
-	console.info('*** Content: ' + req.url);
+	console.info('*** Content: POST ' + req.url);
 
 	console.info('   server channel token: ' + app.locals.channelToken);
 
@@ -900,11 +899,12 @@ router.post('/*', (req, res) => {
 			'X-REQUESTED-WITH': 'XMLHttpRequest',
 			Authorization: serverUtils.getRequestAuthorization(server)
 		},
-		body: req.body,
+		body: JSON.stringify(req.body),
 		json: true
 	};
 	// console.info(postData);
 
+	var request = require('./requestUtils.js').request;
 	request.post(postData, function (error, response, body) {
 		if (error) {
 			console.error('ERROR: request failed ' + url);
@@ -926,6 +926,7 @@ router.post('/*', (req, res) => {
 			} else {
 				console.error('ERROR: request failed ' + url + ' : ' + (response.statusMessage || response.statusCode));
 				res.writeHead(response.statusCode, {});
+				res.write(JSON.stringify(data));
 				res.end();
 			}
 		}

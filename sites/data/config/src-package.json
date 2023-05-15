@@ -22,12 +22,11 @@
 	],
 	"author": "Oracle",
 	"engines": {
-		"node": ">=14.0.0"
+		"node": ">=16.18.1"
 	},
 	"dependencies": {
 		"chai": "4.3.7",
 		"del": "6.1.1",
-		"fs-extra": "10.0.0",
 		"gulp": "4.0.2",
 		"gulp-replace": "1.1.4",
 		"lodash": "4.17.21",
@@ -38,8 +37,8 @@
 		"preact": "10.6.6",
 		"preact-render-to-string": "5.2.6",
 		"puppeteer": "15.3.1",
-		"react": "17.0.2",
-		"react-dom": "17.0.2",
+		"react": "18.2.0",
+		"react-dom": "18.2.0",
 		"requirejs": "2.3.6"
 	},
 	"overrides": {

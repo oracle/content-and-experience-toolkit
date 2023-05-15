@@ -13,7 +13,6 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	componentUtils = require('./component.js').utils,
 	contentUtils = require('./content.js').utils,
 	fs = require('fs'),
-	fse = require('fs-extra'),
 	gulp = require('gulp'),
 	os = require('os'),
 	readline = require('readline'),
@@ -8040,7 +8039,7 @@ var _renameAssetIds = function (argv, templateName, goodContent) {
 							if (stat.isDirectory()) {
 								var newFolder = idMap.get(folder);
 								if (newFolder) {
-									fse.moveSync(folderPath, path.join(typePath, 'files', newFolder));
+									fs.renameSync(folderPath, path.join(typePath, 'files', newFolder));
 									// console.log(' - rename folder ' + folder + ' => ' + newFolder);
 								}
 							}

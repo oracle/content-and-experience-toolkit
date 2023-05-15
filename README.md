@@ -15,6 +15,16 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.5.1.
+
+**Added**
+- `cec create-site-page` - Creates a new page for a site on an OCM server
+- `cec describe-site-page` - Lists the properties of a site page on an OCM server
+
+**Updated**
+- `cec validate-site` and `cec validate-assets` - Added option to save results to a JSON file
+
+
 # New in Release 23.4.2
 
 **Added**

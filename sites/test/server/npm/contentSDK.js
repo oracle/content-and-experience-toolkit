@@ -158,10 +158,10 @@
 			// extract the server part of the URL
 			return parsedURL.protocol + '//' + parsedURL.hostname + (parsedURL.port ? ':' + parsedURL.port : '');
 		},
-		callRestServer: function (targetURL, restArgs) {
+		callRestServerOverHttp: function (targetURL, restArgs) {
 			var self = this;
 
-			_logger.debug('_rest.callRestServer: Calling ' + restArgs.method + ' request with:');
+			_logger.debug('_rest.callRestServerOverHttp: Calling ' + restArgs.method + ' request with:');
 			_logger.debug(targetURL);
 			_logger.debug(restArgs);
 
@@ -315,6 +315,129 @@
 					return self.coerceData(response);
 				} else {
 					return Promise.resolve(response);
+				}
+			});
+		},
+		callRestServerOverFetch: function (targetURL, restArgs) {
+			var self = this;
+
+			_logger.debug('_rest.callRestServerOverFetch: Calling ' + restArgs.method + ' request with:');
+			_logger.debug(targetURL);
+			_logger.debug(restArgs);
+
+			// require in the node REST call dependencies
+			return new Promise(function (resolve, reject) {
+				var beforeSendOK = function (currentOptions) {
+					try {
+						if (typeof restArgs.beforeSend === 'function') {
+							restArgs.beforeSend(currentOptions);
+						}
+						return true;
+					} catch (e) {
+						// error in user code, reject the call
+						reject({
+							status: e,
+							statusText: 'Error in beforeSend() callback'
+						});
+					}
+					return false;
+				};
+
+				var request = require('../requestUtils.js').request;
+				var method = restArgs.method.toUpperCase() || '';
+
+				if (method === 'GET') {
+					var getOptions = {
+						method: 'GET',
+						url: targetURL,
+						headers: {
+							Authorization: restArgs.authorization
+						}
+					};
+
+					if (beforeSendOK(getOptions)) {
+						request.get(getOptions, function (error, response, body) {
+							if (error) {
+								console.error('ERROR: GET request failed');
+								console.error(error);
+								return reject(error);
+							}
+							var data;
+							try {
+								data = JSON.parse(body);
+							} catch (e) {
+								data = body;
+								console.error(e.stack);
+							}
+							if (response && response.statusCode === 200) {
+								return resolve(data);
+							} else {
+								console.error('ERROR: failed GET request: ' + (response ? (response.statusMessage || response.statusCode) : ''));
+								return reject(response.statusMessage);
+							}
+						});
+					}
+				} else if (method === 'POST') {
+					var postOptions = {
+						method: 'POST',
+						url: targetURL,
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: restArgs.authorization
+						},
+						body: JSON.stringify(restArgs.postData),
+						json: true
+					};
+
+					if (beforeSendOK(postOptions)) {
+						request.post(postOptions, function (error, response, body) {
+							if (error) {
+								console.error('ERROR: POST request failed');
+								console.error(error);
+								return reject(error);
+							}
+
+							if (response && response.statusCode >= 200 && response.statusCode < 300) {
+								var data;
+								try {
+									data = JSON.parse(body);
+								} catch (e) {
+									data = body;
+									console.error(e.stack);
+								}
+								return resolve(data);
+							} else {
+								console.error('ERROR: failed to POST request: ' + (response ? (response.statusMessage || response.statusCode) : ''));
+								return reject(response.statusMessage);
+							}
+						});
+					}
+				} else {
+					var unknownMethodError = 'ERROR: REST call failed - unknown method: ' + method;
+					console.error(unknownMethodError);
+					return reject(unknownMethodError);
+				}
+			});
+		},
+		callRestServer: function (targetURL, restArgs) {
+			var self = this;
+			var featureFlags = require('../featureFlags');
+			
+			// create a sites toolkit server entry
+			var serverURL = new URL(targetURL);
+			var server = {
+				env: 'content_sdk',
+				url: serverURL.origin,
+				oauthtoken: restArgs.authorization
+			};
+
+			return featureFlags.checkFeatureFlag(server, 'scs.toolkit.useFetchInContentSDK').then(function (useFetchInContentSDK) {
+				if (useFetchInContentSDK) {
+					// use common toolkit calls
+					return self.callRestServerOverFetch(targetURL, restArgs);
+				} else {
+					// use legacy calls
+					return self.callRestServerOverHttp(targetURL, restArgs);
 				}
 			});
 		}

@@ -10,6 +10,7 @@ var gulp = require('gulp'),
 	contentlayoutlib = require('./contentlayout.js'),
 	contentlib = require('./content.js'),
 	doclib = require('./document.js'),
+	fileUtils = require('../test/server/fileUtils.js'),
 	grouplib = require('./group.js'),
 	reportlib = require('./report.js'),
 	readline = require('readline'),
@@ -26,7 +27,6 @@ var gulp = require('gulp'),
 	translationlib = require('./translation.js'),
 	recommendationlib = require('./recommendation.js'),
 	fs = require('fs'),
-	fse = require('fs-extra'),
 	path = require('path'),
 	childProcess = require('child_process'),
 	argv = require('yargs').argv,
@@ -106,10 +106,10 @@ gulp.task('install-src', function (done) {
 
 	// create the default package.json
 	if (!fs.existsSync(path.join(projectDir, 'package.json'))) {
-		fse.copySync(path.join(configDataDir, 'src-package.json'), path.join(projectDir, 'package.json'));
+		fileUtils.copy(path.join(configDataDir, 'src-package.json'), path.join(projectDir, 'package.json'));
 	}
 	if (!fs.existsSync(path.join(projectDir, 'gulpfile.js'))) {
-		fse.copySync(path.join(buildDataDir, 'src-gulpfile.js'), path.join(projectDir, 'gulpfile.js'));
+		fileUtils.copy(path.join(buildDataDir, 'src-gulpfile.js'), path.join(projectDir, 'gulpfile.js'));
 	}
 
 	var srcFolder = path.join(projectDir, 'src');
@@ -134,7 +134,7 @@ gulp.task('install-src', function (done) {
 		fs.mkdirSync(path.join(projectDir, 'dist'));
 	}
 	if (!fs.existsSync(path.join(projectDir, 'test'))) {
-		fse.copySync(testDataDir, path.join(projectDir, 'test'));
+		fileUtils.copy(testDataDir, path.join(projectDir, 'test'));
 	}
 
 	// ./samples/ 
@@ -142,7 +142,7 @@ gulp.task('install-src', function (done) {
 		fs.mkdirSync(path.join(projectDir, 'samples'));
 	}
 	if (!fs.existsSync(path.join(projectDir, 'samples', 'compile_site.sh'))) {
-		fse.copySync(path.join(configDataDir, 'src-compile_site.sh'), path.join(projectDir, 'samples', 'compile_site.sh'));
+		fileUtils.copy(path.join(configDataDir, 'src-compile_site.sh'), path.join(projectDir, 'samples', 'compile_site.sh'));
 	}
 
 	// set the server in config with existing settings
@@ -181,7 +181,7 @@ gulp.task('install-src', function (done) {
 		var destPath = path.join(projectDir, 'node_modules', item);
 		if (!fs.existsSync(destPath)) {
 			fs.mkdirSync(destPath);
-			fse.copySync(path.join(libsPath, item), destPath);
+			fileUtils.copy(path.join(libsPath, item), destPath);
 			// console.log('Copy ' + item);
 		}
 	});

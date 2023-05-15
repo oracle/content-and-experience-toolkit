@@ -13,7 +13,6 @@ var express = require('express'),
 	os = require('os'),
 	fs = require('fs'),
 	fsp = require('fs').promises,
-	fse = require('fs-extra'),
 	he = require('he'),
 	path = require('path'),
 	readline = require('readline'),
@@ -64,34 +63,34 @@ var _getSourceFolder = function (currPath) {
 	// var srcfolder = newSrc ? path.join(currPath, 'src') : path.join(currPath, 'src', 'main');
 	var srcfolder = path.join(currPath, 'src');
 	if (!fs.existsSync(srcfolder)) {
-		fse.mkdirSync(srcfolder);
+		fs.mkdirSync(srcfolder);
 	}
 	if (!fs.existsSync(path.join(srcfolder, 'components'))) {
-		fse.mkdirSync(path.join(srcfolder, 'components'));
+		fs.mkdirSync(path.join(srcfolder, 'components'));
 	}
 	if (!fs.existsSync(path.join(srcfolder, 'connections'))) {
-		fse.mkdirSync(path.join(srcfolder, 'connections'));
+		fs.mkdirSync(path.join(srcfolder, 'connections'));
 	}
 	if (!fs.existsSync(path.join(srcfolder, 'connectors'))) {
-		fse.mkdirSync(path.join(srcfolder, 'connectors'));
+		fs.mkdirSync(path.join(srcfolder, 'connectors'));
 	}
 	if (!fs.existsSync(path.join(srcfolder, 'content'))) {
-		fse.mkdirSync(path.join(srcfolder, 'content'));
+		fs.mkdirSync(path.join(srcfolder, 'content'));
 	}
 	if (!fs.existsSync(path.join(srcfolder, 'documents'))) {
-		fse.mkdirSync(path.join(srcfolder, 'documents'));
+		fs.mkdirSync(path.join(srcfolder, 'documents'));
 	}
 	if (!fs.existsSync(path.join(srcfolder, 'servers'))) {
-		fse.mkdirSync(path.join(srcfolder, 'servers'));
+		fs.mkdirSync(path.join(srcfolder, 'servers'));
 	}
 	if (!fs.existsSync(path.join(srcfolder, 'templates'))) {
-		fse.mkdirSync(path.join(srcfolder, 'templates'));
+		fs.mkdirSync(path.join(srcfolder, 'templates'));
 	}
 	if (!fs.existsSync(path.join(srcfolder, 'themes'))) {
-		fse.mkdirSync(path.join(srcfolder, 'themes'));
+		fs.mkdirSync(path.join(srcfolder, 'themes'));
 	}
 	if (!fs.existsSync(path.join(srcfolder, 'translationJobs'))) {
-		fse.mkdirSync(path.join(srcfolder, 'translationJobs'));
+		fs.mkdirSync(path.join(srcfolder, 'translationJobs'));
 	}
 
 	return srcfolder;
@@ -393,7 +392,15 @@ module.exports.getRequestAuthorization = function (server) {
 	return _getRequestAuthorization(server);
 };
 var _getRequestAuthorization = function (server) {
-	var auth = server.env === 'dev_ec' || !server.oauthtoken ? ('Basic ' + _btoa(server.username + ':' + server.password)) : ((server.tokentype || 'Bearer') + ' ' + server.oauthtoken);
+	var auth;
+
+	if (server.env === 'content_sdk') {
+		// for ContentSDK server, the oauthtoken contains the authorization value
+		auth = server.oauthtoken; 
+	} else {
+		// create the authorization
+		auth = server.env === 'dev_ec' || !server.oauthtoken ? ('Basic ' + _btoa(server.username + ':' + server.password)) : ((server.tokentype || 'Bearer') + ' ' + server.oauthtoken);
+	}
 
 	return auth;
 };
@@ -1795,6 +1802,47 @@ module.exports.getTenantConfig = function (server) {
 				}
 			}
 			resolve(config);
+		});
+	});
+};
+
+module.exports.getScsTenantConfig = function (server) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_TENANT_CONFIG&IsJson=1';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+
+		_showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.error('ERROR: Failed to get tenant config');
+				console.error(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				// handle invalid json
+			}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.error('ERROR: Failed to get tenant config' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			resolve(data && data.LocalData || {});
 		});
 	});
 };
@@ -4561,12 +4609,11 @@ module.exports.stripTopDirectory = function (dir) {
 						// move each child into dir
 						var srcfile = path.join(subdir, child);
 						var tgtfile = path.join(dir, child);
-						return fse.move(srcfile, tgtfile);
+						return fs.renameSync(srcfile, tgtfile);
 					})).then(() => {
 						// finally remove the empty subdir
-						fse.remove(subdir).then(() => {
-							resolve();
-						});
+						fileUtils.remove(subdir);
+						resolve();
 					});
 				});
 			});

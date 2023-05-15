@@ -14,7 +14,7 @@
 		// Identify the Theme URL for theme assets and the JET CDN version & URL
 		var renderAPI = SCSRenderAPI,
 			themeURLprefix = renderAPI.getThemeUrlPrefix(),
-			JETVersion = 'v4.0.0', 
+			JETVersion = '12.1.0', 
 			CDNPrefix = 'https://static.oracle.com/cdn/jet/' + JETVersion;
 
 		// Define the Require.js config entries to:
@@ -33,14 +33,24 @@
 					'ojtranslations': CDNPrefix + '/default/js/resources',
 					'signals': CDNPrefix + '/3rdparty/js-signals/signals.min',
 					'promise': CDNPrefix + '/3rdparty/es6-promise/es6-promise.min',
-					'ojdnd': CDNPrefix + '/3rdparty/dnd-polyfill/dnd-polyfill-1.0.0.min',
+					'ojdnd': CDNPrefix + '/3rdparty/dnd-polyfill/dnd-polyfill-1.0.2.min',
 					'customElements': CDNPrefix + '/3rdparty/webcomponents/custom-elements.min',
 					'hammerjs': CDNPrefix + '/3rdparty/hammer/hammer-2.0.8.min',
 					'proj4js': CDNPrefix + '/3rdparty/proj4js/dist/proj4',
-					'jqueryui-amd': CDNPrefix + '/3rdparty/jquery/jqueryui-amd-1.12.0.min'
+					'jqueryui-amd': CDNPrefix + '/3rdparty/jquery/jqueryui-amd-1.13.0.min',
+					'knockout': CDNPrefix + '/3rdparty/knockout/knockout-3.5.1',
+					'jquery': CDNPrefix + '/3rdparty/jquery/jquery-3.6.0.min',
+					'text': CDNPrefix + '/3rdparty/require/text',
+					'css': CDNPrefix + '/3rdparty/require-css/css.min',
+					'css-builder': CDNPrefix + '/3rdparty/require-css/css-builder',
+					'normalize': CDNPrefix + '/3rdparty/require-css/normalize',
+					'preact': CDNPrefix + '/3rdparty/preact/dist/preact.umd',
+					'preact/hooks': CDNPrefix + '/3rdparty/preact/hooks/dist/hooks.umd',
+					'preact/compat': CDNPrefix + '/3rdparty/preact/compat/dist/compat.umd',
+					'proj4': CDNPrefix + '/3rdparty/proj4js/dist/proj4',
+					'touchr': CDNPrefix + '/3rdparty/touchr/touchr'
 				}
-			},
-			AltaCSS = CDNPrefix + '/default/css/alta/oj-alta-min.css'; // This is the main css file for the default Alta theme
+			}
 
 		// create a JET require config context
 		var jetRequireCtx = requirejs.config(JETConfig),
@@ -53,8 +63,7 @@
 				'ojs/ojmodule',
 				'ojs/ojnavigationlist',
 				'ojs/ojbutton',
-				'ojs/ojtoolbar',
-				'css!' + AltaCSS
+				'ojs/ojtoolbar'
 			];
 
 

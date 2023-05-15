@@ -9,53 +9,37 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <script type="text/javascript" src="../sitescloud/renderer/app/apps/js/jquery.min.js"></script>
     <script type="text/javascript" src="../sitescloud/renderer/app/apps/js/knockout.min.js"></script>
+    <link href="https://static.oracle.com/cdn/jet/12.1.0/default/css/redwood/oj-redwood-min.css" rel="stylesheet">
     <link href="css/styles.css" rel="stylesheet">
-    <!-- <link href="https://marketing-oracle.slc14vhx.us.oracle.com:8443/documents/static/gemini/gemini-3e0447035584f1a448d8fddf35c8897a1a7d7269.cache.css" rel="stylesheet"> -->
 </head>
 
 <body>
     <div class="branding">
         <div class="brand">
-            <div class="nav">
-                <!-- <button type="button" id="nav-btn" class="menu secondary short osn-clickable" aria-label="Navigation menu" title="Navigation menu"> <span class="icon"></span> </button> -->
+            <img id="logo" data-bind="click: mainPage" class="brand-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIgAAAARCAMAAAAxDRTrAAAApVBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABU/knhAAAANnRSTlMAzCJq/RDdtKWH+ebvBp9xUdGYd2YbA/JZPjct4djISyUT9urCvZKDMY1DCwKqfl5GGLhjHa4JOWDOAAACmElEQVRIx4WV2XqCMBBGg+JSkEWoiCLiDnW3y//+j9YBIkmT+nFuJBMNZ5LJyEqc2F0aDfvAj6qwb8gsf+Izk7huF748PmfB3hD4LDeMLtNY5QPpXQGb5Ncj42QLKKQzRnShsHyIBX0Am5UYF2PIjB02BN5UjZ5rQcIqWDc8PHU9ExpW/J8IjKhZ0QaxZ00yFmTMOftPZJLiDx/0Ei/0eGrkMXqbrTqc1fGwIZN5JbLvNMw/TOCLcQ7AlMY3PkzKnwT3ZpFv9p+IYwDYxUmzpkNuoTerJk82MJ4o59in2LkUGcjhg9iCOUl0XWC7rsc7wE6U9HWREDA99oIuMJqowcQCMk1kBvTrp8gAluf1CAj4THkYbSKRXR7GKz6BXI+6gKuJZEDKywowiyoJc8b36oe1ipDupvdShCznetQHDFXE2QPD6ul7Chz4xqQOPdDMrV3kHbD6f/iMxKwJfOsic2BRixTvnOsYQF1XP4Dde5ZKSJ80dWwXCaFgyj/aAokukgHjWsS5QOA2LSRmFQGw6VS1GreK6O3AlWdpDU8X+QAu/GjOB3Cs/FzdswXwyb+33tJz5eO2i9yB6aMn4Sj7ZWsVNJkCt6ZGQhMw3fx90khuVoNRjVXtjk+Wq1aR01QkrbOm2cFJiS2BhSOK9WbR+HmABWldqwvOoUSiVGlGughPwcrkgHZyabwWgcfXAjB9JkTYnWxHVFnSTXmDIGB3k3y6kxaRXrlwUEQvTALoUM6yCCtswPp6eh+VRKiZeXohDqHQPyVbyKhV4U2hsOXvFH2kk4ISrKtnyGSicfVf69uQod7vQuFOHWgHCe2uPfKlWMa0dyF5ChFRN7iUl3n0YH+Y1c3k5O1sE5yyvyV9yHD/7NLfgCP3y1/ilaUbUwNDfAAAAABJRU5ErkJggg==" alt="undefined logo">
+            <span id="brandText">Content Management</span>
+        </div>
+        <div class="breadcrumb">
+            <div>
+                <a href="/public">Developer</a>&nbsp;&gt;&nbsp;Components
             </div>
-            <a href="/public">
-                <img id="logo" data-bind="click: mainPage" class="brand-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIgAAAARCAMAAAAxDRTrAAAApVBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABU/knhAAAANnRSTlMAzCJq/RDdtKWH+ebvBp9xUdGYd2YbA/JZPjct4djISyUT9urCvZKDMY1DCwKqfl5GGLhjHa4JOWDOAAACmElEQVRIx4WV2XqCMBBGg+JSkEWoiCLiDnW3y//+j9YBIkmT+nFuJBMNZ5LJyEqc2F0aDfvAj6qwb8gsf+Izk7huF748PmfB3hD4LDeMLtNY5QPpXQGb5Ncj42QLKKQzRnShsHyIBX0Am5UYF2PIjB02BN5UjZ5rQcIqWDc8PHU9ExpW/J8IjKhZ0QaxZ00yFmTMOftPZJLiDx/0Ei/0eGrkMXqbrTqc1fGwIZN5JbLvNMw/TOCLcQ7AlMY3PkzKnwT3ZpFv9p+IYwDYxUmzpkNuoTerJk82MJ4o59in2LkUGcjhg9iCOUl0XWC7rsc7wE6U9HWREDA99oIuMJqowcQCMk1kBvTrp8gAluf1CAj4THkYbSKRXR7GKz6BXI+6gKuJZEDKywowiyoJc8b36oe1ipDupvdShCznetQHDFXE2QPD6ul7Chz4xqQOPdDMrV3kHbD6f/iMxKwJfOsic2BRixTvnOsYQF1XP4Dde5ZKSJ80dWwXCaFgyj/aAokukgHjWsS5QOA2LSRmFQGw6VS1GreK6O3AlWdpDU8X+QAu/GjOB3Cs/FzdswXwyb+33tJz5eO2i9yB6aMn4Sj7ZWsVNJkCt6ZGQhMw3fx90khuVoNRjVXtjk+Wq1aR01QkrbOm2cFJiS2BhSOK9WbR+HmABWldqwvOoUSiVGlGughPwcrkgHZyabwWgcfXAjB9JkTYnWxHVFnSTXmDIGB3k3y6kxaRXrlwUEQvTALoUM6yCCtswPp6eh+VRKiZeXohDqHQPyVbyKhV4U2hsOXvFH2kk4ISrKtnyGSicfVf69uQod7vQuFOHWgHCe2uPfKlWMa0dyF5ChFRN7iUl3n0YH+Y1c3k5O1sE5yyvyV9yHD/7NLfgCP3y1/ilaUbUwNDfAAAAABJRU5ErkJggg=="
-                    alt="undefined logo">
-                <span id="brandText">Content Management</span>
-            </a>
+            <select id="layouts" name="layouts" data-bind="options: layouts, optionsText: 'label', value: selectedLayout"></select>
         </div>
-        <div class="clear"></div>
-    </div>
-    <div class="banner">
-        <div>
-            <div id="title" class="text-ellip">Components</div>
-        </div>
-    </div>
-    <!-- breadcrumb -->
-    <div class="breadcrumb">
-        
-        <div>
-			<a href="/public">Developer</a>&nbsp;&gt;&nbsp;Components
-		</div>
-		
-		<div class="breadcrumb-right">
-			<select id="layouts" name="layouts" data-bind="options: layouts, optionsText: 'label', value: selectedLayout">
-			</select>
-		</div>
-	
     </div>
     <!-- filters -->
-    <div class="filter">
-        <span>Components</span>
-        <select id="comptype" name="comptype" data-bind="options: compTypes, optionsText: 'label', value: selectedCompType">
-        </select>
-        <span>Templates</span>
-        <select id="temp" name="temp" data-bind="options: templates, optionsText: 'label', value: selectedTemplate">
-        </select>
+    <div class="toolbox">
+        <div class="toolbar">
+            <span>Components</span>
+            <select id="comptype" name="comptype" data-bind="options: compTypes, optionsText: 'label', value: selectedCompType">
+            </select>
+            <span>Templates</span>
+            <select id="temp" name="temp" data-bind="options: templates, optionsText: 'label', value: selectedTemplate">
+            </select>
+        </div>
 	</div>
-	<!-- ko if: isGrid() === true -->
-    <div class="container cellView" data-bind="foreach: components">
+    <div class="container">
+    <!-- ko if: isGrid() === true -->
+    <ul class="cellView" data-bind="foreach: components">
         <li id="F669A675C5218774F03E4A8C6B64FA588D4AB28069B4" tabindex="-1" class="containerview-item approw skipTarget component">
             <div class="containerview-row-content" role="group"
                 data-bind="attr: {title: name}, click: $parent.navigate">
@@ -73,19 +57,17 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                 <div class="containerview-block containerview-content-area">
                     <div class="containerview-block containerview-info-area">
                         <div class="containerview-name" data-bind="text: name, click: $parent.navigate">AnchorButtons
-                            <a href="#" class="block" title="AnchorButtons" aria-label="AnchorButtons" data-bind="text : name, click: $parent.navigate"
-                                class="text_button">AnchorButtons</a>
+                            <a href="#" class="block" title="AnchorButtons" aria-label="AnchorButtons" data-bind="text : name, click: $parent.navigate" class="text_button">AnchorButtons</a>
                         </div>
-                        <div class="containerview-status">&nbsp;</div>
                     </div>
                     <div data-bind="text: type" class="capsule"></div>
                 </div>
             </div>
         </li>
-	</div>
+	</ul>
 	<!-- /ko -->
 	<!-- ko if: isGrid() === false -->
-	<div class="rowView" id="listContainer" data-bind="foreach: components">
+	<ul class="rowView" id="listContainer" data-bind="foreach: components">
 		<li id="FC6C25C17FAB33A07FE86ABC5CBD7843730FAB23A1D5" aria-describedby="contextMenuHelp" tabindex="0">
 			<div class="containerview-row-content"> 
 			<span class="containerview-thumbnail">
@@ -98,8 +80,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			<span class="containerview-content-area">     
 				<span class="containerview-textarea1">    
 					<div class="containerview-name" data-bind="text: name, click: $parent.navigate">
-						<a href="#" class="block" title="AnchorButtons" aria-label="AnchorButtons" data-bind="text : name, click: $parent.navigate"
-					   		class="text_button">AnchorButtons</a>
+						<a href="#" class="block" title="AnchorButtons" aria-label="AnchorButtons" data-bind="text : name, click: $parent.navigate" class="text_button">AnchorButtons</a>
 					</div>
 				</span> 
 				<span class="containerview-textarea2">        
@@ -109,8 +90,9 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			
 	        </div>
 		</li>
-	</div>
+	</ul>
 	<!-- /ko -->
+    </div>
     <script type="text/javascript">
         /* global ko, console */
         var getTemplates = function (self, selectedTemp) {

@@ -3,9 +3,10 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
+const e = require('express');
+
 var gulp = require('gulp'),
 	fs = require('fs'),
-	fse = require('fs-extra'),
 	os = require('os'),
 	readline = require('readline'),
 	path = require('path'),
@@ -6786,6 +6787,34 @@ module.exports.validateSite = function (argv, done) {
 
 		var siteName = argv.name;
 
+		var output = argv.file;
+		if (output) {
+			if (!path.isAbsolute(output)) {
+				output = path.join(projectDir, output);
+			}
+			output = path.resolve(output);
+
+			if (fs.existsSync(output)) {
+				if (fs.statSync(output).isDirectory()) {
+					output = path.join(output, 'vs_' + siteName + '.json');
+				}
+			} else {
+
+				var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+				if (!fs.existsSync(outputFolder)) {
+					console.error('ERROR: folder ' + outputFolder + ' does not exist');
+					done();
+					return;
+				}
+
+				if (!fs.statSync(outputFolder).isDirectory()) {
+					console.error('ERROR: ' + outputFolder + ' is not a folder');
+					done();
+					return;
+				}
+			}
+		}
+
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
@@ -6794,7 +6823,7 @@ module.exports.validateSite = function (argv, done) {
 				return;
 			}
 
-			_validateSiteREST(server, siteName, done);
+			_validateSiteREST(server, siteName, output, done);
 
 		}); // login
 	} catch (e) {
@@ -6825,7 +6854,7 @@ var _displaySiteValidation = function (validation) {
 	}
 };
 
-var _displayAssetValidation = function (validations) {
+var _displayAssetValidation = function (channelName, validations) {
 	// console.log(JSON.stringify(validations, null, 4));
 	var policyValidation;
 	var error = '';
@@ -6846,32 +6875,136 @@ var _displayAssetValidation = function (validations) {
 		error = error + ' ' + policyValidation.error;
 	}
 
-	var format = '  %-12s : %-s';
-
 	var items = policyValidation.items;
+
+	var translationItemsInDraft = [];
+	var notReadyItems = [];
+	var invalidLangItems = [];
+	var otherItems = [];
+
+	var itemNames = {};
+
 	for (let i = 0; i < items.length; i++) {
+		// save the item name
+		itemNames[items[i].id] = items[i].name;
+
 		let val = items[i].validations;
 
-		for (var j = 0; j < val.length; j++) {
+		for (let j = 0; j < val.length; j++) {
 			if (!val[j].publishable) {
 				valid = false;
-				console.log(sprintf(format, 'Id', items[i].id));
-				console.log(sprintf(format, 'name', items[i].name));
-				console.log(sprintf(format, 'type', items[i].type));
-				console.log(sprintf(format, 'language', items[i].language));
+				let results = val[j].results;
+				for (let k = 0; k < results.length; k++) {
+					if (!results[k].valid) {
+						let errorItem = {
+							id: items[i].id,
+							name: items[i].name,
+							type: items[i].type,
+							language: items[i].language,
+							message: results[k].message
+						};
 
-				var results = val[j].results;
-				for (var k = 0; k < results.length; k++) {
-					// console.log(results[k]);
-					// results[k].value is the policy languages
-					// console.log(sprintf(format, 'item id', results[k].itemId));
-					console.log(sprintf(format, 'valid', results[k].valid));
-					console.log(sprintf(format, 'message', results[k].message));
+						if (results[k].code === 'cs_error' && results[k].value.indexOf('csAssetsCannotPublishTranslationInDraft') >= 0) {
+							translationItemsInDraft.push(errorItem);
+						} else if (results[k].code === 'cs_error' && results[k].value.indexOf('csAssetsCannotPublishNotReadyAsset') >= 0) {
+							notReadyItems.push(errorItem);
+						} else if (results[k].code === 'invalid_language') {
+							invalidLangItems.push(errorItem);
+						} else if (results[k].code !== 'dependency_unpublishable') {
+							otherItems.push(errorItem);
+						}
+					}
 				}
-				console.log('');
 			}
 		}
 	}
+
+	// console.log(itemNames);
+
+	var _getItemName = function (id) {
+		var name = '';
+		Object.keys(itemNames).forEach(function (key) {
+			if (key === id) {
+				name = itemNames[key];
+			}
+		});
+		return name;
+	};
+	var variationSets = policyValidation.variationSets;
+	var missingTranslationItems = [];
+	for (let i = 0; i < variationSets.length; i++) {
+		let val = variationSets[i].validations;
+
+		for (let j = 0; j < val.length; j++) {
+			if (!val[j].publishable) {
+				valid = false;
+				let results = val[j].results;
+				for (let k = 0; k < results.length; k++) {
+					if (!results[k].valid) {
+						let errorItem = {
+							id: variationSets[i].masterItemId,
+							name: _getItemName(variationSets[i].masterItemId),
+							type: variationSets[i].type,
+							language: '',
+							message: results[k].message
+						};
+						if (results[k].code === 'missing_required') {
+							errorItem.language = results[k].value;
+							missingTranslationItems.push(errorItem);
+						} else if (results[k].code !== 'unpublishable_required') {
+							otherItems.push(errorItem);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	var format = '   %-38s %-38s %-20s %-s';
+	var _display = function (displayItems) {
+		for (let i = 0; i < displayItems.length; i++) {
+			let item = displayItems[i];
+			console.log(sprintf(format, item.type, item.id, item.language, item.name));
+		}
+	};
+
+	if (notReadyItems.length > 0) {
+		console.log(' - not-ready items (' + notReadyItems.length + ')');
+		console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name'));
+		_display(notReadyItems);
+		console.log('');
+	}
+	if (translationItemsInDraft.length > 0) {
+		console.log(' - non-master translatable items in draft (' + translationItemsInDraft.length + ')');
+		console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name'));
+		_display(translationItemsInDraft);
+		console.log('   use command to fix: cec control-content set-translated -c ' + channelName);
+		console.log('');
+	}
+	if (invalidLangItems.length > 0) {
+		console.log(' - items whose language not an accepted language of policy (' + invalidLangItems.length + ')');
+		console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name'));
+		_display(invalidLangItems);
+		console.log('');
+	}
+	if (missingTranslationItems.length > 0) {
+		console.log(' - items missing required translations (' + missingTranslationItems.length + ')');
+		console.log(sprintf(format, 'Type', 'Id', 'MissingLanguages', 'Name'));
+		_display(missingTranslationItems);
+		console.log('');
+	}
+	if (otherItems.length > 0) {
+		console.log(' - other issues (' + otherItems.length + ')');
+		let format = '  %-12s : %-s';
+		otherItems.forEach(function (item) {
+			console.log(sprintf(format, 'Id', item.id));
+			console.log(sprintf(format, 'name', item.name));
+			console.log(sprintf(format, 'type', item.type));
+			console.log(sprintf(format, 'language', item.language));
+			console.log(sprintf(format, 'message', item.message));
+		});
+	}
+
 	if (valid) {
 		console.log('  is valid: ' + valid);
 	}
@@ -6882,11 +7015,13 @@ var _displayAssetValidation = function (validations) {
 
 };
 
-var _validateSiteREST = function (server, siteName, done) {
+var _validateSiteREST = function (server, siteName, output, done) {
 	var siteId;
 	var siteValidation;
+	var contentValidation;
 	var repositoryId, channelId, channelToken;
 	var itemIds = [];
+	var failed = false;
 	sitesRest.getSite({
 		server: server,
 		name: siteName,
@@ -6894,6 +7029,7 @@ var _validateSiteREST = function (server, siteName, done) {
 	})
 		.then(function (result) {
 			if (!result || result.err) {
+				failed = true;
 				return Promise.reject();
 			}
 
@@ -6937,6 +7073,7 @@ var _validateSiteREST = function (server, siteName, done) {
 			if (!result || result.err) {
 				// return Promise.reject();
 				// continue to validate assets
+				failed = true;
 			} else {
 				siteValidation = result;
 			}
@@ -6951,6 +7088,10 @@ var _validateSiteREST = function (server, siteName, done) {
 		.then(function (result) {
 			var items = result && result.data || [];
 			if (items.length === 0) {
+				if (siteValidation) {
+					console.log('Site Validation:');
+					_displaySiteValidation(siteValidation);
+				}
 				console.log('Assets Validation:');
 				console.log('  no assets');
 				return Promise.reject();
@@ -6972,6 +7113,7 @@ var _validateSiteREST = function (server, siteName, done) {
 		})
 		.then(function (result) {
 			if (result.err) {
+				failed = true;
 				return Promise.reject();
 			}
 
@@ -6982,37 +7124,49 @@ var _validateSiteREST = function (server, siteName, done) {
 			}
 
 			console.info(' - submit validation job (' + statusId + ')');
-			_getValidateAssetsStatus(server, statusId)
-				.then(function (data) {
+			return _getValidateAssetsStatus(server, statusId);
 
-					//
-					// Display result
-					//
-					if (siteValidation) {
-						console.log('Site Validation:');
-						_displaySiteValidation(siteValidation);
-					}
+		})
+		.then(function (data) {
 
-					console.log('Assets Validation:');
-					if (data.result && data.result.body && data.result.body.operations && data.result.body.operations.validatePublish && data.result.body.operations.validatePublish.validationResults) {
-						var assetsValidation = data.result.body.operations.validatePublish.validationResults;
-						_displayAssetValidation(assetsValidation);
-					} else {
-						console.log('  no result');
-						// console.log(data);
-						if (data.result.body.operations) {
-							console.log(JSON.stringify(data.result.body.operations, null, 4));
-						}
-					}
+			contentValidation = data;
 
-					done(true);
-				});
+			//
+			// Display result
+			//
+			if (siteValidation) {
+				console.log('Site Validation:');
+				_displaySiteValidation(siteValidation);
+			}
+
+			console.log('Assets Validation:');
+			if (data.result && data.result.body && data.result.body.operations && data.result.body.operations.validatePublish && data.result.body.operations.validatePublish.validationResults) {
+				let assetsValidation = data.result.body.operations.validatePublish.validationResults;
+				_displayAssetValidation(siteName, assetsValidation);
+			} else {
+				console.log('  no result');
+				// console.log(data);
+				if (data.result.body.operations) {
+					console.log(JSON.stringify(data.result.body.operations, null, 4));
+				}
+			}
+
+			return Promise.reject();
 		})
 		.catch((error) => {
 			if (error) {
 				console.error(error);
 			}
-			done();
+			if (output) {
+				let obj = {
+					siteValidation: siteValidation || {},
+					assetsValidation: contentValidation || {}
+				};
+				fs.writeFileSync(output, JSON.stringify(obj, null, 4));
+				console.log('');
+				console.log(' - validation result saved ' + output);
+			}
+			done(!failed);
 		});
 };
 
@@ -7077,6 +7231,34 @@ module.exports.validateAssets = function (argv, done) {
 	var channelName = argv.channel;
 	var query = argv.query;
 	var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
+
+	var output = argv.file;
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		if (fs.existsSync(output)) {
+			if (fs.statSync(output).isDirectory()) {
+				output = path.join(output, 'va_' + channelName + '.json');
+			}
+		} else {
+
+			var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+			if (!fs.existsSync(outputFolder)) {
+				console.error('ERROR: folder ' + outputFolder + ' does not exist');
+				done();
+				return;
+			}
+
+			if (!fs.statSync(outputFolder).isDirectory()) {
+				console.error('ERROR: ' + outputFolder + ' is not a folder');
+				done();
+				return;
+			}
+		}
+	}
 
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
@@ -7179,7 +7361,7 @@ module.exports.validateAssets = function (argv, done) {
 						console.log('Assets Validation:');
 						if (data.result && data.result.body && data.result.body.operations && data.result.body.operations.validatePublish && data.result.body.operations.validatePublish.validationResults) {
 							var assetsValidation = data.result.body.operations.validatePublish.validationResults;
-							_displayAssetValidation(assetsValidation);
+							_displayAssetValidation(channelName, assetsValidation);
 						} else {
 							console.log('  no result');
 							// console.log(data);
@@ -7188,6 +7370,11 @@ module.exports.validateAssets = function (argv, done) {
 							}
 						}
 
+						if (output) {
+							fs.writeFileSync(output, JSON.stringify(data, null, 4));
+							console.log('');
+							console.log(' - validation result saved ' + output);
+						}
 						done(true);
 					});
 			})
@@ -7797,7 +7984,7 @@ module.exports.describeSitePage = function (argv, done) {
 
 					pages.push(obj);
 				});
-				console.log(pages);
+				// console.log(pages);
 
 				var format1 = '%-20s  %-s';
 				pages.forEach(function (page) {
@@ -8685,7 +8872,7 @@ var _processDownloadedStaticSite = function (srcPath) {
 						if (serverUtils.endsWith(fileFolder, '_files')) {
 							var parentFolder = fileFolder.substring(0, fileFolder.length - 6);
 							// console.log('move: ' + files[i] + ' =====> ' + parentFolder);
-							fse.moveSync(filePath, path.join(parentFolder, fileName));
+							fs.renameSync(filePath, path.join(parentFolder, fileName));
 						}
 					}
 
@@ -8925,7 +9112,7 @@ var _migrateICGUID = function (templateName) {
 			if (stat.isDirectory() && folder.startsWith('DigitalAsset_proxy_')) {
 				var newFolder = idMap.get(folder);
 				if (newFolder) {
-					fse.moveSync(folderPath, path.join(digitalAssetPath, 'files', newFolder));
+					fs.renameSync(folderPath, path.join(digitalAssetPath, 'files', newFolder));
 					console.info(' - rename folder ' + folder + ' => ' + newFolder);
 				}
 			}

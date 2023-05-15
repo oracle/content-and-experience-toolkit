@@ -1617,8 +1617,8 @@ const createSitePage = {
 		})()
 	},
 	example: [
-		['cec create-site-page Site1 -t page1.json -t page1info.json -p 100', 'Creates a new page and add to site Site1 as a child of page 100'],
-		['cec create-site-page Site1 -t page1.json -t page1info.json -p 100 -b 201', 'Creates a new page and add to site Site1 as a child of page 100 and after sibling page 201']
+		['cec create-site-page Site1 -t page1.json -d page1info.json -p 100', 'Creates a new page and add to site Site1 as a child of page 100'],
+		['cec create-site-page Site1 -t page1.json -d page1info.json -p 100 -b 201', 'Creates a new page and add to site Site1 as a child of page 100 and after sibling page 201']
 	]
 };
 
@@ -1883,7 +1883,9 @@ const validateSite = {
 	},
 	example: [
 		['cec validate-site Site1', 'Validate site Site1 on the server specified in cec.properties file'],
-		['cec validate-site Site1 -s SampleServer1', 'Validate site Site1 on the registered server SampleServer1']
+		['cec validate-site Site1 -s SampleServer1', 'Validate site Site1 on the registered server SampleServer1'],
+		['cec validate-site Site1 -f Site1Result.json -s SampleServer1', 'Validate site Site1 on the registered server SampleServer1 and save result to Site1Result.json'],
+		['cec validate-site Site1 -f -s SampleServer1', 'Validate site Site1 on the registered server SampleServer1 and save result to vs_Site1.json']
 	]
 };
 
@@ -3099,6 +3101,8 @@ const validateAssets = {
 	},
 	example: [
 		['cec validate-assets Channel1', 'Validate assets in channel Channel1'],
+		['cec validate-assets Channel1 -f ', 'Validate assets in channel Channel1 and save result to va_Channel1.json'],
+		['cec validate-assets Channel1 -f Channel1Result.json', 'Validate assets in channel Channel1 and save result to Channel1Result.json'],
 		['cec validate-assets Channel1 -q \'fields.category eq "RECIPE"\'', 'Validate assets in channel Channel1, matching the query'],
 		['cec validate-assets Channel1 -a GUID1,GUID2', 'Validate asset GUID1 and GUID2 in channel Channel1']
 	]
@@ -3849,7 +3853,7 @@ const registerServer = {
 		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -d http://identitydomain1.com -c clientid -s clientsecret -o https://primary-audience-and-scope', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -m 60000', 'The server is a tenant on Oracle Public cloud'],
-		['cec register-server server1 -e http://server1.git.oraclecorp.com.com -u user1 -p SamplePass1 -t dev_ec', 'The server is a standalone development instance'],
+		['cec register-server server1 -e http://server1.ocm.oraclecloud.com -u user1 -p SamplePass1 -t dev_ec', 'The server is a standalone development instance'],
 		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -k ~/.ceckey', 'The password will be encrypted']
 	]
 };
@@ -4294,7 +4298,7 @@ _usage = _usage + os.EOL + 'Themes' + os.EOL +
 
 _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createSite) + os.EOL +
-	// _getCmdHelp(createSitePage) + os.EOL +
+	_getCmdHelp(createSitePage) + os.EOL +
 	_getCmdHelp(copySite) + os.EOL +
 	_getCmdHelp(updateSite) + os.EOL +
 	_getCmdHelp(transferSite) + os.EOL +
@@ -4306,7 +4310,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(unshareSite) + os.EOL +
 	_getCmdHelp(deleteSite) + os.EOL +
 	_getCmdHelp(describeSite) + os.EOL +
-	// _getCmdHelp(describeSitePage) + os.EOL +
+	_getCmdHelp(describeSitePage) + os.EOL +
 	_getCmdHelp(getSiteSecurity) + os.EOL +
 	_getCmdHelp(setSiteSecurity) + os.EOL +
 	_getCmdHelp(indexSite) + os.EOL +
@@ -7127,12 +7131,18 @@ const argv = yargs.usage(_usage)
 		})
 	.command([validateSite.command, validateSite.alias], false,
 		(yargs) => {
-			yargs.option('server', {
-				alias: 's',
-				description: '<server> The registered OCM server'
+			yargs.option('file', {
+				alias: 'f',
+				description: 'The file to save the result'
 			})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
 				.example(...validateSite.example[0])
 				.example(...validateSite.example[1])
+				.example(...validateSite.example[2])
+				.example(...validateSite.example[3])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${validateSite.command}\n\n${validateSite.usage.long}`);
@@ -8754,6 +8764,10 @@ const argv = yargs.usage(_usage)
 					alias: 'a',
 					description: 'The comma separated list of asset GUIDS'
 				})
+				.option('file', {
+					alias: 'f',
+					description: 'The file to save the result'
+				})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -8761,6 +8775,8 @@ const argv = yargs.usage(_usage)
 				.example(...validateAssets.example[0])
 				.example(...validateAssets.example[1])
 				.example(...validateAssets.example[2])
+				.example(...validateAssets.example[3])
+				.example(...validateAssets.example[4])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${validateAssets.command}\n\n${validateAssets.usage.long}`);
@@ -11635,6 +11651,10 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.assets && typeof argv.assets !== 'boolean') {
 		validateAssetsArgs.push(...['--assets', argv.assets]);
 	}
+	if (argv.file) {
+		let file = typeof argv.file === 'boolean' ? ('va_' + argv.channel + '.json') : argv.file;
+		validateAssetsArgs.push(...['--file', file]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, validateAssetsArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -12278,6 +12298,10 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--name', argv.name
 	];
+	if (argv.file) {
+		let file = typeof argv.file === 'boolean' ? ('vs_' + argv.name + '.json') : argv.file;
+		validateSiteArgs.push(...['--file', file]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		validateSiteArgs.push(...['--server', argv.server]);
 	}

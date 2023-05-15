@@ -6,7 +6,6 @@
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	fs = require('fs'),
-	fse = require('fs-extra'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf;
 

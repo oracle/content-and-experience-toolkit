@@ -10,13 +10,15 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 		.rendering .scs-app-iframe-wrapper {
 			height: 600px !important;
 		}
+		.oj-dialog-header {
+			padding-top: 0.75rem !important;
+		}
 		.devcs_container {
-			width: 100%;
-			height: 20px;
+			display: flex;
+			flex-direction: row;
 		}
 		.devcs_column {
-			float: left;
-			width: 30%;
+			margin-right: 16px !important;
 		}
 		.devcs_clickable {
 			cursor: pointer !important;
@@ -30,6 +32,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 	<link rel=”preload” as="script" href="[!--$SCS_RENDERER_PATH--]/renderer.js">
 	<!-- This contains the main script for configuring JET within the page -->
 	<script type="text/javascript" src="/_themes/[!--$SCS_THEME_NAME--]/assets/js/main.js"></script>
+	<link href="https://static.oracle.com/cdn/jet/12.1.0/default/css/redwood/oj-redwood-min.css" rel="stylesheet">
 	<link rel="stylesheet" type="text/css" href="_scs_theme_root_/assets/css/main.css">
 	<link rel="stylesheet" type="text/css" href="_scs_theme_root_/designs/_scs_design_name_/design.css">
 	<link href="/_sitescloud/renderer/app/sdk/css/app-styles.css" rel="stylesheet">
@@ -40,37 +43,26 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 </head>
 
 <body>
-	<div style="background:#ededed;">
-		<div class="branding">
-			<div class="brand">
-				<div class="nav">
-					<!-- <button type="button" id="nav-btn" class="menu secondary short osn-clickable" aria-label="Navigation menu" title="Navigation menu"> <span class="icon"></span> </button> -->
-				</div>
-				<a href="/public">
-					<img id="logo" data-bind="click: mainPage" class="brand-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIgAAAARCAMAAAAxDRTrAAAApVBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABU/knhAAAANnRSTlMAzCJq/RDdtKWH+ebvBp9xUdGYd2YbA/JZPjct4djISyUT9urCvZKDMY1DCwKqfl5GGLhjHa4JOWDOAAACmElEQVRIx4WV2XqCMBBGg+JSkEWoiCLiDnW3y//+j9YBIkmT+nFuJBMNZ5LJyEqc2F0aDfvAj6qwb8gsf+Izk7huF748PmfB3hD4LDeMLtNY5QPpXQGb5Ncj42QLKKQzRnShsHyIBX0Am5UYF2PIjB02BN5UjZ5rQcIqWDc8PHU9ExpW/J8IjKhZ0QaxZ00yFmTMOftPZJLiDx/0Ei/0eGrkMXqbrTqc1fGwIZN5JbLvNMw/TOCLcQ7AlMY3PkzKnwT3ZpFv9p+IYwDYxUmzpkNuoTerJk82MJ4o59in2LkUGcjhg9iCOUl0XWC7rsc7wE6U9HWREDA99oIuMJqowcQCMk1kBvTrp8gAluf1CAj4THkYbSKRXR7GKz6BXI+6gKuJZEDKywowiyoJc8b36oe1ipDupvdShCznetQHDFXE2QPD6ul7Chz4xqQOPdDMrV3kHbD6f/iMxKwJfOsic2BRixTvnOsYQF1XP4Dde5ZKSJ80dWwXCaFgyj/aAokukgHjWsS5QOA2LSRmFQGw6VS1GreK6O3AlWdpDU8X+QAu/GjOB3Cs/FzdswXwyb+33tJz5eO2i9yB6aMn4Sj7ZWsVNJkCt6ZGQhMw3fx90khuVoNRjVXtjk+Wq1aR01QkrbOm2cFJiS2BhSOK9WbR+HmABWldqwvOoUSiVGlGughPwcrkgHZyabwWgcfXAjB9JkTYnWxHVFnSTXmDIGB3k3y6kxaRXrlwUEQvTALoUM6yCCtswPp6eh+VRKiZeXohDqHQPyVbyKhV4U2hsOXvFH2kk4ISrKtnyGSicfVf69uQod7vQuFOHWgHCe2uPfKlWMa0dyF5ChFRN7iUl3n0YH+Y1c3k5O1sE5yyvyV9yHD/7NLfgCP3y1/ilaUbUwNDfAAAAABJRU5ErkJggg=="
-					    alt="undefined logo">
-					<span id="brandText">Content Management</span>
-				</a>
+	<div class="branding">
+        <div class="brand">
+            <img id="logo" data-bind="click: mainPage" class="brand-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIgAAAARCAMAAAAxDRTrAAAApVBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABU/knhAAAANnRSTlMAzCJq/RDdtKWH+ebvBp9xUdGYd2YbA/JZPjct4djISyUT9urCvZKDMY1DCwKqfl5GGLhjHa4JOWDOAAACmElEQVRIx4WV2XqCMBBGg+JSkEWoiCLiDnW3y//+j9YBIkmT+nFuJBMNZ5LJyEqc2F0aDfvAj6qwb8gsf+Izk7huF748PmfB3hD4LDeMLtNY5QPpXQGb5Ncj42QLKKQzRnShsHyIBX0Am5UYF2PIjB02BN5UjZ5rQcIqWDc8PHU9ExpW/J8IjKhZ0QaxZ00yFmTMOftPZJLiDx/0Ei/0eGrkMXqbrTqc1fGwIZN5JbLvNMw/TOCLcQ7AlMY3PkzKnwT3ZpFv9p+IYwDYxUmzpkNuoTerJk82MJ4o59in2LkUGcjhg9iCOUl0XWC7rsc7wE6U9HWREDA99oIuMJqowcQCMk1kBvTrp8gAluf1CAj4THkYbSKRXR7GKz6BXI+6gKuJZEDKywowiyoJc8b36oe1ipDupvdShCznetQHDFXE2QPD6ul7Chz4xqQOPdDMrV3kHbD6f/iMxKwJfOsic2BRixTvnOsYQF1XP4Dde5ZKSJ80dWwXCaFgyj/aAokukgHjWsS5QOA2LSRmFQGw6VS1GreK6O3AlWdpDU8X+QAu/GjOB3Cs/FzdswXwyb+33tJz5eO2i9yB6aMn4Sj7ZWsVNJkCt6ZGQhMw3fx90khuVoNRjVXtjk+Wq1aR01QkrbOm2cFJiS2BhSOK9WbR+HmABWldqwvOoUSiVGlGughPwcrkgHZyabwWgcfXAjB9JkTYnWxHVFnSTXmDIGB3k3y6kxaRXrlwUEQvTALoUM6yCCtswPp6eh+VRKiZeXohDqHQPyVbyKhV4U2hsOXvFH2kk4ISrKtnyGSicfVf69uQod7vQuFOHWgHCe2uPfKlWMa0dyF5ChFRN7iUl3n0YH+Y1c3k5O1sE5yyvyV9yHD/7NLfgCP3y1/ilaUbUwNDfAAAAABJRU5ErkJggg==" alt="undefined logo">
+            <span id="brandText">Content Management</span>
+        </div>
+        <div class="breadcrumb">
+            <div>
+				<a href="/public">Developer</a>&nbsp;&gt;&nbsp;<a href="/public/components.html">Components</a>&nbsp;&gt;&nbsp;_devcs_component_name
 			</div>
-			<div class="clear"></div>
+        </div>
+    </div>
+
+	<div class="toolbox branded">
+		<div class="toolbar">
+			<div class="compname">_devcs_component_name</div>
 		</div>
 	</div>
-	<div class="banner">
-		<div>
-			<!-- <a href="/"><img data-bind="click: mainPage" src="/public/images/CECS_w_72.png" /></a> -->
-			<div id="title" class="text-ellip">_devcs_component_name</div>
-		</div>
-		<!-- <a class="unit text-ellip" href="/components">Components List</a> -->
-	</div>
-	<!-- breadcrum -->
-	<div class="breadcrumb">
-		<div>
-			<a href="/public">Developer</a>&nbsp;&gt;&nbsp;
-			<a href="/public/components.html">Components</a>&nbsp;&gt;&nbsp;_devcs_component_name
-		</div>
-	</div>
-	<div class="component-option">
-		<div class="component-local-option">
+
+	<div class="toolbox">
+		<div class="toolbar">
 			<div class="themedesign">
 				<span>Templates</span>
 				_devcs_local_templates
@@ -88,13 +80,13 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				_devcs_theme_resources
 			</div>
 		</div>
-		<div>
+		<div class="toolbar">
 			_devcs_server_content
 		</div>
 	</div>
-	<table border="1" width="100%">
-		<tr>
-			<td valign="top" style="padding:10px; background-color:white;">
+	<div class="container">
+		<div class="comptest">
+			<div class="compsettings">
 				<button id="toggleSettings" title="" value="" onclick="showHideSettings(this)"></button>
 				<div id="settingsMain" style="box-shadow: rgba(0, 0, 0, 0.75) 0px 0px 10px 0px;">
 					<div class="oj-dialog-header" style="background-color: rgb(51, 51, 51); border:0;">
@@ -110,15 +102,13 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 						</div>
 					</div>
 				</div>
-			</td>
+			</div>
 			<!-- rendering -->
-			<td valign="top">
-				<div class="rendering">
-					<div id="slot-content" class="scs-slot scs-responsive"></div>
-				</div>
-			</td>
-		</tr>
-	</table>
+			<div class="rendering">
+				<div id="slot-content" class="scs-slot scs-responsive"></div>
+			</div>
+		</div>
+	</div>
 	<!--
 <script src="_scs_theme_root_/assets/js/topnav.js"></script>
 -->
