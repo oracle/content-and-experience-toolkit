@@ -1855,6 +1855,18 @@ gulp.task('unblock-import-job', function (done) {
 });
 
 /**
+ * Retry import job
+ */
+gulp.task('retry-import-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.retryImportJob(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Cancel export job
  */
 gulp.task('cancel-export-job', function (done) {
@@ -2483,6 +2495,18 @@ gulp.task('list-assets', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	assetlib.listAssets(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * List asset Ids on server
+ */
+gulp.task('list-asset-ids', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.listAssetIds(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

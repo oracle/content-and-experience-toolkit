@@ -331,6 +331,12 @@
 					try {
 						if (typeof restArgs.beforeSend === 'function') {
 							restArgs.beforeSend(currentOptions);
+
+							// make sure we have only uppercase or lowercase authorization and not both
+							var headers = currentOptions && currentOptions.headers;
+							if (headers && headers.authorization && headers.Authorization) {
+								delete headers.authorization;
+							}
 						}
 						return true;
 					} catch (e) {

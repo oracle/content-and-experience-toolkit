@@ -3780,6 +3780,52 @@ module.exports.getSiteMetadata = function (server, siteId, siteName) {
 	});
 };
 
+module.exports.getThemeLayouts = function (server, themeName) {
+	return new Promise(function (resolve, reject) {
+
+		var url = server.url + '/documents/integration?IdcService=SCS_BROWSE_LAYOUTS&theme=' + themeName + '&layoutCount=-1';
+		url = url + '&IsJson=1';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+
+		_showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.error('ERROR: Failed to get theme layouts');
+				console.error(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				// handle invalid json
+			}
+
+			let layouts = [];
+			if (data && data.length > 0) {
+				data.forEach(function (layout) {
+					if (layout.properties && layout.properties.pageLayout) {
+						layouts.push(layout.properties.pageLayout);
+					}
+				});
+			}
+
+			return resolve(layouts);
+		});
+	});
+};
+
 /**
  * Get theme metadata
  */

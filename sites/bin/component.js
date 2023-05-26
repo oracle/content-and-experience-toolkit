@@ -439,10 +439,6 @@ gulp.task('create-component-zip', function (done) {
  * Export component
  */
 module.exports.exportComponent = function (argv, done) {
-	if (!verifyRun(argv)) {
-		done();
-		return;
-	}
 
 	_exportComponent(argv).then(function (result) {
 		if (result && result.err) {
@@ -456,6 +452,12 @@ module.exports.exportComponent = function (argv, done) {
 var _exportComponent = function (argv) {
 	'use strict';
 	return new Promise(function (resolve, reject) {
+
+		if (!verifyRun(argv)) {
+			return resolve({
+				err: 'err'
+			});
+		}
 
 		if (!fs.existsSync(componentsSrcDir)) {
 			console.error('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');

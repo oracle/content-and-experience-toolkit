@@ -163,7 +163,7 @@ var getSiteActions = function () {
 };
 
 var getContentActions = function () {
-	const actions = ['publish', 'unpublish', 'add', 'remove', 'set-translated'];
+	const actions = ['publish', 'unpublish', 'add', 'remove', 'set-translated', 'submit-for-review', 'approve', 'reject'];
 	return actions;
 };
 
@@ -1917,7 +1917,6 @@ const exportSite = {
 		'long': (function () {
 			let desc = 'Export Enterprise Site on OCM server to a folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'Specify the folder with -f <folder> and specify the job name with -j <job-name>. ';
-			desc = desc + 'NOTE: This command is not available for production use.';
 			return desc;
 		})()
 	},
@@ -1941,7 +1940,6 @@ const importSite = {
 			desc = getImportSitePolicies().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			desc = desc + os.EOL + 'The valid policies for <assetpolicy> are:' + os.EOL + os.EOL;
 			desc = getImportSiteAssetPolicies().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + 'NOTE: This command is not available for production use.';
 			return desc;
 		})()
 	},
@@ -1970,6 +1968,22 @@ const unblockImportJob = {
 	example: [
 		['cec unblock-import-job 9F88FB74733E42889BF61CFCDA6D7E39', 'Unblock the specified import job on the server specified in cec.properties file'],
 		['cec unblock-import-job 9F88FB74733E42889BF61CFCDA6D7E39 -g -s SampleServer1', 'Unblock the specified import job on the registered server SampleServer1 and ignore all validation warnings']
+	]
+};
+
+const retryImportJob = {
+	command: 'retry-import-job <id>',
+	alias: 'rij',
+	name: 'retry-import-job',
+	usage: {
+		'short': 'Retry an import job.',
+		'long': (function () {
+			let desc = 'Retry an import job on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec retry-import-job 9F88FB74733E42889BF61CFCDA6D7E39', 'Retry the specified import job on the server specified in cec.properties file']
 	]
 };
 
@@ -3048,6 +3062,25 @@ const listAssets = {
 		['cec list-assets -r Repo1 -l Collection1', 'List all assets from collection Collection1 and repository Repo1'],
 		['cec list-assets -q \'fields.category eq "RECIPE"\'', 'List all assets matching the query'],
 		['cec list-assets -q \'fields.category eq "RECIPE"\' -k ranking1', 'List all assets matching the query and order them by relevance']
+	]
+};
+
+const listAssetIds = {
+	command: 'list-asset-ids <repository>',
+	alias: 'lai',
+	name: 'list-asset-ids',
+	usage: {
+		'short': 'List Ids of assets on OCM server.',
+		'long': (function () {
+			let desc = 'List Ids of assets in a repository on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-asset-ids Repo1', 'List Ids for all assets in repository Repo1'],
+		['cec list-asset-ids Repo1 -f Repo1_asset_ids', 'List Ids for all assets in repository Repo1 and also save to local file Repo1_asset_ids'],
+		['cec list-asset-ids Repo1 -c Channel1', 'List Ids for all assets in repository Repo1 and channel channel1'],
+		['cec list-asset-ids Repo1 -c Channel1 -p', 'List Ids for all published assets in repository Repo1 and channel channel1']
 	]
 };
 
@@ -4328,6 +4361,7 @@ _usage = _usage + os.EOL + 'Site Export and Import' + os.EOL +
 	_getCmdHelp(exportSite) + os.EOL +
 	_getCmdHelp(importSite) + os.EOL +
 	_getCmdHelp(unblockImportJob) + os.EOL +
+	_getCmdHelp(retryImportJob) + os.EOL +
 	_getCmdHelp(cancelExportJob) + os.EOL +
 	_getCmdHelp(cancelImportJob) + os.EOL +
 	_getCmdHelp(deleteExportJob) + os.EOL +
@@ -4346,6 +4380,7 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(deleteAssets) + os.EOL +
 	_getCmdHelp(validateAssets) + os.EOL +
 	_getCmdHelp(listAssets) + os.EOL +
+	_getCmdHelp(listAssetIds) + os.EOL +
 	_getCmdHelp(describeAsset) + os.EOL +
 	_getCmdHelp(createDigitalAsset) + os.EOL +
 	_getCmdHelp(updateDigitalAsset) + os.EOL +
@@ -6972,6 +7007,18 @@ const argv = yargs.usage(_usage)
 				.usage(`Usage: cec ${unblockImportJob.command}\n\n${unblockImportJob.usage.long}`);
 		})
 
+	.command([retryImportJob.command, retryImportJob.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...retryImportJob.example[0])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${retryImportJob.command}\n\n${retryImportJob.usage.long}`);
+		})
+
 	.command([cancelExportJob.command, cancelExportJob.alias], false,
 		(yargs) => {
 			yargs.option('server', {
@@ -8697,6 +8744,39 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listAssets.command}\n\n${listAssets.usage.long}`);
+		})
+	.command([listAssetIds.command, listAssetIds.alias], false,
+		(yargs) => {
+			yargs.option('channel', {
+				alias: 'c',
+				description: 'The Channel name'
+			})
+				.option('publishedassets', {
+					alias: 'p',
+					description: 'Published assets only'
+				})
+				.option('file', {
+					alias: 'f',
+					description: 'The file to save the Ids'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.publishedassets && !argv.channel) {
+						throw new Error(os.EOL + '<channel> is required to get published assets');
+					}
+
+					return true;
+				})
+				.example(...listAssetIds.example[0])
+				.example(...listAssetIds.example[1])
+				.example(...listAssetIds.example[2])
+				.example(...listAssetIds.example[3])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listAssetIds.command}\n\n${listAssetIds.usage.long}`);
 		})
 	.command([describeAsset.command, describeAsset.alias], false,
 		(yargs) => {
@@ -11621,6 +11701,32 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === listAssetIds.name || argv._[0] === listAssetIds.alias) {
+	let listAssetIdsArgs = ['run', '-s', listAssetIds.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--repository', argv.repository
+	];
+	if (argv.channel) {
+		listAssetIdsArgs.push(...['--channel', argv.channel]);
+	}
+	if (argv.publishedassets) {
+		listAssetIdsArgs.push(...['--publishedassets', argv.publishedassets]);
+	}
+
+	if (argv.file && typeof argv.file !== 'boolean') {
+		listAssetIdsArgs.push(...['--file', argv.file]);
+	}
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listAssetIdsArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, listAssetIdsArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === describeAsset.name || argv._[0] === describeAsset.alias) {
 	let describeAssetArgs = ['run', '-s', describeAsset.name, '--prefix', appRoot,
 		'--',
@@ -12166,6 +12272,20 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		unblockImportJobArgs.push(...['--ignorewarnings', argv.ignorewarnings]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, unblockImportJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === retryImportJob.name || argv._[0] === retryImportJob.alias) {
+	let retryImportJobArgs = ['run', '-s', retryImportJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		retryImportJobArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, retryImportJobArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

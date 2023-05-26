@@ -1633,6 +1633,7 @@ var _queryAllItems = function (useDelivery, server, q, fields, orderBy, limit, o
 				itemQueryString = itemQueryString + 'limit=' + param.limit + '&offset=' + param.offset;
 				return _queryItems(useDelivery, server, itemQueryString).then(function (result) {
 					if (result.data) {
+						// console.log(' - returned ' + result.data.length);
 						items = items.concat(result.data);
 					}
 					hasMore = result.hasMore;
@@ -3587,7 +3588,8 @@ module.exports.deleteItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.approveItems = function (args) {
-	return _bulkOpItems(args.server, 'approve', [], args.itemIds);
+	var async = args.async ? args.async : 'false';
+	return _bulkOpItems(args.server, 'approve', [], args.itemIds, '', async);
 };
 
 /**
@@ -3598,7 +3600,8 @@ module.exports.approveItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.rejectItems = function (args) {
-	return _bulkOpItems(args.server, 'reject', [], args.itemIds);
+	var async = args.async ? args.async : 'false';
+	return _bulkOpItems(args.server, 'reject', [], args.itemIds, '', async);
 };
 
 /**
@@ -3609,7 +3612,8 @@ module.exports.rejectItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.submitItemsForApproval = function (args) {
-	return _bulkOpItems(args.server, 'submitForApproval', [], args.itemIds);
+	var async = args.async ? args.async : 'false';
+	return _bulkOpItems(args.server, 'submitForApproval', [], args.itemIds, '', async);
 };
 
 /**
@@ -8712,7 +8716,9 @@ var _executeGetStream = function (server, endpoint, writer, noMsg, noError, head
 					console.error(err);
 				}
 				return resolve({
-					err: 'err'
+					err: 'err',
+					statusCode: response.statusCode,
+					statusMessage: response.statusMessage
 				});
 			}
 			if (showDetail) {
@@ -8739,7 +8745,9 @@ var _executeGetStream = function (server, endpoint, writer, noMsg, noError, head
 					// in case result is not json
 				}
 				return resolve({
-					err: 'err'
+					err: 'err',
+					statusCode: response.statusCode,
+					statusMessage: response.statusMessage
 				});
 			}
 		});
@@ -8765,6 +8773,7 @@ var _executePost = function (args) {
 	return new Promise(function (resolve, reject) {
 		var showDetail = args.noMsg ? false : true;
 		var showError = args.noError ? false : true;
+		var responseStatus = args.responseStatus ? true : false;
 		var endpoint = args.endpoint;
 		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
 		var isSystem = endpoint.indexOf('/system/api/') === 0;
@@ -8889,6 +8898,15 @@ var _executePost = function (args) {
 									});
 							}, 5000);
 						} else {
+							if (responseStatus) {
+								// If there is an error and body is empty, then resolve with response statusCode and statusMessage.
+								if (response.statusCode >= 400 && !data) {
+									data = {
+										statusCode: response.statusCode,
+										statusMessage: response.statusMessage
+									};
+								}
+							}
 							return resolve(data);
 						}
 
@@ -8897,6 +8915,15 @@ var _executePost = function (args) {
 							console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 							if (response.location || response.url) {
 								console.log('Result URL: ' + (response.location || response.url));
+							}
+						}
+						if (responseStatus) {
+							// If there is an error and body is empty, then resolve with response statusCode and statusMessage.
+							if (response.statusCode >= 400 && !data) {
+								data = {
+									statusCode: response.statusCode,
+									statusMessage: response.statusMessage
+								};
 							}
 						}
 						return resolve(data);
@@ -9137,7 +9164,8 @@ module.exports.executeDelete = function (args) {
 							console.log(JSON.stringify(data, null, 4));
 						}
 						return resolve({
-							err: 'err'
+							err: 'err',
+							data: data
 						});
 					}
 

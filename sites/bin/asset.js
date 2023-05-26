@@ -7061,8 +7061,13 @@ var _validateDigitalAssetNativeFile = function (server, items) {
 var _displayAssets = function (server, propertiesToShow, repository, collection, channel, channelToken, items, showURLS, ranking) {
 	var types = [];
 	var allIds = [];
+	var duplicateIds = [];
 	for (var i = 0; i < items.length; i++) {
-		allIds.push(items[i].id);
+		if (!allIds.includes(items[i].id)) {
+			allIds.push(items[i].id);
+		} else {
+			duplicateIds.push(items[i].id);
+		}
 		if (!types.includes(items[i].type)) {
 			types.push(items[i].type);
 		}
@@ -7073,6 +7078,9 @@ var _displayAssets = function (server, propertiesToShow, repository, collection,
 		fs.mkdirSync(buildDir);
 	}
 	fs.writeFileSync(path.join(buildDir, '__cec_la_itemids.json'), JSON.stringify(allIds.sort(), null, 4));
+	if (duplicateIds.length > 0) {
+		console.info(' - duplicates (' + duplicateIds.length + '): ' + duplicateIds);
+	}
 
 	// sort types
 	var byType = types.slice(0);
@@ -7266,6 +7274,160 @@ var _displayAssets = function (server, propertiesToShow, repository, collection,
 	}
 
 };
+
+module.exports.listAssetIds = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var repoName = argv.repository;
+	var channelName = argv.channel;
+	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
+
+
+	var output = argv.file;
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		if (fs.existsSync(output)) {
+			if (fs.statSync(output).isDirectory()) {
+				output = path.join(output, repoName + '_asset_ids');
+			}
+		} else {
+			var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+			if (!fs.existsSync(outputFolder)) {
+				console.error('ERROR: folder ' + outputFolder + ' does not exist');
+				done();
+				return;
+			}
+
+			if (!fs.statSync(outputFolder).isDirectory()) {
+				console.error('ERROR: ' + outputFolder + ' is not a folder');
+				done();
+				return;
+			}
+		}
+	}
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var repository;
+		var channel;
+
+		serverRest.getRepositoryWithName({
+			server: server,
+			name: repoName,
+			fields: 'channels'
+		})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				repository = result.data;
+				if (!repository || !repository.id) {
+					console.error('ERROR: repository ' + repoName + ' does not exist');
+					return Promise.reject();
+				}
+				console.info(' - get repository (Id: ' + repository.id + ')');
+
+				var channelPromises = [];
+				if (channelName) {
+					channelPromises.push(serverRest.getChannelWithName({ server: server, name: channelName }));
+				}
+
+				return Promise.all(channelPromises);
+
+			})
+			.then(function (results) {
+				if (channelName) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+					channel = results[0].data;
+					if (!channel || !channel.id) {
+						console.error('ERROR: channel ' + channelName + ' does not exist');
+						return Promise.reject();
+					}
+					console.info(' - get channel (Id: ' + channel.id + ')');
+
+					// check if the channel is added to this repository
+					var repoChannels = repository.channels || [];
+					let found = false;
+					for (let i = 0; i < repoChannels.length; i++) {
+						if (channel.id === repoChannels[i].id) {
+							found = true;
+							break;
+						}
+					}
+					if (!found) {
+						console.error('ERROR: channel ' + channelName + ' is not added to repository ' + repoName);
+						return Promise.reject();
+					}
+				}
+
+
+				return serverRest.getAllItemIds({
+					server: server,
+					repositoryId: repository.id,
+					channelId: channel ? channel.id : '',
+					publishedassets: publishedassets
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.data) {
+					return Promise.reject();
+				}
+				// console.info(' - total assets: ' + result.limit);
+
+				var ids = [];
+				result.data.forEach(function (asset) {
+					if (asset.id) {
+						ids.push(asset.id);
+					}
+				});
+
+				if (ids.length > 0) {
+					// display the Ids
+					console.log(JSON.stringify(ids, null, 2));
+					console.info(' - total asset Ids: ' + ids.length);
+					if (output) {
+						fs.writeFileSync(output, JSON.stringify(ids, null, 2));
+						console.log(' - asset Ids saved to ' + output);
+					}
+				}
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+
+	});
+};
+
 
 module.exports.describeAsset = function (argv, done) {
 	'use strict';

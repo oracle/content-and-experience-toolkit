@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "23.5.1",
+	"version": "23.5.2",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -114,6 +114,7 @@
 		"export-site": "gulp -LL --gulpfile bin/gulpfile.js export-site ",
 		"import-site": "gulp -LL --gulpfile bin/gulpfile.js import-site ",
 		"unblock-import-job": "gulp -LL --gulpfile bin/gulpfile.js unblock-import-job ",
+		"retry-import-job": "gulp -LL --gulpfile bin/gulpfile.js retry-import-job ",
 		"cancel-export-job": "gulp -LL --gulpfile bin/gulpfile.js cancel-export-job ",
 		"cancel-import-job": "gulp -LL --gulpfile bin/gulpfile.js cancel-import-job ",
 		"delete-export-job": "gulp -LL --gulpfile bin/gulpfile.js delete-export-job ",
@@ -166,6 +167,7 @@
 		"upload-localization-policy": "gulp -LL --gulpfile bin/gulpfile.js upload-localization-policy ",
 		"delete-assets": "gulp -LL --gulpfile bin/gulpfile.js delete-assets ",
 		"list-assets": "gulp -LL --gulpfile bin/gulpfile.js list-assets ",
+		"list-asset-ids": "gulp -LL --gulpfile bin/gulpfile.js list-asset-ids ",
 		"describe-asset": "gulp -LL --gulpfile bin/gulpfile.js describe-asset ",
 		"validate-assets": "gulp -LL --gulpfile bin/gulpfile.js validate-assets ",
 		"create-asset-usage-report": "gulp -LL --gulpfile bin/gulpfile.js create-asset-usage-report ",

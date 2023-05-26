@@ -15,7 +15,19 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
-# New in Release 23.5.1.
+# New in Release 23.5.2
+
+**Added**
+- `cec list-asset-ids` - lists asset Ids
+- `cec control-content` - now supports `submit-for-review|approve|reject` to submit assets to workflow
+- `cec retry-import-job` - to retry an import job
+
+**Updated**
+- `cec describe-theme` - now also lists all of the theme layouts
+- `cec describe-site` - now lists the theme layouts usage
+
+
+# New in Release 23.5.1
 
 **Added**
 - `cec create-site-page` - Creates a new page for a site on an OCM server

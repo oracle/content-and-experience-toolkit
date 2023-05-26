@@ -164,6 +164,10 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 				})
 				.then(function (result) {
 					contentTypeNames = result && result.data || [];
+					if (contentTypeNames.indexOf('undefined') >= 0) {
+						console.warn('WARNING: invalid content type "undefined" on site pages');
+						contentTypeNames.splice(contentTypeNames.indexOf('undefined'), 1);
+					}
 
 					var repositoryTypes = site.repository && site.repository.contentTypes || [];
 					repositoryTypes.forEach(function (type) {
@@ -171,7 +175,6 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 							contentTypeNames.push(type.name);
 						}
 					});
-
 
 					// get the reference types for all the types used by the site
 					var allTypesPromises = [];

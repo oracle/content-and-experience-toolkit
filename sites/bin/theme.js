@@ -540,6 +540,7 @@ module.exports.describeTheme = function (argv, done) {
 		}
 
 		var theme;
+		var layouts = [];
 		var comps = [];
 		var format1 = '%-38s  %-s';
 
@@ -571,6 +572,13 @@ module.exports.describeTheme = function (argv, done) {
 			.then(function (result) {
 
 				console.log(sprintf(format1, 'itemGUID', (result && result.metadata && result.metadata.scsItemGUID || '')));
+
+				return serverUtils.getThemeLayouts(server, name);
+
+			})
+			.then(function (result) {
+				layouts = result.err ? [] : result;
+				console.log(sprintf(format1, 'Theme layouts', layouts));
 
 				// get the theme components
 				return serverRest.findFile({

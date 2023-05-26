@@ -3748,7 +3748,7 @@ var _getPageInfo = function (siteId, pages, locale) {
 			}
 		} else if (!_ootbComps.includes(comp.id) && (comp.type === 'scs-component' || comp.type === 'scs-app')) {
 			// custom component
-			var name = comp.type === 'scs-component' ? (data.componentName || data.componentId || comp.id) : data.appName;
+			var name = comp.type === 'scs-component' ? comp.id : data.appName;
 			if (name && name !== comp.type) {
 				if (!components.includes(name)) {
 					components.push(name);
@@ -5793,7 +5793,7 @@ module.exports.importSite = function (argv, done) {
 			uploadPath = argv.path || path.join(projectDir, 'src', 'siteExport', siteName),
 			folderName = uploadPath.split(path.sep).pop(),
 			folderPathName = inputFolder || folderName,
-			jobName = argv.jobname || siteName,
+			jobName = argv.jobname || argv.newsite || siteName,
 			repository = argv.repository,
 			localizationPolicy = argv.localizationPolicy,
 			sitePrefix = argv.sitePrefix && argv.sitePrefix.toLowerCase(),
@@ -5970,7 +5970,7 @@ module.exports.importSite = function (argv, done) {
 						// console.info('');
 						// console.info('   ImportSite job ' + JSON.stringify(data.job));
 						// console.info('');
-						_downloadReports(data.reports, siteName, server).then(function () {
+						_downloadReports(data.reports, argv.newsite || siteName, server).then(function () {
 							if (data.err) {
 								done();
 							} else {
@@ -6048,12 +6048,72 @@ module.exports.unblockImportJob = function (argv, done) {
 				endpoint: url,
 				body: body,
 				noMsg: true,
+				responseStatus: true,
 				headers: headers
 			}).then(function (data) {
-				if (data && data['o:errorCode']) {
-					console.info('Failed to unblock import job ' + argv.id + ' : ' + (data ? data.title : ''));
+				if (data) {
+					console.info('Failed to unblock import job ' + argv.id + ' : ' + (data['o:errorCode'] ? data.title : data.statusMessage));
 				} else {
 					console.info('Unblocked import job ' + argv.id);
+					console.info('To monitor the job progress and download the report, run the following command:');
+					console.info('cec describe-import-job ' + argv.id + ' -d -s ' + serverName);
+				}
+
+				done(true);
+			});
+		});
+	} catch (e) {
+		console.error(e);
+		done();
+	}
+};
+
+/**
+ * retry import job
+ */
+module.exports.retryImportJob = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			done();
+			return;
+		}
+
+		var loginPromise = serverUtils.loginToServer(server);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage);
+				done();
+				return;
+			}
+
+			var url = '/system/export/api/v1/imports/' + argv.id + '/retry';
+
+			// Note: Export service on dev instances requires additional header
+			var headers;
+			if (server.env === 'dev_ec') {
+				headers = { 'IDCS_REMOTE_USER': server.username };
+			}
+
+			serverRest.executePost({
+				server: server,
+				endpoint: url,
+				noMsg: true,
+				responseStatus: true,
+				headers: headers
+			}).then(function (data) {
+				if (data) {
+					console.info('Failed to retry import job ' + argv.id + ' : ' + (data['o:errorCode'] ? data.title : data.statusMessage));
+				} else {
+					console.info('Retry import job ' + argv.id);
 					console.info('To monitor the job progress and download the report, run the following command:');
 					console.info('cec describe-import-job ' + argv.id + ' -d -s ' + serverName);
 				}
@@ -6106,11 +6166,11 @@ module.exports.cancelExportJob = function (argv, done) {
 				server: server,
 				endpoint: url,
 				noMsg: true,
+				responseStatus: true,
 				headers: headers
 			}).then(function (data) {
-				// console.log('cancelExportJob data ' + JSON.stringify(data));
-				if (!data || data['o:errorCode']) {
-					console.info('Failed to cancel export job ' + argv.id + ' : ' + (data ? data.title : ''));
+				if (data) {
+					console.info('Failed to cancel export job ' + argv.id + ' : ' + (data['o:errorCode'] ? data.title : data.statusMessage));
 				} else {
 					console.info('Canceled export job ' + argv.id);
 				}
@@ -6163,11 +6223,11 @@ module.exports.cancelImportJob = function (argv, done) {
 				server: server,
 				endpoint: url,
 				noMsg: true,
+				responseStatus: true,
 				headers: headers
 			}).then(function (data) {
-				// console.log('cancelImportJob data ' + JSON.stringify(data));
-				if (!data || data['o:errorCode']) {
-					console.info('Failed to cancel import job ' + argv.id + ' : ' + (data ? data.title : ''));
+				if (data) {
+					console.info('Failed to cancel import job ' + argv.id + ' : ' + (data['o:errorCode'] ? data.title : data.statusMessage));
 				} else {
 					console.info('Canceled import job ' + argv.id);
 				}
@@ -6221,9 +6281,8 @@ module.exports.deleteExportJob = function (argv, done) {
 				endpoint: url,
 				headers: headers
 			}).then(function (data) {
-				// console.log('deleteExportJob data ' + JSON.stringify(data));
 				if (data.err) {
-					console.info('Failed to delete export job ' + argv.id);
+					console.info('Failed to delete export job ' + argv.id + ' : ' + (data.data['o:errorCode'] ? data.data.title : data.data));
 				} else {
 					console.info('Deleted export job ' + argv.id);
 				}
@@ -6277,9 +6336,8 @@ module.exports.deleteImportJob = function (argv, done) {
 				endpoint: url,
 				headers: headers
 			}).then(function (data) {
-				// console.log('deleteimportJob data ' + JSON.stringify(data));
 				if (data.err) {
-					console.info('Failed to delete import job ' + argv.id);
+					console.info('Failed to delete import job ' + argv.id + ' : ' + (data.data['o:errorCode'] ? data.data.title : data.data));
 				} else {
 					console.info('Deleted import job ' + argv.id);
 				}
@@ -7281,6 +7339,7 @@ module.exports.validateAssets = function (argv, done) {
 				channel = result && result.data;
 				if (!channel || !channel.id) {
 					console.error('ERROR: channel ' + channelName + ' does not exist');
+					return Promise.reject();
 				}
 
 				var tokens = channel && channel.channelTokens || [];
@@ -7387,6 +7446,86 @@ module.exports.validateAssets = function (argv, done) {
 	});
 };
 
+var _getPageLayouts = function (server, pages) {
+
+	return new Promise(function (resolve, reject) {
+
+		var total = pages.length;
+		var groups = [];
+		var limit = 30;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+
+		var needNewLine = false;
+		var startTime = new Date();
+
+		var doGetPages = groups.reduce(function (pagePromise, param) {
+			return pagePromise.then(function (result) {
+				var pagePromises = [];
+				for (let i = param.start; i <= param.end; i++) {
+					if (pages[i].fileId) {
+						pagePromises.push(serverRest.downloadFile({ server: server, fFileGUID: pages[i].fileId }));
+					}
+				}
+				return Promise.all(pagePromises)
+					.then(function (results) {
+						/*
+						if (console.showInfo()) {
+							process.stdout.write(' - getting page layouts [' + param.start + ', ' + param.end + '] [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
+						}
+						*/
+						for (let i = 0; i < results.length; i++) {
+							if (results[i].id && results[i].data) {
+								try {
+									let data = JSON.parse(results[i].data);
+									let layout = data && data.properties && data.properties.pageLayout;
+									if (layout) {
+										// assign back to page
+										for (let j = 0; j < pages.length; j++) {
+											if (pages[j].fileId === results[i].id) {
+												pages[j].pageLayout = layout;
+												break;
+											}
+										}
+									}
+								} catch (e) {
+									// inavlid result
+								}
+							}
+						}
+					})
+			});
+		},
+			Promise.resolve({})
+		);
+
+		doGetPages.then(function (result) {
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
+			resolve({});
+		});
+	})
+
+};
 
 /**
  * Describe a site
@@ -7443,6 +7582,8 @@ module.exports.describeSite = function (argv, done) {
 		var siteMetadata;
 		var siteInfo;
 		var siteinfoJson;
+		var pages;
+		var themeLayouts = [];
 		var componentsUsed, contentItemsUsed, contentTypesUsed;
 		var totalItems = 0;
 		var totalMasterItems = 0;
@@ -7682,7 +7823,7 @@ module.exports.describeSite = function (argv, done) {
 			})
 			.then(function (result) {
 
-				var pages = result && result.pages || [];
+				pages = result && result.pages || [];
 
 				console.log(sprintf(format1, 'Total pages', pages.length));
 				console.log(sprintf(format1, 'Total page translations', pageTranslations));
@@ -7710,7 +7851,7 @@ module.exports.describeSite = function (argv, done) {
 					console.log(sprintf(format1, 'Job message', siteInfo.JobMessage));
 				}
 
-				var format2 = '  %-12s  %-s';
+				let format2 = '  %-12s  %-s';
 
 				console.log(sprintf(format1, 'Components used', ''));
 				if (componentsUsed.length > 0) {
@@ -7774,6 +7915,66 @@ module.exports.describeSite = function (argv, done) {
 						console.log(sprintf(format2, typesUsedPageIds[i], types.join(', ')));
 					}
 				}
+
+				return serverUtils.getThemeLayouts(server, site.themeName);
+
+			})
+			.then(function (result) {
+
+				themeLayouts = result.err ? [] : result;
+				// console.log(themeLayouts);
+
+				return serverRest.findFile({
+					server: server,
+					parentID: site.id,
+					filename: 'pages',
+					itemtype: 'folder'
+				});
+			})
+			.then(function (result) {
+				var pagesFileId = result && result.id;
+				if (!pagesFileId) {
+					return Promise.reject();
+				}
+				// get page file ids 
+				return serverRest.getAllChildItems({
+					server: server,
+					parentID: pagesFileId
+				});
+
+			})
+			.then(function (result) {
+
+				let pageFiles = result || [];
+				pages.forEach(function (page) {
+					let fileId = undefined;
+					for (let i = 0; i < pageFiles.length; i++) {
+						if (pageFiles[i].name === page.id + '.json') {
+							fileId = pageFiles[i].id;
+							break;
+						}
+					}
+					page.fileId = fileId || '';
+				});
+
+				return _getPageLayouts(server, pages);
+
+			})
+			.then(function (result) {
+				// console.log(pages);
+
+				let format2 = '  %-36s  %-s';
+				console.log(sprintf(format1, 'Theme layouts used', ''));
+				console.log(sprintf(format2, 'Layout', 'Pages'));
+				themeLayouts.forEach(function (layout) {
+					let usedbyPages = [];
+					for (let i = 0; i < pages.length; i++) {
+						if (layout === pages[i].pageLayout) {
+							usedbyPages.push(pages[i].id);
+						}
+					}
+					console.log(sprintf(format2, layout, usedbyPages));
+				});
 
 				console.log('');
 

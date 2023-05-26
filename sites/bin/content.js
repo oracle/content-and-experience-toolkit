@@ -3,6 +3,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
+const e = require('express');
 const { disconnect } = require('process');
 
 /**
@@ -843,6 +844,9 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 									process.stdout.write(os.EOL);
 								}
 								// console.log(data);
+								if (data.summary && data.summary.contentItems) {
+									console.info(' - total exported items: ' + data.summary.contentItems.length);
+								}
 								var downloadLink = data.downloadLink[0].href;
 								if (downloadLink) {
 									options = {
@@ -858,6 +862,9 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 									// Download the export zip
 									console.info(' - downloading export ' + downloadLink);
 									startTime = new Date();
+									// 
+									// if download fails, retry and total up to 3 times
+
 									var writer = fs.createWriteStream(exportfilepath);
 									serverRest.executeGetStream({
 										server: server,
@@ -866,12 +873,56 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 										noMsg: true
 									})
 										.then(function (result) {
-
+											// console.log(result);
 											if (!result || result.err) {
-												console.error('ERROR: Failed to download');
-												return resolve({
-													err: 'err'
-												});
+												if (result.statusCode === 500 || result.statusMessage === 'Internal Server Error') {
+													// retry 1st time
+													console.info(' - retry downloading export ' + downloadLink);
+													serverRest.executeGetStream({
+														server: server,
+														endpoint: downloadLink,
+														writer: writer,
+														noMsg: true
+													}).then(function (result) {
+														if (!result || result.err) {
+															if (result.statusCode === 500 || result.statusMessage === 'Internal Server Error') {
+																// retry 2nd time
+																console.info(' - retry downloading export ' + downloadLink);
+																serverRest.executeGetStream({
+																	server: server,
+																	endpoint: downloadLink,
+																	writer: writer,
+																	noMsg: true
+																}).then(function (result) {
+																	if (!result || result.err) {
+																		console.error('ERROR: Failed to download');
+																		return resolve({
+																			err: 'err'
+																		});
+																	} else {
+																		console.info(' - download export file [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+																		console.info(' - save export to ' + exportfilepath);
+																		return resolve({});
+																	}
+																})
+															} else {
+																console.error('ERROR: Failed to download');
+																return resolve({
+																	err: 'err'
+																});
+															}
+														} else {
+															console.info(' - download export file [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+															console.info(' - save export to ' + exportfilepath);
+															return resolve({});
+														}
+													})
+												} else {
+													console.error('ERROR: Failed to download');
+													return resolve({
+														err: 'err'
+													});
+												}
 											} else {
 
 												console.info(' - download export file [' + serverUtils.timeUsed(startTime, new Date()) + ']');
@@ -1840,6 +1891,8 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 			var toPublishItemIds = [];
 			var toSetTranslatedIds = [];
 			var hasPublishedItems = false;
+			var toReviewItemIds = [];
+			var toProcessReviewItemIds = [];
 
 			var repositoryPromises = [];
 			if (repositoryName) {
@@ -2076,6 +2129,18 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						if (item.translatable && !item.languageIsMaster && item.status === 'draft') {
 							toSetTranslatedIds.push(item.id);
 						}
+
+						if (item.status !== 'published' && item.status !== 'inReview' && item.status !== 'approved') {
+							toReviewItemIds.push(item.id);
+						}
+
+						if (action === 'approve' && (item.status === 'inReview' || item.status === 'rejected')) {
+							toProcessReviewItemIds.push(item.id);
+						}
+
+						if (action === 'reject' && (item.status === 'inReview' || item.status === 'approved')) {
+							toProcessReviewItemIds.push(item.id);
+						}
 					}
 
 					if (action === 'publish' && toPublishItemIds.length === 0) {
@@ -2097,6 +2162,29 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 							return Promise.reject();
 						} else {
 							console.info(' - total items to set as translated: ' + toSetTranslatedIds.length);
+						}
+					}
+
+					if (action === 'submit-for-review') {
+						console.info(' - items that are already published, approved or in review will not be submitted');
+
+						if (toReviewItemIds.length === 0) {
+							console.log(' - no item to submit for review');
+							exitCode = 2;
+							return Promise.reject();
+						} else {
+							console.info(' - total items to submit for review: ' + toReviewItemIds.length);
+						}
+					}
+
+					if (action === 'approve' || action === 'reject') {
+						console.info(' - only ' + action + ' items that are in review or ' + (action === 'approve' ? 'rejected' : 'approved'));
+						if (toProcessReviewItemIds.length === 0) {
+							console.log(' - no item to ' + action);
+							exitCode = 2;
+							return Promise.reject();
+						} else {
+							console.info(' - total items to ' + action + ': ' + toProcessReviewItemIds.length);
 						}
 					}
 
@@ -2284,6 +2372,30 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 							}
 						});
 
+					} else if (action === 'submit-for-review') {
+						let async = toReviewItemIds.length >= 100 ? 'true' : 'false';
+						opPromise = _performOneOp(server, action, '', toReviewItemIds, showError, async);
+						opPromise.then(function (result) {
+							if (result.err) {
+								return cmdEnd(done);
+							} else {
+								console.log(' - ' + toReviewItemIds.length + ' items submitted for review');
+								return cmdSuccess(done, true);
+							}
+						});
+
+					} else if (action === 'approve' || action === 'reject') {
+						let async = toProcessReviewItemIds.length >= 100 ? 'true' : 'false';
+						opPromise = _performOneOp(server, action, '', toProcessReviewItemIds, showError, async);
+						opPromise.then(function (result) {
+							if (result.err) {
+								return cmdEnd(done);
+							} else {
+								console.log(' - ' + toProcessReviewItemIds.length + ' items ' + (action === 'approve' ? 'approved' : 'rejected'));
+								return cmdSuccess(done, true);
+							}
+						});
+
 					} else {
 						console.error('ERROR: action ' + action + ' not supported');
 						return cmdEnd(done);
@@ -2344,7 +2456,31 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 				itemIds: itemIds,
 				async: async
 			});
+		} else if (action === 'submit-for-review') {
+			opPromise = serverRest.submitItemsForApproval({
+				server: server,
+				itemIds: itemIds,
+				async: async
+			});
+		} else if (action === 'approve') {
+			opPromise = serverRest.approveItems({
+				server: server,
+				itemIds: itemIds,
+				async: async
+			});
+		} else if (action === 'reject') {
+			opPromise = serverRest.rejectItems({
+				server: server,
+				itemIds: itemIds,
+				async: async
+			});
+		} else {
+			console.log(' - action ' + action + ' not supported');
+			return resolve({
+				err: 'err'
+			});
 		}
+
 		opPromise.then(function (result) {
 			if (result.err) {
 				return resolve({
