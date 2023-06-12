@@ -124,21 +124,15 @@ module.exports.registerServer = function (argv, done) {
 
 	var name = argv.name;
 	var endpoint = argv.endpoint;
-	var user = argv.user;
-	var password = argv.password;
+	var user = argv.user || '';
+	var password = argv.password || '';
 	var type = argv.type || 'pod_ec';
 	var idcs_url = argv.domainurl || argv.idcsurl;
 	var client_id = argv.clientid;
 	var client_secret = argv.clientsecret;
 	var scope = argv.scope;
 	var timeout = argv.timeout;
-	var useRest = false;
-	if (type.indexOf('dev_ec') === 0) {
-		if (type.indexOf('rest') > 0) {
-			useRest = true;
-		}
-		type = 'dev_ec';
-	}
+	var getToken = typeof argv.gettoken === 'string' && argv.gettoken.toLowerCase() === 'true';
 
 	var savedPassword = password;
 	var savedClientId = client_id;
@@ -206,7 +200,6 @@ module.exports.registerServer = function (argv, done) {
 		username: user,
 		password: savedPassword,
 		env: type,
-		useRest: useRest,
 		key: keyFile,
 		idcs_url: idcs_url,
 		client_id: savedClientId,
@@ -214,9 +207,43 @@ module.exports.registerServer = function (argv, done) {
 		scope: scope,
 		timeout: timeout
 	};
-	fs.writeFileSync(serverFile, JSON.stringify(serverjson));
-	console.log(' - server registered in ' + serverFile);
-	done(true);
+
+	if (getToken && type === 'dev_ec') {
+		console.info(' - server of type dev_ec does not support OAuth token');
+	}
+
+	if (getToken && type !== 'dev_ec') {
+		serverUtils.loginToServer(serverjson).then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage);
+				done();
+				return;
+			}
+
+			serverjson.username = '';
+			serverjson.password = '';
+			if (serverjson.idcs_url) {
+				serverjson.idcs_url = '';
+			}
+			if (serverjson.client_id) {
+				serverjson.client_id = '';
+			}
+			if (serverjson.client_secret) {
+				serverjson.client_secret = '';
+			}
+			if (serverjson.scope) {
+				serverjson.scope = '';
+			}
+			serverjson.login = undefined;
+			fs.writeFileSync(serverFile, JSON.stringify(serverjson));
+			console.log(' - server with token registered in ' + serverFile);
+			done(true);
+		});
+	} else {
+		fs.writeFileSync(serverFile, JSON.stringify(serverjson));
+		console.log(' - server registered in ' + serverFile);
+		done(true);
+	}
 };
 
 module.exports.configProperties = function (argv, done) {

@@ -2152,7 +2152,7 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 									_cmdEnd(done);
 								} else {
 									var siteMapUrl = siteUrl + '/' + topFile.substring(topFile.lastIndexOf(path.sep) + 1);
-									console.log(' - sitemap uploaded, publish the site and access it at ' + siteMapUrl);
+									console.log(' - sitemap uploaded, publish with command \'cec control-site publish -s ' + site + ' -i seo\' and access it at ' + siteMapUrl);
 									_cmdEnd(done, true);
 								}
 

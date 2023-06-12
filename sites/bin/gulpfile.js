@@ -1357,6 +1357,30 @@ gulp.task('describe-taxonomy', function (done) {
 });
 
 /**
+ * share taxonomy on server
+ */
+gulp.task('share-taxonomy', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	taxonomylib.shareTaxonomy(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * unshare taxonomy on server
+ */
+gulp.task('unshare-taxonomy', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	taxonomylib.unshareTaxonomy(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Add component to a theme
  */
 gulp.task('add-theme-component', function (done) {

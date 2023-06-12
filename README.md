@@ -15,6 +15,17 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.6.1
+
+**Added**
+- `cec share-taxonomy` - Share taxonomy with users and groups on an OCM server and assign a role
+- `cec unshare-taxonomy` - Delete user or group access to a taxonomy on an OCM server
+
+**Updated**
+- `cec register-server` - Now has option to get and store the OAuth token in server JSON file, user name and password will not be stored
+- `cec control-site` - Now has option to selectively publish site auxiliary files
+
+
 # New in Release 23.5.2
 
 **Added**

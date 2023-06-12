@@ -189,7 +189,6 @@ var _getConfiguredServer = function (currPath, showError) {
 		password: '',
 		oauthtoken: '',
 		env: '',
-		useRest: false,
 		idcs_url: '',
 		client_id: '',
 		client_secret: '',
@@ -396,7 +395,7 @@ var _getRequestAuthorization = function (server) {
 
 	if (server.env === 'content_sdk') {
 		// for ContentSDK server, the oauthtoken contains the authorization value
-		auth = server.oauthtoken; 
+		auth = server.oauthtoken;
 	} else {
 		// create the authorization
 		auth = server.env === 'dev_ec' || !server.oauthtoken ? ('Basic ' + _btoa(server.username + ':' + server.password)) : ((server.tokentype || 'Bearer') + ' ' + server.oauthtoken);
@@ -2882,13 +2881,6 @@ var _loginToServer = function (server) {
 	if (server.login) {
 		return Promise.resolve({
 			status: true
-		});
-	}
-
-	if (!server.username && !server.password && !server.oauthtoken) {
-		console.error('ERROR: no user credentials specified');
-		return Promise.resolve({
-			status: false
 		});
 	}
 

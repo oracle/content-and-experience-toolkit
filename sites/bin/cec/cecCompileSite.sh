@@ -178,6 +178,27 @@ setSiteSecurity () {
 }
 setSiteSecurity `cec get-site-security ${SITE_NAME} -s serverForCompilation | grep "secure site:" | awk '{split($0,a,":"); print a[2]}'`
 
+# see if there is a incremental compile job.json file available for this compile
+echo -e "Checking for incremental compile definition.  If the file doesn't exist, the call will report an error that can be ignored." | tee -a ${LOG_FILE}
+if [[ $JOB_ID == job* ]]
+then
+  echo "No jobId on the command line, will do full compilation" | tee -a ${LOG_FILE}
+else
+  # try to download the job.json file
+  echo "cec download-file site:${SITE_NAME}/jobs/${JOB_ID}.json -s ${REGISTERED_SERVER} -f . >> ${LOG_FILE}"
+  cec download-file site:${SITE_NAME}/jobs/${JOB_ID}.json -s ${REGISTERED_SERVER} -f . >> ${LOG_FILE} 2>&1
+  DOWNLOAD_RESULT=$?
+  echo "Elapsed time: ${SECONDS}s" | tee -a ${LOG_FILE}
+
+  if [ "${DOWNLOAD_RESULT}" -eq "0" ]
+  then
+    echo "Downloaded incremental compile definition" | tee -a ${LOG_FILE}
+    # Tell the toolkit to use this file during compile
+    export CEC_TOOLKIT_INCREMENTAL_COMPILE_FILE=`pwd`/${JOB_ID}.json
+  else 
+    echo "No incremental compile definition file for job ${JOB_ID}, will do full compilation" | tee -a ${LOG_FILE}
+  fi
+fi
 
 # Compile the site with the compilation script
 echo "Compilation Command: ./${COMPILE_SCRIPT} -s ${SITE_NAME} -r ${REGISTERED_SERVER} -t "${SITE_NAME}${RANDOM}" ${SECURE_SITE_OPTION} -f `pwd` -c ${CHANNEL_TOKEN} -j ${JOB_ID} > ${COMPILE_LOG_FILE} 2>&1"

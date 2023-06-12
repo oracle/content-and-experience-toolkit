@@ -1806,6 +1806,41 @@ module.exports.uploadContentFromTemplate = function (args) {
 		});
 };
 
+// Use DB query to get item ids from repositories and channels
+var _queryItemIds = function (server, repository, channel) {
+	return new Promise(function (resolve, reject) {
+
+		var channelId = channel ? channel.id : '';
+		var repoIds = [];
+		if (repository) {
+			repoIds.push(repository.id);
+		} else if (channel && channel.repositories) {
+			// no repository specified, use all repositories the channel is in
+			channel.repositories.forEach(function (repo) {
+				repoIds.push(repo.id);
+			});
+		}
+		console.info(' - repository: ' + repoIds + ' channel: ' + channelId);
+		var idPromises = [];
+		repoIds.forEach(function (repoId) {
+			idPromises.push(serverRest.getAllItemIds({ server: server, repositoryId: repoId, channelId }));
+		});
+
+		var ids = [];
+		Promise.all(idPromises).then(function (results) {
+			results.forEach(function (result) {
+				if (result && result.data && result.data.length > 0) {
+					result.data.forEach(function (item) {
+						ids.push(item.id);
+					});
+				}
+			});
+			return resolve(ids);
+		});
+
+	});
+};
+
 module.exports.controlContent = function (argv, done, sucessCallback, errorCallback, loginServer) {
 	'use strict';
 
@@ -1879,6 +1914,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 			var repositoryName = argv.repository;
 			var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
 			assetGUIDS = assetGUIDS.concat(assetsInFile);
+			var assetIdsFromDB = [];
 			var query = argv.query;
 
 			var batchSize = argv.batchsize;
@@ -1918,7 +1954,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						channelPromises.push(serverRest.getChannelWithName({
 							server: server,
 							name: channelName,
-							fields: 'publishPolicy,channelTokens'
+							fields: 'publishPolicy,channelTokens,repositories'
 						}));
 					}
 
@@ -1958,6 +1994,24 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						}
 						collection = results[0].data;
 						console.info(' - get collection');
+					}
+
+					let idPromises = [];
+					if (assetGUIDS.length === 0) {
+						idPromises.push(_queryItemIds(server, repository, channel));
+					}
+
+					return Promise.all(idPromises);
+
+				})
+				.then(function (results) {
+
+					if (assetGUIDS.length === 0) {
+						assetIdsFromDB = results ? results[0] : [];
+						if (assetIdsFromDB.length > 0) {
+							console.info(' - total items in repostiory / channel: ' + assetIdsFromDB.length);
+							assetGUIDS = assetIdsFromDB;
+						}
 					}
 
 					//
@@ -2057,7 +2111,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					} else {
 						var badGUIDS = [];
 						var goodItems = [];
-						if (assetGUIDS.length > 0) {
+						if (assetGUIDS.length > 0 && assetIdsFromDB.length === 0) {
 							assetGUIDS.forEach(function (id) {
 								var found = false;
 								for (var i = 0; i < items.length; i++) {
@@ -2073,8 +2127,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 							});
 
 							if (badGUIDS.length > 0) {
-								var label = action === 'add' ? 'repository' : (channel ? 'channel' : 'collection');
-								console.error('ERROR: asset ' + badGUIDS + ' not found in the ' + label);
+								console.warn('WARNING: asset ' + badGUIDS + ' not found in the item query');
 							}
 
 							if (goodItems.length === 0) {

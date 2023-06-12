@@ -162,6 +162,11 @@ var getSiteActions = function () {
 	return actions;
 };
 
+var getSiteSettingsFiles = function () {
+	const files = ['redirects', 'seo', 'rssFeeds', 'controller', 'faviconsAndMisc'];
+	return files;
+};
+
 var getContentActions = function () {
 	const actions = ['publish', 'unpublish', 'add', 'remove', 'set-translated', 'submit-for-review', 'approve', 'reject'];
 	return actions;
@@ -222,6 +227,11 @@ var getCollectionRoles = function () {
 
 var getContentTypeRoles = function () {
 	const roles = ['manager'];
+	return roles;
+};
+
+var getTaxonomyRoles = function () {
+	const roles = ['manager', 'editor'];
 	return roles;
 };
 
@@ -1388,8 +1398,44 @@ const describeTaxonomy = {
 	},
 	example: [
 		['cec describe-taxonomy Taxonomy1 -s SampleServer1'],
-		['cec download-taxonomy Taxonomy1 -i 6A6DC736572C468B90F2A1C17B7CE5E4 -s SampleServer1'],
+		['cec describe-taxonomy Taxonomy1 -i 6A6DC736572C468B90F2A1C17B7CE5E4 -s SampleServer1'],
 		['cec describe-taxonomy Taxonomy1 -f ~/Docs/Taxonomy1.json -s SampleServer1']
+	]
+};
+
+const shareTaxonomy = {
+	command: 'share-taxonomy <name>',
+	alias: 'stx',
+	name: 'share-taxonomy',
+	usage: {
+		'short': 'Shares taxonomy with users and groups on OCM server.',
+		'long': (function () {
+			let desc = 'Shares taxonomy with users and groups on OCM server and assign a role. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are' + os.EOL + os.EOL;
+			return getTaxonomyRoles().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
+		})()
+	},
+	example: [
+		['cec share-taxonomy Taxonomy1 -u user1,user2 -r manager -s SampleServer1', 'Grant user user1 and user2 Manager role to taxonomy Taxonomy1'],
+		['cec share-taxonomy Taxonomy1 -i 6A6DC736572C468B90F2A1C17B7CE5E4 -u user1,user2 -r manager -s SampleServer1'],
+		['cec share-taxonomy Taxonomy1 -u user1,user2 -g group1,group2 -r editor', 'Grant user user1 and user2 and group group1 and group2 Editor role']
+	]
+};
+
+const unshareTaxonomy = {
+	command: 'unshare-taxonomy <name>',
+	alias: 'ustx',
+	name: 'unshare-taxonomy',
+	usage: {
+		'short': 'Deletes user or group access to a taxonomy on OCM server.',
+		'long': (function () {
+			let desc = 'Deletes user or group access to a taxonomy on OCM server. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec unshare-taxonomy Taxonomy1 -u user1,user2 -s SampleServer1'],
+		['cec unshare-taxonomy Taxonomy1 -i 6A6DC736572C468B90F2A1C17B7CE5E4 -u user1,user2 -s SampleServer1'],
+		['cec unshare-taxonomy Taxonomy1 -u user1,user2 -g group1,group2']
 	]
 };
 
@@ -1649,7 +1695,10 @@ const controlSite = {
 		'short': 'Performs action <action> on site on OCM server.',
 		'long': (function () {
 			let desc = 'Perform <action> on site on OCM server. Specify the site with -s <site>. Specify the server with -r <server> or use the one specified in cec.properties file. The valid actions are\n\n';
-			return getSiteActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = getSiteActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'Optionally to publish only the specified site settings files, the valid site settings files are' + os.EOL + os.EOL;
+			desc = getSiteSettingsFiles().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
+			return desc;
 		})()
 	},
 	example: [
@@ -1659,6 +1708,8 @@ const controlSite = {
 		['cec control-site publish -s Site1 -t ', 'Only publish the static files of site Site1'],
 		['cec control-site publish -s Site1 -p ', 'Only compile and publish the static files of site Site1'],
 		['cec control-site publish -s Site1 -f ', 'Do a full publish of Site1'],
+		['cec control-site publish -s Site1 -i seo ', 'Only publish Sitemap and Robots files of site Site1'],
+		['cec control-site publish -s Site1 -i seo,rssFeeds ', 'Only publish Sitemap, Robots and RSS Feed files of site Site1'],
 		['cec control-site publish -s Site1 -r SampleServer1', 'Publish site Site1 on the registered server SampleServer1'],
 		['cec control-site unpublish -s Site1 -r SampleServer1', 'Unpublish site Site1 on the registered server SampleServer1'],
 		['cec control-site bring-online -s Site1 -r SampleServer1', 'Bring site Site1 online on the registered server SampleServer1'],
@@ -3887,7 +3938,9 @@ const registerServer = {
 		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -m 60000', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.ocm.oraclecloud.com -u user1 -p SamplePass1 -t dev_ec', 'The server is a standalone development instance'],
-		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -k ~/.ceckey', 'The password will be encrypted']
+		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -k ~/.ceckey', 'The password will be encrypted'],
+		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -g', 'Obtain the OAuth token from the server and store in server JSON file, user name and password will not be stored'],
+		['cec register-server server1 -e http://server1.com -g', 'Enter the user and password on the login window to obtain the OAuth token from the server and store in server JSON file, user name and password will not be stored']
 	]
 };
 
@@ -4432,7 +4485,9 @@ _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(uploadTaxonomy) + os.EOL +
 	_getCmdHelp(controlTaxonomy) + os.EOL +
 	_getCmdHelp(updateTaxonomy) + os.EOL +
-	_getCmdHelp(describeTaxonomy) + os.EOL;
+	_getCmdHelp(describeTaxonomy) + os.EOL +
+	_getCmdHelp(shareTaxonomy) + os.EOL +
+	_getCmdHelp(unshareTaxonomy) + os.EOL;
 
 _usage = _usage + os.EOL + 'Permissions' + os.EOL +
 	_getCmdHelp(listEditorialPermission) + os.EOL +
@@ -6054,6 +6109,76 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${describeTaxonomy.command}\n\n${describeTaxonomy.usage.long}`);
 		})
+	.command([shareTaxonomy.command, shareTaxonomy.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('role', {
+					alias: 'r',
+					description: 'The role [' + getTaxonomyRoles().join(' | ') + '] to assign to the users or groups',
+					demandOption: true
+				})
+				.option('id', {
+					alias: 'i',
+					description: 'Taxonomy Id'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					if (argv.role && !getTaxonomyRoles().includes(argv.role)) {
+						throw new Error(`${argv.role} is not a valid value for <role>`);
+					}
+					return true;
+				})
+				.example(...shareTaxonomy.example[0])
+				.example(...shareTaxonomy.example[1])
+				.example(...shareTaxonomy.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${shareTaxonomy.command}\n\n${shareTaxonomy.usage.long}`);
+		})
+	.command([unshareTaxonomy.command, unshareTaxonomy.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('id', {
+					alias: 'i',
+					description: 'Taxonomy Id'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					return true;
+				})
+				.example(...unshareTaxonomy.example[0])
+				.example(...unshareTaxonomy.example[1])
+				.example(...unshareTaxonomy.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${unshareTaxonomy.command}\n\n${unshareTaxonomy.usage.long}`);
+		})
 	.command([shareTheme.command, shareTheme.alias], false,
 		(yargs) => {
 			yargs.option('users', {
@@ -6617,12 +6742,26 @@ const argv = yargs.usage(_usage)
 					if (argv.action && argv.action === 'expire' && !argv.expiredate) {
 						throw new Error(os.EOL + 'Please specify the expiration date');
 					}
+					if (argv.settingsfiles && typeof argv.settingsfiles === 'boolean') {
+						throw new Error(os.EOL + 'Please specify valid site settings files');
+					}
+					if (argv.settingsfiles && argv.action !== 'publish' && argv.action !== 'publish-internal') {
+						throw new Error(os.EOL + '<settingsfiles> is only for action publish');
+					}
+					if (argv.settingsfiles) {
+						let files = argv.settingsfiles.split(',');
+						for (let i = 0; i < files.length; i++) {
+							if (!getSiteSettingsFiles().includes(files[i])) {
+								throw new Error(os.EOL + `"${files[i]}" is not a valid value for <settingsfiles>`);
+							}
+						}
+					}
 
 					return true;
 				})
 				.option('site', {
 					alias: 's',
-					description: '<site> Site',
+					description: 'The site',
 					demandOption: true
 				})
 				.option('usedcontentonly', {
@@ -6648,6 +6787,10 @@ const argv = yargs.usage(_usage)
 				.option('deletestaticfiles', {
 					alias: 'd',
 					description: 'Delete static files when the site is published and will be compiled'
+				})
+				.option('settingsfiles', {
+					alias: 'i',
+					description: 'The comma separated list of site settings files'
 				})
 				.option('theme', {
 					alias: 'e',
@@ -6682,6 +6825,8 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[10])
 				.example(...controlSite.example[11])
 				.example(...controlSite.example[12])
+				.example(...controlSite.example[13])
+				.example(...controlSite.example[14])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlSite.command}\n\n${controlSite.usage.long}`);
@@ -9770,12 +9915,12 @@ const argv = yargs.usage(_usage)
 				.option('user', {
 					alias: 'u',
 					description: 'User name',
-					demandOption: true
+					demandOption: false
 				})
 				.option('password', {
 					alias: 'p',
 					description: 'Password',
-					demandOption: true
+					demandOption: false
 				})
 				.option('key', {
 					alias: 'k',
@@ -9806,6 +9951,10 @@ const argv = yargs.usage(_usage)
 					alias: 'o',
 					description: 'Scope'
 				})
+				.option('gettoken', {
+					alias: 'g',
+					description: 'Obtain the OAuth token from the server and store in server JSON file'
+				})
 				.option('timeout', {
 					alias: 'm',
 					description: 'Timeout in millisecond when try to login to the server. Defaults to 30000ms.'
@@ -9813,9 +9962,16 @@ const argv = yargs.usage(_usage)
 				.check((argv) => {
 					if (argv.type && !getServerTypes().includes(argv.type) && argv.type.indexOf('dev_ec:') < 0) {
 						throw new Error(`${argv.type} is not a valid value for <type>`);
-					} else if (!argv.type || argv.type === 'pod_ec') {
+					}
+					if (!argv.type || argv.type === 'pod_ec') {
 						var useIDCS = argv.domainurl || argv.idcsurl || argv.clientid || argv.clientsecret || argv.scope;
 						if (useIDCS) {
+							if (!argv.user) {
+								throw new Error('Please specify user');
+							}
+							if (!argv.password) {
+								throw new Error('Please specify password');
+							}
 							if (!argv.domainurl && !argv.idcsurl) {
 								throw new Error('Please specify Oracle Identity Domain URL <domainurl>');
 							} else if (!argv.clientid) {
@@ -9826,9 +9982,18 @@ const argv = yargs.usage(_usage)
 								throw new Error('Please specify scope <scope>');
 							}
 						}
-						if (argv.timeout && (!Number.isInteger(argv.timeout) || argv.timeout < 30000)) {
-							throw new Error('Value for timeout should be an integer greater than 30000');
+					}
+					if (argv.type === 'dev_ec' || argv.gettoken === undefined) {
+						if (!argv.user) {
+							throw new Error('Please specify user');
 						}
+						if (!argv.password) {
+							throw new Error('Please specify password');
+						}
+					}
+
+					if (argv.timeout && (!Number.isInteger(argv.timeout) || argv.timeout < 30000)) {
+						throw new Error('Value for timeout should be an integer greater than 30000');
 					}
 					return true;
 				})
@@ -9837,6 +10002,8 @@ const argv = yargs.usage(_usage)
 				.example(...registerServer.example[2])
 				.example(...registerServer.example[3])
 				.example(...registerServer.example[4])
+				.example(...registerServer.example[5])
+				.example(...registerServer.example[6])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${registerServer.command}\n\n${registerServer.usage.long}`);
@@ -10238,35 +10405,37 @@ if (fs.existsSync(path.join(appRoot, 'package.json'))) {
 
 // Display command and its params
 // console.log(argv);
-var cmdStr = 'cec ' + argv._[0];
-var paramStr = '';
-var requiredParamStr = '';
-var found0 = false;
-Object.keys(argv).forEach(function (name) {
-	if (name === '$0') {
-		found0 = true;
-	}
-	// only show the full param name, not the alias nor the one converted upper case to -
-	if (name.length > 1 && name.indexOf('-') < 0 && name !== '$0') {
-		var value = argv[name];
-		if (/^[A-Za-z0-9]*$/.test(value)) {
-			// do nothing 
-		} else {
-			try {
-				value = JSON.stringify(value);
-			} catch (e) {
-				// ignore
+var _displayCommand = function (cmdName) {
+	var cmdStr = 'cec ' + (cmdName || argv._[0]);
+	var paramStr = '';
+	var requiredParamStr = '';
+	var found0 = false;
+	Object.keys(argv).forEach(function (name) {
+		if (name === '$0') {
+			found0 = true;
+		}
+		// only show the full param name, not the alias nor the one converted upper case to -
+		if (name.length > 1 && name.indexOf('-') < 0 && name !== '$0') {
+			var value = argv[name];
+			if (/^[A-Za-z0-9]*$/.test(value)) {
+				// do nothing 
+			} else {
+				try {
+					value = JSON.stringify(value);
+				} catch (e) {
+					// ignore
+				}
+			}
+			if (!found0) {
+				paramStr = paramStr + ' ' + '--' + name + ' ' + value;
+			} else {
+				// the required param
+				requiredParamStr = requiredParamStr + ' ' + value;
 			}
 		}
-		if (!found0) {
-			paramStr = paramStr + ' ' + '--' + name + ' ' + value;
-		} else {
-			// the required param
-			requiredParamStr = requiredParamStr + ' ' + value;
-		}
-	}
-});
-console.log(cmdStr + requiredParamStr + paramStr);
+	});
+	console.log(cmdStr + requiredParamStr + paramStr);
+};
 
 
 /*********************
@@ -10278,6 +10447,7 @@ var startTime = new Date();
 var spawnCmd;
 
 if (argv._[0] === 'install' || argv._[0] === 'i') {
+	_displayCommand('install');
 	var toolkitSource = _getToolkitSource();
 	if (toolkitSource) {
 		console.log(`You cannot install Content Management project at ${toolkitSource}. Please install at a different location.`);
@@ -10323,6 +10493,7 @@ var categories;
 var categorypermission;
 
 if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
+	_displayCommand(createComponent.name);
 	let createComponentArgs = ['run', '-s', createComponent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10335,6 +10506,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createContentLayout.name || argv._[0] === createContentLayout.alias) {
+	_displayCommand(createContentLayout.name);
 	let createContentLayoutArgs = ['run', '-s', createContentLayout.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10359,6 +10531,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === copyComponent.name || argv._[0] === copyComponent.alias) {
+	_displayCommand(copyComponent.name);
 	let copyComponentArgs = ['run', '-s', copyComponent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10382,6 +10555,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === importComponent.name || argv._[0] === importComponent.alias) {
+	_displayCommand(importComponent.name);
 	let importComponentArgs = ['run', '-s', importComponent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10393,6 +10567,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === exportComponent.name || argv._[0] === exportComponent.alias) {
+	_displayCommand(exportComponent.name);
 	let exportComponentArgs = ['run', '-s', exportComponent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10404,6 +10579,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === downloadComponent.name || argv._[0] === downloadComponent.alias) {
+	_displayCommand(downloadComponent.name);
 	let downloadComponentArgs = ['run', '-s', downloadComponent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10421,6 +10597,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === deployComponent.name || argv._[0] === deployComponent.alias) {
+	_displayCommand(deployComponent.name);
 	let deployComponentArgs = ['run', '-s', deployComponent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10441,6 +10618,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === uploadComponent.name || argv._[0] === uploadComponent.alias) {
+	_displayCommand(uploadComponent.name);
 	let uploadComponentArgs = ['run', '-s', uploadComponent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10461,6 +10639,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === controlComponent.name || argv._[0] === controlComponent.alias) {
+	_displayCommand(controlComponent.name);
 	let controlComponentArgs = ['run', '-s', controlComponent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10476,6 +10655,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === shareComponent.name || argv._[0] === shareComponent.alias) {
+	_displayCommand(shareComponent.name);
 	let shareComponentArgs = ['run', '-s', shareComponent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10497,6 +10677,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === unshareComponent.name || argv._[0] === unshareComponent.alias) {
+	_displayCommand(unshareComponent.name);
 	let unshareComponentArgs = ['run', '-s', unshareComponent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10517,6 +10698,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeComponent.name || argv._[0] === describeComponent.alias) {
+	_displayCommand(describeComponent.name);
 	let describeComponentArgs = ['run', '-s', describeComponent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10534,7 +10716,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createTemplate.name || argv._[0] === createTemplate.alias) {
-
+	_displayCommand(createTemplate.name);
 	let createTemplateArgs = ['run', '-s', createTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10574,6 +10756,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === copyTemplate.name || argv._[0] === copyTemplate.alias) {
+	_displayCommand(copyTemplate.name);
 	let copyTemplateArgs = ['run', '-s', copyTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10597,6 +10780,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === importTemplate.name || argv._[0] === importTemplate.alias) {
+	_displayCommand(importTemplate.name);
 	let importTemplateArgs = ['run', '-s', importTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10608,6 +10792,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === exportTemplate.name || argv._[0] === exportTemplate.alias) {
+	_displayCommand(exportTemplate.name);
 	let exportTemplateArgs = ['run', '-s', exportTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10622,6 +10807,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === deployTemplate.name || argv._[0] === deployTemplate.alias) {
+	_displayCommand(deployTemplate.name);
 	let deployTemplateArgs = ['run', '-s', deployTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10645,6 +10831,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === uploadTemplate.name || argv._[0] === uploadTemplate.alias) {
+	_displayCommand(uploadTemplate.name);
 	let uploadTemplateArgs = ['run', '-s', uploadTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10677,6 +10864,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createTemplateFromSite.name || argv._[0] === createTemplateFromSite.alias) {
+	_displayCommand(createTemplateFromSite.name);
 	let createTemplateFromSiteArgs = ['run', '-s', createTemplateFromSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10698,6 +10886,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === downloadTemplate.name || argv._[0] === downloadTemplate.alias) {
+	_displayCommand(downloadTemplate.name);
 	let downloadTemplateArgs = ['run', '-s', downloadTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10713,6 +10902,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === compileTemplate.name || argv._[0] === compileTemplate.alias) {
+	_displayCommand(compileTemplate.name);
 	let runCommand = argv.debug ? compileTemplate.debugName : compileTemplate.name;
 	let compileTemplateArgs = ['run', '-s', runCommand, '--prefix', appRoot,
 		'--',
@@ -10779,6 +10969,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === compileSite.name || argv._[0] === compileSite.alias) {
+	_displayCommand(compileSite.name);
 	let runCommand = argv.debug ? compileSite.debugName : compileSite.name
 	let compileSiteArgs = ['run', '-s', runCommand, '--prefix', appRoot,
 		'--',
@@ -10805,6 +10996,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 } else if (argv._[0] === deleteTemplate.name) {
+	_displayCommand(deleteTemplate.name);
 	let deleteTemplateArgs = ['run', '-s', deleteTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10823,6 +11015,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === shareTemplate.name || argv._[0] === shareTemplate.alias) {
+	_displayCommand(shareTemplate.name);
 	let shareTemplateArgs = ['run', '-s', shareTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10844,6 +11037,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === unshareTemplate.name || argv._[0] === unshareTemplate.alias) {
+	_displayCommand(unshareTemplate.name);
 	let unshareTemplateArgs = ['run', '-s', unshareTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10864,6 +11058,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeTemplate.name || argv._[0] === describeTemplate.alias) {
+	_displayCommand(describeTemplate.name);
 	let describeTemplateArgs = ['run', '-s', describeTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10882,6 +11077,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createTemplateReport.name || argv._[0] === createTemplateReport.alias) {
+	_displayCommand(createTemplateReport.name);
 	let createTemplateReportArgs = ['run', '-s', createTemplateReport.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10902,6 +11098,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === cleanupTemplate.name) {
+	_displayCommand(cleanupTemplate.name);
 	let cleanupTemplateArgs = ['run', '-s', cleanupTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10914,6 +11111,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === updateTemplate.name || argv._[0] === updateTemplate.alias) {
+	_displayCommand(updateTemplate.name);
 	let updateTemplateArgs = ['run', '-s', updateTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10933,6 +11131,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === addContentLayoutMapping.name || argv._[0] === addContentLayoutMapping.alias) {
+	_displayCommand(addContentLayoutMapping.name);
 	let addContentLayoutMappingArgs = ['run', '-s', addContentLayoutMapping.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10959,6 +11158,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === removeContentLayoutMapping.name || argv._[0] === removeContentLayoutMapping.alias) {
+	_displayCommand(removeContentLayoutMapping.name);
 	let removeContentLayoutMappingArgs = ['run', '-s', removeContentLayoutMapping.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -10987,6 +11187,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === addFieldEditor.name || argv._[0] === addFieldEditor.alias) {
+	_displayCommand(addFieldEditor.name);
 	let addFieldEditorArgs = ['run', '-s', addFieldEditor.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11005,6 +11206,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === removeFieldEditor.name || argv._[0] === removeFieldEditor.alias) {
+	_displayCommand(removeFieldEditor.name);
 	let removeFieldEditorArgs = ['run', '-s', removeFieldEditor.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11023,6 +11225,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === downloadContent.name || argv._[0] === downloadContent.alias) {
+	_displayCommand(downloadContent.name);
 	let downloadContentArgs = ['run', '-s', downloadContent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -11063,6 +11266,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === uploadContent.name || argv._[0] === uploadContent.alias) {
+	_displayCommand(uploadContent.name);
 	let uploadContentArgs = ['run', '-s', uploadContent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11102,6 +11306,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === controlContent.name || argv._[0] === controlContent.alias) {
+	_displayCommand(controlContent.name);
 	let controlContentArgs = ['run', '-s', controlContent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11146,6 +11351,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === transferContent.name || argv._[0] === transferContent.alias) {
+	_displayCommand(transferContent.name);
 	let transferContentArgs = ['run', '-s', transferContent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11174,6 +11380,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === transferRendition.name || argv._[0] === transferRendition.alias) {
+	_displayCommand(transferRendition.name);
 	let transferRenditionArgs = ['run', '-s', transferRendition.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11199,6 +11406,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === deleteAssets.name) {
+	_displayCommand(deleteAssets.name);
 	let deleteAssetsArgs = ['run', '-s', deleteAssets.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -11228,6 +11436,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === validateContent.name || argv._[0] === validateContent.alias) {
+	_displayCommand(validateContent.name);
 	let validateContentArgs = ['run', '-s', validateContent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11244,6 +11453,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createDigitalAsset.name || argv._[0] === createDigitalAsset.alias) {
+	_displayCommand(createDigitalAsset.name);
 	let createDigitalAssetArgs = ['run', '-s', createDigitalAsset.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11276,6 +11486,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === updateDigitalAsset.name || argv._[0] === updateDigitalAsset.alias) {
+	_displayCommand(updateDigitalAsset.name);
 	let updateDigitalAssetArgs = ['run', '-s', updateDigitalAsset.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11303,6 +11514,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === copyAssets.name || argv._[0] === copyAssets.alias) {
+	_displayCommand(copyAssets.name);
 	let copyAssetsArgs = ['run', '-s', copyAssets.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11330,6 +11542,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === downloadTaxonomy.name || argv._[0] === downloadTaxonomy.alias) {
+	_displayCommand(downloadTaxonomy.name);
 	let downloadTaxonomyArgs = ['run', '-s', downloadTaxonomy.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11348,6 +11561,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === uploadTaxonomy.name || argv._[0] === uploadTaxonomy.alias) {
+	_displayCommand(uploadTaxonomy.name);
 	let uploadTaxonomyArgs = ['run', '-s', uploadTaxonomy.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11377,6 +11591,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === controlTaxonomy.name || argv._[0] === controlTaxonomy.alias) {
+	_displayCommand(controlTaxonomy.name);
 	let controlTaxonomyArgs = ['run', '-s', controlTaxonomy.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11403,6 +11618,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === updateTaxonomy.name || argv._[0] === updateTaxonomy.alias) {
+	_displayCommand(updateTaxonomy.name);
 	let updateTaxonomyArgs = ['run', '-s', updateTaxonomy.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11423,6 +11639,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeTaxonomy.name || argv._[0] === describeTaxonomy.alias) {
+	_displayCommand(describeTaxonomy.name);
 	let describeTaxonomyArgs = ['run', '-s', describeTaxonomy.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11442,7 +11659,57 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === shareTaxonomy.name || argv._[0] === shareTaxonomy.alias) {
+	_displayCommand(shareTaxonomy.name);
+	let shareTaxonomyArgs = ['run', '-s', shareTaxonomy.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--role', argv.role
+	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		shareTaxonomyArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		shareTaxonomyArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.id) {
+		shareTaxonomyArgs.push(...['--id', argv.id]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		shareTaxonomyArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, shareTaxonomyArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === unshareTaxonomy.name || argv._[0] === unshareTaxonomy.alias) {
+	_displayCommand(unshareTaxonomy.name);
+	let unshareTaxonomyArgs = ['run', '-s', unshareTaxonomy.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		unshareTaxonomyArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		unshareTaxonomyArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.id) {
+		unshareTaxonomyArgs.push(...['--id', argv.id]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		unshareTaxonomyArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, unshareTaxonomyArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === addComponentToTheme.name || argv._[0] === addComponentToTheme.alias) {
+	_displayCommand(addComponentToTheme.name);
 	let addComponentToThemeArgs = ['run', '-s', addComponentToTheme.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11459,6 +11726,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === removeComponentFromTheme.name || argv._[0] === removeComponentFromTheme.alias) {
+	_displayCommand(removeComponentFromTheme.name);
 	let removeComponentFromThemeArgs = ['run', '-s', removeComponentFromTheme.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11472,6 +11740,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === copyTheme.name || argv._[0] === copyTheme.alias) {
+	_displayCommand(copyTheme.name);
 	let copyThemeArgs = ['run', '-s', copyTheme.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11494,6 +11763,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === controlTheme.name || argv._[0] === controlTheme.alias) {
+	_displayCommand(controlTheme.name);
 	let controlThemeArgs = ['run', '-s', controlTheme.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11509,6 +11779,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === shareTheme.name || argv._[0] === shareTheme.alias) {
+	_displayCommand(shareTheme.name);
 	let shareThemeArgs = ['run', '-s', shareTheme.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11530,6 +11801,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === unshareTheme.name || argv._[0] === unshareTheme.alias) {
+	_displayCommand(unshareTheme.name);
 	let unshareThemeArgs = ['run', '-s', unshareTheme.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11550,6 +11822,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeTheme.name || argv._[0] === describeTheme.alias) {
+	_displayCommand(describeTheme.name);
 	let describeThemeArgs = ['run', '-s', describeTheme.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11565,6 +11838,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === listServerContentTypes.name || argv._[0] === listServerContentTypes.alias) {
+	_displayCommand(listServerContentTypes.name);
 	let listServerContentTypesArgs = ['run', '-s', listServerContentTypes.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -11594,6 +11868,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === listResources.name || argv._[0] === listResources.alias) {
+	_displayCommand(listResources.name);
 	let listArgs = ['run', '-s', listResources.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -11611,6 +11886,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === listActivities.name || argv._[0] === listActivities.alias) {
+	_displayCommand(listActivities.name);
 	let listArgs = ['run', '-s', listActivities.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -11640,6 +11916,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeBackgroundJob.name || argv._[0] === describeBackgroundJob.alias) {
+	_displayCommand(describeBackgroundJob.name);
 	let describeBackgroundJobArgsArgs = ['run', '-s', describeBackgroundJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11658,6 +11935,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === listAssets.name || argv._[0] === listAssets.alias) {
+	_displayCommand(listAssets.name);
 	let listAssetsArgs = ['run', '-s', listAssets.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -11702,6 +11980,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === listAssetIds.name || argv._[0] === listAssetIds.alias) {
+	_displayCommand(listAssetIds.name);
 	let listAssetIdsArgs = ['run', '-s', listAssetIds.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11728,6 +12007,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeAsset.name || argv._[0] === describeAsset.alias) {
+	_displayCommand(describeAsset.name);
 	let describeAssetArgs = ['run', '-s', describeAsset.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11743,6 +12023,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === validateAssets.name || argv._[0] === validateAssets.alias) {
+	_displayCommand(validateAssets.name);
 	let validateAssetsArgs = ['run', '-s', validateAssets.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11767,6 +12048,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createAssetUsageReport.name || argv._[0] === createAssetUsageReport.alias) {
+	_displayCommand(createAssetUsageReport.name);
 	let createAssetUsageReportArgs = ['run', '-s', createAssetUsageReport.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11786,6 +12068,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createSite.name || argv._[0] === createSite.alias) {
+	_displayCommand(createSite.name);
 	let createSiteArgs = ['run', '-s', createSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11828,6 +12111,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createSitePage.name || argv._[0] === createSitePage.alias) {
+	_displayCommand(createSitePage.name);
 	let createSitePageArgs = ['run', '-s', createSitePage.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11853,6 +12137,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === copySite.name || argv._[0] === copySite.alias) {
+	_displayCommand(copySite.name);
 	let copySiteArgs = ['run', '-s', copySite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11877,6 +12162,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === transferSite.name || argv._[0] === transferSite.alias) {
+	_displayCommand(transferSite.name);
 	let transferSiteArgs = ['run', '-s', transferSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11932,6 +12218,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === transferSiteContent.name || argv._[0] === transferSiteContent.alias) {
+	_displayCommand(transferSiteContent.name);
 	let transferSiteContentArgs = ['run', '-s', transferSiteContent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11964,6 +12251,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === transferSitePage.name || argv._[0] === transferSitePage.alias) {
+	_displayCommand(transferSitePage.name);
 	let transferSitePageArgs = ['run', '-s', transferSitePage.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -11979,6 +12267,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === controlSite.name || argv._[0] === controlSite.alias) {
+	_displayCommand(controlSite.name);
 	let controlSiteArgs = ['run', '-s', controlSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12003,6 +12292,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.deletestaticfiles) {
 		controlSiteArgs.push(...['--deletestaticfiles', argv.deletestaticfiles]);
 	}
+	if (argv.settingsfiles) {
+		controlSiteArgs.push(...['--settingsfiles', argv.settingsfiles]);
+	}
 	if (argv.theme) {
 		controlSiteArgs.push(...['--theme', argv.theme]);
 	}
@@ -12024,6 +12316,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === shareSite.name || argv._[0] === shareSite.alias) {
+	_displayCommand(shareSite.name);
 	let shareSiteArgs = ['run', '-s', shareSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12045,6 +12338,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === unshareSite.name || argv._[0] === unshareSite.alias) {
+	_displayCommand(unshareSite.name);
 	let unshareSiteArgs = ['run', '-s', unshareSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12065,6 +12359,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === deleteSite.name) {
+	_displayCommand(deleteSite.name);
 	let deleteSiteArgs = ['run', '-s', deleteSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12083,6 +12378,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeSite.name || argv._[0] === describeSite.alias) {
+	_displayCommand(describeSite.name);
 	let describeSiteArgs = ['run', '-s', describeSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12101,6 +12397,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeSitePage.name || argv._[0] === describeSitePage.alias) {
+	_displayCommand(describeSitePage.name);
 	let describeSitePageArgs = ['run', '-s', describeSitePage.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12123,6 +12420,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === getSiteSecurity.name || argv._[0] === getSiteSecurity.alias) {
+	_displayCommand(getSiteSecurity.name);
 	let getSiteSecurityArgs = ['run', '-s', getSiteSecurity.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12137,6 +12435,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === setSiteSecurity.name || argv._[0] === setSiteSecurity.alias) {
+	_displayCommand(setSiteSecurity.name);
 	let setSiteSecurityArgs = ['run', '-s', setSiteSecurity.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12161,6 +12460,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === updateSite.name || argv._[0] === updateSite.alias) {
+	_displayCommand(updateSite.name);
 	let updateSiteArgs = ['run', '-s', updateSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12187,6 +12487,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === exportSite.name || argv._[0] === exportSite.alias) {
+	_displayCommand(exportSite.name);
 	let exportSiteArgs = ['run', '-s', exportSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12216,6 +12517,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === importSite.name || argv._[0] === importSite.alias) {
+	_displayCommand(importSite.name);
 	let importSiteArgs = ['run', '-s', importSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12260,6 +12562,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === unblockImportJob.name || argv._[0] === unblockImportJob.alias) {
+	_displayCommand(unblockImportJob.name);
 	let unblockImportJobArgs = ['run', '-s', unblockImportJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12277,6 +12580,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === retryImportJob.name || argv._[0] === retryImportJob.alias) {
+	_displayCommand(retryImportJob.name);
 	let retryImportJobArgs = ['run', '-s', retryImportJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12291,6 +12595,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === cancelExportJob.name || argv._[0] === cancelExportJob.alias) {
+	_displayCommand(cancelExportJob.name);
 	let cancelExportJobArgs = ['run', '-s', cancelExportJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12306,6 +12611,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === cancelImportJob.name || argv._[0] === cancelImportJob.alias) {
+	_displayCommand(cancelImportJob.name);
 	let cancelImportJobArgs = ['run', '-s', cancelImportJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12321,6 +12627,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === deleteExportJob.name || argv._[0] === deleteExportJob.alias) {
+	_displayCommand(deleteExportJob.name);
 	let deleteExportJobArgs = ['run', '-s', deleteExportJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12336,6 +12643,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === deleteImportJob.name || argv._[0] === deleteImportJob.alias) {
+	_displayCommand(deleteImportJob.name);
 	let deleteImportJobArgs = ['run', '-s', deleteImportJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12351,6 +12659,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === listExportJobs.name || argv._[0] === listExportJobs.alias) {
+	_displayCommand(listExportJobs.name);
 	let listExportJobsArg = ['run', '-s', listExportJobs.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -12364,6 +12673,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeExportJob.name || argv._[0] === describeExportJob.alias) {
+	_displayCommand(describeExportJob.name);
 	let describeExportJobArgs = ['run', '-s', describeExportJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12382,6 +12692,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === listImportJobs.name || argv._[0] === listImportJobs.alias) {
+	_displayCommand(listImportJobs.name);
 	let listImportJobsArg = ['run', '-s', listImportJobs.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -12395,6 +12706,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeImportJob.name || argv._[0] === describeImportJob.alias) {
+	_displayCommand(describeImportJob.name);
 	let describeImportJobArgs = ['run', '-s', describeImportJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12413,6 +12725,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === validateSite.name || argv._[0] === validateSite.alias) {
+	_displayCommand(validateSite.name);
 	let validateSiteArgs = ['run', '-s', validateSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12431,6 +12744,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === indexSite.name || argv._[0] === indexSite.alias) {
+	_displayCommand(indexSite.name);
 	let indexSiteArgs = ['run', '-s', indexSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12449,6 +12763,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createSiteMap.name || argv._[0] === createSiteMap.alias) {
+	_displayCommand(createSiteMap.name);
 	let createSiteMapArgs = ['run', '-s', createSiteMap.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12510,6 +12825,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createRSSFeed.name || argv._[0] === createRSSFeed.alias) {
+	_displayCommand(createRSSFeed.name);
 	let createRSSFeedArgs = ['run', '-s', createRSSFeed.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12556,6 +12872,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createAssetReport.name || argv._[0] === createAssetReport.alias) {
+	_displayCommand(createAssetReport.name);
 	let createAssetReportArgs = ['run', '-s', createAssetReport.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12578,6 +12895,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === uploadStaticSite.name || argv._[0] === uploadStaticSite.alias) {
+	_displayCommand(uploadStaticSite.name);
 	let uploadStaticSiteArgs = ['run', '-s', uploadStaticSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12602,6 +12920,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === downloadStaticSite.name || argv._[0] === downloadStaticSite.alias) {
+	_displayCommand(downloadStaticSite.name);
 	let downloadStaticSiteArgs = ['run', '-s', downloadStaticSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12619,6 +12938,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === deleteStaticSite.name || argv._[0] === deleteStaticSite.alias) {
+	_displayCommand(deleteStaticSite.name);
 	let deleteStaticSiteArgs = ['run', '-s', deleteStaticSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12633,6 +12953,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === refreshPrerenderCache.name || argv._[0] === refreshPrerenderCache.alias) {
+	_displayCommand(refreshPrerenderCache.name);
 	let refreshPrerenderCacheArgs = ['run', '-s', refreshPrerenderCache.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12647,6 +12968,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createSitePlan.name || argv._[0] === createSitePlan.alias) {
+	_displayCommand(createSitePlan.name);
 	let createSitePlanArgs = ['run', '-s', createSitePlan.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12671,6 +12993,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === migrateSite.name || argv._[0] === migrateSite.alias) {
+	_displayCommand(migrateSite.name);
 	let migrateSiteArgs = ['run', '-s', migrateSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12699,6 +13022,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === migrateContent.name || argv._[0] === migrateContent.alias) {
+	_displayCommand(migrateContent.name);
 	let migrateContentArgs = ['run', '-s', migrateContent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12719,6 +13043,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === compileContent.name || argv._[0] === compileContent.alias) {
+	_displayCommand(compileContent.name);
 	let runCommand = argv.debug ? compileContent.debugName : compileContent.name;
 	let compileContentArgs = ['run', '-s', runCommand, '--prefix', appRoot,
 		'--',
@@ -12755,6 +13080,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === uploadCompiledContent.name || argv._[0] === uploadCompiledContent.alias) {
+	_displayCommand(uploadCompiledContent.name);
 	let uploadCompiledContentArgs = ['run', '-s', uploadCompiledContent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12770,6 +13096,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === renameContentType.name || argv._[0] === renameContentType.alias) {
+	_displayCommand(renameContentType.name);
 	let renameContentTypeArgs = ['run', '-s', renameContentType.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12786,6 +13113,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createRepository.name || argv._[0] === createRepository.alias) {
+	_displayCommand(createRepository.name);
 	let createRepositoryArgs = ['run', '-s', createRepository.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12815,6 +13143,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === controlRepository.name || argv._[0] === controlRepository.alias) {
+	_displayCommand(controlRepository.name);
 	let controlRepositoryArgs = ['run', '-s', controlRepository.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12850,6 +13179,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === shareRepository.name || argv._[0] === shareRepository.alias) {
+	_displayCommand(shareRepository.name);
 	let shareRepositoryArgs = ['run', '-s', shareRepository.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12877,6 +13207,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === unshareRepository.name || argv._[0] === unshareRepository.alias) {
+	_displayCommand(unshareRepository.name);
 	let unshareRepositoryArgs = ['run', '-s', unshareRepository.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12900,6 +13231,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeRepository.name || argv._[0] === describeRepository.alias) {
+	_displayCommand(describeRepository.name);
 	let describeRepositoryArgs = ['run', '-s', describeRepository.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12917,6 +13249,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === setEditorialPermission.name || argv._[0] === setEditorialPermission.alias) {
+	_displayCommand(setEditorialPermission.name);
 	let setEditorialPermissionArgs = ['run', '-s', setEditorialPermission.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12953,6 +13286,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === listEditorialPermission.name || argv._[0] === listEditorialPermission.alias) {
+	_displayCommand(listEditorialPermission.name);
 	let listEditorialPermissionArgs = ['run', '-s', listEditorialPermission.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -12967,6 +13301,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === listEditorialRole.name || argv._[0] === listEditorialRole.alias) {
+	_displayCommand(listEditorialRole.name);
 	let listEditorialRoleArgs = ['run', '-s', listEditorialRole.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -12983,6 +13318,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === createEditorialRole.name || argv._[0] === createEditorialRole.alias) {
+	_displayCommand(createEditorialRole.name);
 	let createEditorialRoleArgs = ['run', '-s', createEditorialRole.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13000,6 +13336,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === setEditorialRole.name || argv._[0] === setEditorialRole.alias) {
+	_displayCommand(setEditorialRole.name);
 	let setEditorialRoleArgs = ['run', '-s', setEditorialRole.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13030,6 +13367,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === deleteEditorialRole.name || argv._[0] === deleteEditorialRole.alias) {
+	_displayCommand(deleteEditorialRole.name);
 	let deleteEditorialRoleArgs = ['run', '-s', deleteEditorialRole.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13045,6 +13383,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === transferEditorialRole.name || argv._[0] === transferEditorialRole.alias) {
+	_displayCommand(transferEditorialRole.name);
 	let transferEditorialRoleArgs = ['run', '-s', transferEditorialRole.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13059,6 +13398,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === shareType.name || argv._[0] === shareType.alias) {
+	_displayCommand(shareType.name);
 	let shareTypeArgs = ['run', '-s', shareType.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13080,6 +13420,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === unshareType.name || argv._[0] === unshareType.alias) {
+	_displayCommand(unshareType.name);
 	let unshareTypeArgs = ['run', '-s', unshareType.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13100,6 +13441,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === downloadType.name || argv._[0] === downloadType.alias) {
+	_displayCommand(downloadType.name);
 	let downloadTypeArgs = ['run', '-s', downloadType.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13117,6 +13459,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === updateType.name || argv._[0] === updateType.alias) {
+	_displayCommand(updateType.name);
 	let updateTypeArgs = ['run', '-s', updateType.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13141,6 +13484,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeType.name || argv._[0] === describeType.alias) {
+	_displayCommand(describeType.name);
 	let describeTypeArgs = ['run', '-s', describeType.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13162,6 +13506,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === describeWorkflow.name || argv._[0] === describeWorkflow.alias) {
+	_displayCommand(describeWorkflow.name);
 	let describeWorkflowArgs = ['run', '-s', describeWorkflow.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13221,6 +13566,7 @@ else if (argv._[0] === createContentItem.name || argv._[0] === createContentItem
 
 } */
 else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
+	_displayCommand(uploadType.name);
 	let uploadTypeArgs = ['run', '-s', uploadType.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13241,6 +13587,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === copyType.name || argv._[0] === copyType.alias) {
+	_displayCommand(copyType.name);
 	let copyTypeArgs = ['run', '-s', copyType.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13266,6 +13613,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === createCollection.name || argv._[0] === createCollection.alias) {
+	_displayCommand(createCollection.name);
 	let createCollectionArgs = ['run', '-s', createCollection.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13284,6 +13632,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === controlCollection.name || argv._[0] === controlCollection.alias) {
+	_displayCommand(controlCollection.name);
 	let controlCollectionArgs = ['run', '-s', controlCollection.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13312,6 +13661,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === createChannel.name || argv._[0] === createChannel.alias) {
+	_displayCommand(createChannel.name);
 	let createChannelArgs = ['run', '-s', createChannel.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13338,6 +13688,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === shareChannel.name || argv._[0] === shareChannel.alias) {
+	_displayCommand(shareChannel.name);
 	let shareChannelArgs = ['run', '-s', shareChannel.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13359,6 +13710,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === unshareChannel.name || argv._[0] === unshareChannel.alias) {
+	_displayCommand(unshareChannel.name);
 	let unshareChannelArgs = ['run', '-s', unshareChannel.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13379,6 +13731,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === describeChannel.name || argv._[0] === describeChannel.alias) {
+	_displayCommand(describeChannel.name);
 	let describeChannelArgs = ['run', '-s', describeChannel.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13396,6 +13749,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === createLocalizationPolicy.name || argv._[0] === createLocalizationPolicy.alias) {
+	_displayCommand(createLocalizationPolicy.name);
 	let createLocalizationPolicyArgs = ['run', '-s', createLocalizationPolicy.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13418,6 +13772,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === downloadLocalizationPolicy.name || argv._[0] === downloadLocalizationPolicy.alias) {
+	_displayCommand(downloadLocalizationPolicy.name);
 	let downloadLocalizationPolicyArgs = ['run', '-s', downloadLocalizationPolicy.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13433,6 +13788,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === uploadLocalizationPolicy.name || argv._[0] === uploadLocalizationPolicy.alias) {
+	_displayCommand(uploadLocalizationPolicy.name);
 	let uploadLocalizationPolicyArgs = ['run', '-s', uploadLocalizationPolicy.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13453,6 +13809,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === createTranslationJob.name || argv._[0] === createTranslationJob.alias) {
+	_displayCommand(createTranslationJob.name);
 	let createTranslationJobArgs = ['run', '-s', createTranslationJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13489,6 +13846,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === downloadTranslationJob.name || argv._[0] === downloadTranslationJob.alias) {
+	_displayCommand(downloadTranslationJob.name);
 	let downloadTranslationJobArgs = ['run', '-s', downloadTranslationJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13503,6 +13861,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === uploadTranslationJob.name || argv._[0] === uploadTranslationJob.alias) {
+	_displayCommand(uploadTranslationJob.name);
 	let uploadTranslationJobArgs = ['run', '-s', uploadTranslationJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13524,6 +13883,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === listTranslationJobs.name || argv._[0] === listTranslationJobs.alias) {
+	_displayCommand(listTranslationJobs.name);
 	let listTranslationJobsArgs = ['run', '-s', listTranslationJobs.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -13538,6 +13898,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === submitTranslationJob.name || argv._[0] === submitTranslationJob.alias) {
+	_displayCommand(submitTranslationJob.name);
 	let submitTranslationJobArgs = ['run', '-s', submitTranslationJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13551,6 +13912,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === refreshTranslationJob.name || argv._[0] === refreshTranslationJob.alias) {
+	_displayCommand(refreshTranslationJob.name);
 	let refreshTranslationJobArgs = ['run', '-s', refreshTranslationJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13566,6 +13928,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === ingestTranslationJob.name || argv._[0] === ingestTranslationJob.alias) {
+	_displayCommand(ingestTranslationJob.name);
 	let ingestTranslationJobArgs = ['run', '-s', ingestTranslationJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13581,6 +13944,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === registerTranslationConnector.name || argv._[0] === registerTranslationConnector.alias) {
+	_displayCommand(registerTranslationConnector.name);
 	let registerTranslationConnectorArgs = ['run', '-s', registerTranslationConnector.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13599,6 +13963,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === createTranslationConnector.name || argv._[0] === createTranslationConnector.alias) {
+	_displayCommand(createTranslationConnector.name);
 	let createTranslationConnectorArgs = ['run', '-s', createTranslationConnector.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13612,6 +13977,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === startTranslationConnector.name || argv._[0] === startTranslationConnector.alias) {
+	_displayCommand(startTranslationConnector.name);
 	let startTranslationConnectorArgs = ['run', '-s', startTranslationConnector.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13629,6 +13995,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === createFolder.name || argv._[0] === createFolder.alias) {
+	_displayCommand(createFolder.name);
 	let createFolderArgs = ['run', '-s', createFolder.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13643,6 +14010,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === copyFolder.name || argv._[0] === copyFolder.alias) {
+	_displayCommand(copyFolder.name);
 	let copyFolderArgs = ['run', '-s', copyFolder.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13660,6 +14028,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === shareFolder.name || argv._[0] === shareFolder.alias) {
+	_displayCommand(shareFolder.name);
 	let shareFolderArgs = ['run', '-s', shareFolder.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13681,6 +14050,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === unshareFolder.name || argv._[0] === unshareFolder.alias) {
+	_displayCommand(unshareFolder.name);
 	let unshareFolderArgs = ['run', '-s', unshareFolder.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13701,6 +14071,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === listFolder.name || argv._[0] === listFolder.alias) {
+	_displayCommand(listFolder.name);
 	let listFolderArgs = ['run', '-s', listFolder.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13715,6 +14086,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === downloadFolder.name || argv._[0] === downloadFolder.alias) {
+	_displayCommand(downloadFolder.name);
 	let downloadFolderArgs = ['run', '-s', downloadFolder.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13732,6 +14104,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === uploadFolder.name || argv._[0] === uploadFolder.alias) {
+	_displayCommand(uploadFolder.name);
 	let uploadFolderArgs = ['run', '-s', uploadFolder.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13749,6 +14122,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === deleteFolder.name || argv._[0] === deleteFolder.alias) {
+	_displayCommand(deleteFolder.name);
 	let deleteFolderArgs = ['run', '-s', deleteFolder.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13766,6 +14140,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === copyFile.name || argv._[0] === copyFile.alias) {
+	_displayCommand(copyFile.name);
 	let copyFileArgs = ['run', '-s', copyFile.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13783,6 +14158,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === uploadFile.name || argv._[0] === uploadFile.alias) {
+	_displayCommand(uploadFile.name);
 	let uploadFileArgs = ['run', '-s', uploadFile.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13803,6 +14179,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === downloadFile.name || argv._[0] === downloadFile.alias) {
+	_displayCommand(downloadFile.name);
 	let downloadFileArgs = ['run', '-s', downloadFile.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13823,6 +14200,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === deleteFile.name || argv._[0] === deleteFile.alias) {
+	_displayCommand(deleteFile.name);
 	let deleteFileArgs = ['run', '-s', deleteFile.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13840,6 +14218,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === describeFile.name || argv._[0] === describeFile.alias) {
+	_displayCommand(describeFile.name);
 	let describeFileArgs = ['run', '-s', describeFile.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13855,6 +14234,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === listTrash.name || argv._[0] === listTrash.alias) {
+	_displayCommand(listTrash.name);
 	let listTrashArgs = ['run', '-s', listTrash.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -13869,6 +14249,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === deleteTrash.name) {
+	_displayCommand(deleteTrash.name);
 	let deleteTrashArgs = ['run', '-s', deleteTrash.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13887,6 +14268,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === restoreTrash.name || argv._[0] === restoreTrash.alias) {
+	_displayCommand(restoreTrash.name);
 	let restoreTrashArgs = ['run', '-s', restoreTrash.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13905,6 +14287,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === emptyTrash.name) {
+	_displayCommand(emptyTrash.name);
 	let emptyTrashArgs = ['run', '-s', emptyTrash.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13920,6 +14303,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === downloadRecommendation.name || argv._[0] === downloadRecommendation.alias) {
+	_displayCommand(downloadRecommendation.name);
 	let downloadRecommendationArgs = ['run', '-s', downloadRecommendation.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13944,6 +14328,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === uploadRecommendation.name || argv._[0] === uploadRecommendation.alias) {
+	_displayCommand(uploadRecommendation.name);
 	let uploadRecommendationArgs = ['run', '-s', uploadRecommendation.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13961,6 +14346,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === controlRecommendation.name || argv._[0] === controlRecommendation.alias) {
+	_displayCommand(controlRecommendation.name);
 	let controlRecommendationArgs = ['run', '-s', controlRecommendation.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -13982,6 +14368,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === listScheduledJobs.name || argv._[0] === listScheduledJobs.alias) {
+	_displayCommand(listScheduledJobs.name);
 	let listScheduledJobsArgs = ['run', '-s', listScheduledJobs.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -14000,6 +14387,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === describeScheduledJob.name || argv._[0] === describeScheduledJob.alias) {
+	_displayCommand(describeScheduledJob.name);
 	let describeScheduledJobArgs = ['run', '-s', describeScheduledJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14016,6 +14404,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === listPublishingJobs.name || argv._[0] === listPublishingJobs.alias) {
+	_displayCommand(listPublishingJobs.name);
 	let listPublishingJobsArgs = ['run', '-s', listPublishingJobs.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14038,6 +14427,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === downloadJobLog.name || argv._[0] === downloadJobLog.alias) {
+	_displayCommand(downloadJobLog.name);
 	let downloadJobLogArgs = ['run', '-s', downloadJobLog.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14054,6 +14444,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === updateRenditionJob.name || argv._[0] === updateRenditionJob.alias) {
+	_displayCommand(updateRenditionJob.name);
 	let updateRenditionJobArgs = ['run', '-s', updateRenditionJob.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14073,6 +14464,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === createEncryptionKey.name || argv._[0] === createEncryptionKey.alias) {
+	_displayCommand(createEncryptionKey.name);
 	let createEncryptionKeyArgs = ['run', '-s', createEncryptionKey.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14084,14 +14476,19 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === registerServer.name || argv._[0] === registerServer.alias) {
+	_displayCommand(registerServer.name);
 	let registerServerArgs = ['run', '-s', registerServer.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
 		'--name', argv.name,
-		'--endpoint', argv.endpoint,
-		'--user', argv.user,
-		'--password', argv.password
+		'--endpoint', argv.endpoint
 	];
+	if (argv.user) {
+		registerServerArgs.push(...['--user'], argv.user);
+	}
+	if (argv.password) {
+		registerServerArgs.push(...['--password'], argv.password);
+	}
 	if (argv.key && typeof argv.key !== 'boolean') {
 		registerServerArgs.push(...['--key'], argv.key);
 	}
@@ -14113,6 +14510,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.scope) {
 		registerServerArgs.push(...['--scope'], argv.scope);
 	}
+	if (argv.gettoken) {
+		registerServerArgs.push(...['--gettoken'], argv.gettoken);
+	}
 	if (argv.timeout) {
 		registerServerArgs.push(...['--timeout'], argv.timeout);
 	}
@@ -14122,6 +14522,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === configProperties.name || argv._[0] === configProperties.alias) {
+	_displayCommand(configProperties.name);
 	let configPropertiesArgs = ['run', '-s', configProperties.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14135,6 +14536,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === setOAuthToken.name || argv._[0] === setOAuthToken.alias) {
+	_displayCommand(setOAuthToken.name);
 	let setOAuthTokenArgs = ['run', '-s', setOAuthToken.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14151,6 +14553,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === refreshOAuthToken.name || argv._[0] === refreshOAuthToken.alias) {
+	_displayCommand(refreshOAuthToken.name);
 	let refreshOAuthTokenArgs = ['run', '-s', refreshOAuthToken.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -14166,6 +14569,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === develop.name || argv._[0] === develop.alias) {
+	_displayCommand(develop.name);
 	let developArgs = ['run', '-s', develop.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -14184,6 +14588,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 } else if (argv._[0] === syncServer.name || argv._[0] === syncServer.alias) {
+	_displayCommand(syncServer.name);
 	let syncServerArgs = ['run', '-s', syncServer.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14222,6 +14627,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 } else if (argv._[0] === webhookServer.name || argv._[0] === webhookServer.alias) {
+	_displayCommand(webhookServer.name);
 	let webhookServerArgs = ['run', '-s', webhookServer.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14241,6 +14647,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === compilationServer.name || argv._[0] === compilationServer.alias) {
+	_displayCommand(compilationServer.name);
 	let compilationServerArgs = ['run', '-s', compilationServer.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -14274,6 +14681,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 } else if (argv._[0] === createGroup.name || argv._[0] === createGroup.alias) {
+	_displayCommand(createGroup.name);
 	let createGroupArgs = ['run', '-s', createGroup.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14290,6 +14698,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 } else if (argv._[0] === deleteGroup.name || argv._[0] === deleteGroup.alias) {
+	_displayCommand(deleteGroup.name);
 	let deleteGroupArgs = ['run', '-s', deleteGroup.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14304,6 +14713,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 } else if (argv._[0] === addMemberToGroup.name || argv._[0] === addMemberToGroup.alias) {
+	_displayCommand(addMemberToGroup.name);
 	let addMemberToGroupArgs = ['run', '-s', addMemberToGroup.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14325,6 +14735,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 } else if (argv._[0] === removeMemberFromGroup.name || argv._[0] === removeMemberFromGroup.alias) {
+	_displayCommand(removeMemberFromGroup.name);
 	let removeMemberFromGroupArgs = ['run', '-s', removeMemberFromGroup.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14340,6 +14751,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 } else if (argv._[0] === executeGet.name || argv._[0] === executeGet.alias) {
+	_displayCommand(executeGet.name);
 	let executeGetArgs = ['run', '-s', executeGet.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14355,6 +14767,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 } else if (argv._[0] === executePost.name || argv._[0] === executePost.alias) {
+	_displayCommand(executePost.name);
 	let executePostArgs = ['run', '-s', executePost.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14378,6 +14791,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === executePut.name || argv._[0] === executePut.alias) {
+	_displayCommand(executePut.name);
 	let executePutArgs = ['run', '-s', executePut.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14398,6 +14812,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === executePatch.name || argv._[0] === executePatch.alias) {
+	_displayCommand(executePatch.name);
 	let executePatchArgs = ['run', '-s', executePatch.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14418,6 +14833,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === executeDelete.name || argv._[0] === executeDelete.alias) {
+	_displayCommand(executeDelete.name);
 	let executeDeleteArgs = ['run', '-s', executeDelete.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14432,6 +14848,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 } else if (argv._[0] === setLoggerLevel.name || argv._[0] === setLoggerLevel.alias) {
+	_displayCommand(setLoggerLevel.name);
 	let setLoggerLevelArgs = ['run', '-s', setLoggerLevel.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,

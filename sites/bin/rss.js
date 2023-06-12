@@ -395,7 +395,7 @@ var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
 			}
 
 			var rssFileUrl = siteUrl + '/' + filename;
-			console.log(' - site RSS feed uploaded, publish the site and access it at ' + rssFileUrl);
+			console.log(' - site RSS feed uploaded, publish with command \'cec control-site publish -s ' + siteName + ' -i seo\' and access it at ' + rssFileUrl);
 			done(true);
 		})
 		.catch((error) => {

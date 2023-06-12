@@ -61,6 +61,7 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	mobilePages = false, // whether we are compiling mobile pages
 	localeGroup = [], // list of locales to compile
 	useFallbackLocale, // locale to use is requested locale does not exist
+	incrementalCompile = {}, // any incremental compile definition
 	folderProperties; // _folder.json values
 
 
@@ -3280,6 +3281,42 @@ function createDetailPage(context, detailPage) {
 	return createPage(context, pageInfo);
 }
 
+function addIncrementalDetailPages() {
+	return new Promise(function (resolve, reject) {
+		var detailPageAssetIds = incrementalCompile.detailPageAssetIds || [];
+		if (detailPageAssetIds.length > 0) {
+			var scsCompileAPI = compiler.getSCSCompileAPI(); 
+			scsCompileAPI.getContentClient().then(function (contentClient) {
+				// query back all the requested items
+				incrementalCompile.detailItemsPromise = incrementalCompile.detailItemsPromise || contentClient.getItems({ids: detailPageAssetIds});
+				incrementalCompile.detailItemsPromise.then(function (result) {
+					// create a map for the items
+					var itemMap = {}; 
+					var items = result && result.items;
+					(Array.isArray(items) && items || []).forEach(function (item) {
+						itemMap[item.id] = item;
+					});
+
+					// add in each of the detail pages entries
+					(incrementalCompile.detailPages || []).forEach(function (entry) {
+						var detailPageId = entry.pageId;
+						(entry.assets || []).forEach(function (itemId) {
+							var item = itemMap[itemId];
+							if (item) {
+								scsCompileAPI.compileDetailPage(detailPageId, item);
+							}
+						});
+					});
+
+					return resolve();
+				});
+			});
+		} else {
+			return resolve(); 
+		}
+	});
+}
+
 function createDetailPages() {
 	var createDetailPagePromises = [];
 
@@ -3511,20 +3548,89 @@ var compilePages = function (compileTargetDevice) {
 		console.log('All page creation calls complete.');
 
 		// create detail pages as well if they were found during page compilation
-		if (compileDetailPages && Object.keys(detailPageList).length > 0) {
-			console.log('');
-			console.log('Creating detail pages:');
-			creatingDetailPages = true;
-			return createDetailPages().then(function () {
-				console.log('All detail page creation calls complete.');
-			});
-		}
+		return addIncrementalDetailPages().then(function () { 
+			if (compileDetailPages && Object.keys(detailPageList).length > 0) {
+				console.log('');
+				console.log('Creating detail pages:');
+				creatingDetailPages = true;
+				return createDetailPages().then(function () {
+					console.log('All detail page creation calls complete.');
+				});
+			}
+		});
 	}).catch(function (e) {
 		if (e) {
 			console.log(e);
 		}
 		return Promise.reject();
 	});
+};
+
+// See if a incremental compile definition file has been defined, this will have been set up in the run.sh file if it exists for this job
+// Note: We are driving this from an environment variable rather than a parameter in order to support backwards compatibility
+//       customers with existing compile_site.sh files will not need to update the files to take advantage of this 
+var checkIncrementalCompile = function (args) {
+	// update the 'pages' entry with all the listed incremental pages and any detail pages
+	var getIncrementalPages = function () {
+		var incrementalPages = []; 
+
+		// get both the specific pages and detail pages
+		(incrementalCompile.pages || []).forEach(function (pageDefinition) {
+			incrementalPages.push(pageDefinition.pageId);
+		});
+		(incrementalCompile.detailPages || []).forEach(function (pageDefinition) {
+			incrementalPages.push(pageDefinition.pageId);
+		});
+
+		return incrementalPages; 
+	};
+
+	// query back all the detail pages content items, which will be added later
+	var getDetailPageAssetIds = function () {
+		// get the union of all IDs across all detail pages
+		var detailPageAssetIds = {}; 
+
+		(incrementalCompile.detailPages || []).forEach(function (pageDefinition) {
+			(pageDefinition.assets || []).forEach(function (id) {
+				detailPageAssetIds[id] = id; 
+			});
+		});
+
+		return Object.keys(detailPageAssetIds);
+	};
+
+	var incrementalCompileFilePath = process.env.CEC_TOOLKIT_INCREMENTAL_COMPILE_FILE;
+	if (incrementalCompileFilePath) {
+		console.log('Reading incremental compile file: ' + incrementalCompileFilePath);
+		var incrementalCompileFile = fs.readFileSync(incrementalCompileFilePath, {
+			encoding: 'utf8'
+		});
+		console.log(incrementalCompileFile);
+
+		try {
+			// store the incremental compile definition
+			incrementalCompile = JSON.parse(incrementalCompileFile);
+
+			// extract the pages to compile
+			var incrementalPages = getIncrementalPages(); 
+
+			if (incrementalPages.length > 0) {
+				// update the list of pages to compile
+				pages = incrementalPages.join(',');
+
+				// extract the detail page IDs to compile
+				incrementalCompile.detailPageAssetIds = getDetailPageAssetIds(); 
+			}
+
+			console.log(' - incremental job pages: ' + pages)
+			console.log(' - incremental job detail page assets: ' + JSON.stringify(incrementalCompile.detailPageAssetIds || []));
+			console.log('');
+		} catch (e) {
+			throw new Error(' Failed to parse incremental compile file: ' + incrementalCompileFilePath);
+		}
+	} 
+
+	return true;
 };
 
 var compileSite = function (args) {
@@ -3637,6 +3743,7 @@ var compileSite = function (args) {
 		initialize();
 		readStyleShim();
 		readRootStructure();
+		checkIncrementalCompile();
 	} catch (e) {
 		compilationReporter.error({
 			message: 'compilation initialization: failed to initialize template structure, no page compilation attempted.',

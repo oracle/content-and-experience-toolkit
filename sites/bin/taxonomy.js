@@ -35,7 +35,7 @@ var verifyRun = function (argv) {
 	return true;
 };
 
-var _getTaxonomy = function(id, status, server) {
+var _getTaxonomy = function (id, status, server) {
 	return new Promise(function (resolve, reject) {
 		var url = '/content/management/api/v1.1/taxonomies/' + id;
 		url += '?q=(status eq "' + status + '")&fields=all';
@@ -59,7 +59,30 @@ var _getTaxonomy = function(id, status, server) {
 	});
 };
 
-var _putTaxonomy = function(tax, status, server) {
+var _getTaxonomyPermissions = function (id, server) {
+	return new Promise(function (resolve, reject) {
+		var url = '/content/management/api/v1.1/taxonomies/' + id + '/permissions';
+
+		serverRest.executeGet({
+			server: server,
+			endpoint: url,
+			noMsg: true
+		}).then(function (body) {
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			resolve(data);
+		}).catch((error) => {
+			console.error('ERROR: Failed to get taxonomy permissions');
+			reject();
+		})
+	});
+};
+
+var _putTaxonomy = function (tax, status, server) {
 	return new Promise(function (resolve, reject) {
 		var url = '/content/management/api/v1.1/taxonomies/' + tax.id;
 		url += '?q=(status eq "' + status + '")&fields=all';
@@ -88,7 +111,7 @@ var _putTaxonomy = function(tax, status, server) {
 	});
 };
 
-var _findTaxonomyByName = function(name, server) {
+var _findTaxonomyByName = function (name, server) {
 	return new Promise(function (resolve, reject) {
 		serverRest.getTaxonomiesWithName({
 			server: server,
@@ -118,7 +141,7 @@ var _findTaxonomyByName = function(name, server) {
 	});
 };
 
-var _findTaxonomyByStatus = function(name, status, server) {
+var _findTaxonomyByStatus = function (name, status, server) {
 	return new Promise(function (resolve, reject) {
 		_findTaxonomyByName(name, server).then((tax) => {
 			var statusMatch = tax.availableStates.find((state) => {
@@ -879,6 +902,9 @@ module.exports.describeTaxonomy = function (argv, done) {
 		}
 
 		var tax;
+		var promotedVersion;
+		var publishedVersion;
+		var format1 = '%-38s  %-s';
 
 		serverRest.getTaxonomiesWithName({
 			server: server,
@@ -930,8 +956,6 @@ module.exports.describeTaxonomy = function (argv, done) {
 
 				tax = idMatched || nameMatched[0];
 
-				var promotedVersion;
-				var publishedVersion;
 				if (tax.availableStates && tax.availableStates.length > 0) {
 					tax.availableStates.forEach(function (state) {
 						if (state.status === 'promoted') {
@@ -951,7 +975,6 @@ module.exports.describeTaxonomy = function (argv, done) {
 					});
 				}
 
-				var format1 = '%-38s  %-s';
 				console.log('');
 				console.log(sprintf(format1, 'Id', tax.id));
 				console.log(sprintf(format1, 'Name', tax.name));
@@ -971,6 +994,25 @@ module.exports.describeTaxonomy = function (argv, done) {
 				if (channelNames.length > 0) {
 					console.log(sprintf(format1, 'Channels', channelNames.sort()));
 				}
+
+				return _getTaxonomyPermissions(tax.id, server);
+
+			})
+			.then(function (result) {
+				var taxPermissions = result && result.items || [];
+				// console.log(taxPermissions);
+				let taxManagers = [];
+				let taxEditors = [];
+				taxPermissions.forEach(function (perm) {
+					if (perm.roleName === 'manager') {
+						taxManagers.push(perm.id);
+					} else if (perm.roleName === 'editor') {
+						taxEditors.push(perm.id);
+					}
+				});
+				console.log(sprintf(format1, 'Managers', taxManagers));
+				console.log(sprintf(format1, 'Editors', taxEditors));
+
 
 				return serverRest.getCategories({
 					server: server,
@@ -1038,4 +1080,756 @@ var _displayCategories = function (parentId, categories, ident, duplicatedAPINam
 		}
 	}
 
+};
+
+var _addTaxonomyPermission = function (server, csrfToken, taxonomy, grantee, type, role) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/taxonomies/' + taxonomy.id + '/permissions';
+
+		var granteeId = type === 'user' ? grantee.loginName : grantee.name;
+		var payload = {
+			id: granteeId,
+			roleName: role,
+			type: type
+		};
+		if (type === 'group') {
+			payload.groupType = grantee.groupOriginType;
+		}
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-CSRF-TOKEN': csrfToken,
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(payload),
+			json: true
+		};
+
+		serverUtils.showRequestOptions(postData);
+
+		var request = require('../test/server/requestUtils.js').request;
+		request.post(postData, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to add permission to taxonomy ' + taxonomy.name + ' for ' + type + ' ' + granteeId + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			let result = {
+				type: type,
+				id: granteeId
+			}
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve({
+					permission: result
+				});
+			} else {
+				var msg = response.statusCode + ' ' + response.statusMessage + ' ' + (data && data['o:errorCode'] ? data['o:errorCode'] : '');
+				console.error('ERROR: failed to add permission to taxonomy ' + taxonomy.name + ' for ' + type + ' ' + granteeId + ' ' + msg + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: 'err',
+					permission: result
+				});
+			}
+		});
+	});
+};
+
+var _updateTaxonomyPermission = function (server, csrfToken, taxonomy, grantee, type, role) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/taxonomies/' + taxonomy.id + '/permissions/' + grantee.permissionId;
+
+		var granteeId = type === 'user' ? grantee.loginName : grantee.name;
+		var payload = {
+			roleName: role
+		};
+
+		var postData = {
+			method: 'PATCH',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-CSRF-TOKEN': csrfToken,
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(payload),
+			json: true
+		};
+
+		serverUtils.showRequestOptions(postData);
+
+		var request = require('../test/server/requestUtils.js').request;
+		request.patch(postData, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to update permission to taxonomy ' + taxonomy.name + ' for ' + type + ' ' + granteeId + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			let result = {
+				type: type,
+				id: granteeId
+			}
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve({
+					permission: result
+				});
+			} else {
+				var msg = response.statusCode + ' ' + response.statusMessage + ' ' + (data && data['o:errorCode'] ? data['o:errorCode'] : '');
+				console.error('ERROR: failed to update permission to taxonomy ' + taxonomy.name + ' for ' + type + ' ' + granteeId + ' ' + msg + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: 'err',
+					permission: result
+				});
+			}
+		});
+	});
+};
+
+module.exports.shareTaxonomy = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var id = argv.id;
+
+	var userNames = argv.users ? argv.users.split(',') : [];
+	var groupNames = argv.groups ? argv.groups.split(',') : [];
+	var role = argv.role;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var taxonomy;
+		var users = [];
+		var groups = [];
+		var goodUserNames = [];
+		var goodGroupNames = [];
+		var groupsToGrant = [];
+		var groupsToUpdate = [];
+		var usersToGrant = [];
+		var usersToUpdate = [];
+		var creator;
+
+		serverRest.getTaxonomies({
+			server: server,
+			fields: 'availableStates'
+		})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var taxonomies = result || [];
+				var nameMatched = [];
+				var idMatched;
+				for (var i = 0; i < taxonomies.length; i++) {
+					if (name && taxonomies[i].name === name) {
+						nameMatched.push(taxonomies[i]);
+					}
+					if (id && taxonomies[i].id === id) {
+						idMatched = taxonomies[i];
+					}
+				}
+
+				if (!idMatched && nameMatched.length === 0) {
+					console.error('ERROR: taxonomy does not exist');
+					return Promise.reject();
+				}
+				if (!idMatched && nameMatched.length > 1) {
+					console.error('ERROR: there are ' + nameMatched.length + ' taxonomies with name ' + name + ':');
+					var format = '   %-32s  %-12s  %-24s  %-12s %-s';
+					console.log(sprintf(format, 'Id', 'Abbreviation', 'Creation Date', 'Publishable', 'Status'));
+					nameMatched.forEach(function (tax) {
+						var availableStates = tax.availableStates;
+						var status = [];
+						for (var i = 0; i < availableStates.length; i++) {
+							status.push(availableStates[i].status + (availableStates[i].published ? '(published)' : ''));
+						}
+						console.log(sprintf(format, tax.id, tax.shortName, tax.createdDate && tax.createdDate.value,
+							(tax.isPublishable ? '    √' : ''), status.join(', ')));
+					});
+					console.log('Please try again with the taxonomy Id');
+					return Promise.reject();
+				}
+
+				taxonomy = idMatched || nameMatched[0];
+				creator = taxonomy.createdBy;
+				console.info(' - validate taxonomy ' + taxonomy.name + ' (id: ' + taxonomy.id + ' createdBy: ' + creator + ')');
+
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+
+			})
+			.then(function (result) {
+
+				if (groupNames.length > 0) {
+					console.info(' - verify groups');
+
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.error('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+					// console.log(groups);
+				}
+
+				var usersPromises = [];
+				for (let i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
+						server: server,
+						name: userNames[i]
+					}));
+				}
+
+				return Promise.all(usersPromises);
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
+					}
+				}
+				if (userNames.length > 0) {
+					console.info(' - verify users');
+				}
+
+				// verify users
+				for (var k = 0; k < userNames.length; k++) {
+					let found = false;
+					for (let i = 0; i < allUsers.length; i++) {
+						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+							users.push(allUsers[i]);
+							found = true;
+							break;
+						}
+						if (found) {
+							break;
+						}
+					}
+
+					if (!found) {
+						console.error('ERROR: user ' + userNames[k] + ' does not exist');
+					}
+					// console.log(users);
+				}
+
+				if (users.length === 0 && groups.length === 0) {
+					return Promise.reject();
+				}
+
+				return _getTaxonomyPermissions(taxonomy.id, server);
+
+			})
+			.then(function (result) {
+				var taxPermissions = result && result.items || [];
+				// console.log(taxPermissions);
+
+				var userMgr;
+				var totalUserManagers = 0;
+				taxPermissions.forEach(function (perm) {
+					if (perm.roleName === 'manager' && perm.type === 'user') {
+						totalUserManagers += 1;
+						userMgr = perm;
+					}
+				});
+				// console.log(totalUserManagers + ' ' + JSON.stringify(userMgr));
+
+				for (let i = 0; i < groups.length; i++) {
+					var groupGranted = false;
+					let needUpdate = false;
+					for (let j = 0; j < taxPermissions.length; j++) {
+						var perm = taxPermissions[j];
+						if (perm.type === 'group' &&
+							perm.groupType === groups[i].groupOriginType &&
+							(perm.fullName === groups[i].name || perm.id.toLowerCase() === groups[i].name.toLowerCase())) {
+							if (perm.roleName === role) {
+								groupGranted = true;
+							} else {
+								needUpdate = true;
+								groups[i].permissionId = perm.permissionId;
+							}
+							break;
+						}
+					}
+					if (groupGranted) {
+						console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on taxonomy ' + name);
+					} else {
+						if (needUpdate) {
+							groupsToUpdate.push(groups[i]);
+						} else {
+							groupsToGrant.push(groups[i]);
+						}
+						goodGroupNames.push(groups[i].name);
+					}
+				}
+
+				for (let i = 0; i < users.length; i++) {
+					var granted = false;
+					let needUpdate = false;
+					for (let j = 0; j < taxPermissions.length; j++) {
+						let perm = taxPermissions[j];
+						if (perm.type === 'user' && perm.id === users[i].loginName) {
+							if (perm.roleName === role) {
+								granted = true;
+							} else {
+								needUpdate = true;
+								if (role === 'editor' && totalUserManagers === 1 && perm.id === userMgr.id) {
+									console.error('ERROR: user ' + userMgr.id + ' is the only user manager for taxonomy ' + name + ', cannot change to editor');
+									return Promise.reject();
+								}
+								users[i].permissionId = perm.permissionId;
+							}
+							break;
+						}
+					}
+					if (granted) {
+						console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on taxonomy ' + name);
+					} else {
+						if (needUpdate) {
+							usersToUpdate.push(users[i]);
+						} else {
+							usersToGrant.push(users[i]);
+						}
+						goodUserNames.push(users[i].loginName);
+					}
+				}
+
+				return serverUtils.getCaasCSRFToken(server);
+
+			}).then(function (result) {
+				var csrfToken;
+				if (result.err) {
+					return Promise.reject();
+				} else {
+					csrfToken = result && result.token;
+				}
+
+				var permissionPromises = [];
+				groupsToGrant.forEach(function (group) {
+					permissionPromises.push(_addTaxonomyPermission(server, csrfToken, taxonomy, group, 'group', role));
+				});
+				groupsToUpdate.forEach(function (group) {
+					permissionPromises.push(_updateTaxonomyPermission(server, csrfToken, taxonomy, group, 'group', role));
+				});
+				usersToGrant.forEach(function (user) {
+					permissionPromises.push(_addTaxonomyPermission(server, csrfToken, taxonomy, user, 'user', role));
+				});
+				usersToUpdate.forEach(function (user) {
+					permissionPromises.push(_updateTaxonomyPermission(server, csrfToken, taxonomy, user, 'user', role));
+				});
+
+				return Promise.all(permissionPromises);
+
+			})
+			.then(function (results) {
+				var failed = false;
+				let grantedGroups = [];
+				let grantedUsers = [];
+				results.forEach(function (result) {
+					if (result.err) {
+						failed = true;
+					} else {
+						if (result.permission.type === 'user') {
+							grantedUsers.push(result.permission.id)
+						} else {
+							grantedGroups.push(result.permission.id);
+						}
+					}
+				});
+
+				if (grantedUsers.length > 0) {
+					console.log(' - user ' + (grantedUsers.join(', ')) + ' granted with role ' + role + ' on taxonomy ' + name);
+				}
+				if (grantedGroups.length > 0) {
+					console.log(' - group ' + (grantedGroups.join(', ')) + ' granted with role ' + role + ' on taxonomy ' + name);
+				}
+
+				done(!failed);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
+var _deleteTaxonomyPermission = function (server, csrfToken, taxonomy, perm) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/taxonomies/' + taxonomy.id + '/permissions/' + perm.permissionId;
+
+		var postData = {
+			method: 'DELETE',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-CSRF-TOKEN': csrfToken,
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+
+		serverUtils.showRequestOptions(postData);
+
+		var request = require('../test/server/requestUtils.js').request;
+		request.delete(postData, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to delete permission to taxonomy ' + taxonomy.name + ' for ' + perm.type + ' ' + perm.id + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve({
+					permission: perm
+				});
+			} else {
+				var msg = response.statusCode + ' ' + response.statusMessage + ' ' + (data && data['o:errorCode'] ? data['o:errorCode'] : '');
+				console.error('ERROR: failed to delete permission to taxonomy ' + taxonomy.name + ' for ' + perm.type + ' ' + perm.id + ' ' + msg + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: 'err',
+					permission: perm
+				});
+			}
+		});
+	});
+};
+
+module.exports.unshareTaxonomy = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var id = argv.id;
+
+	var userNames = argv.users ? argv.users.split(',') : [];
+	var groupNames = argv.groups ? argv.groups.split(',') : [];
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var taxonomy;
+		var users = [];
+		var groups = [];
+		var goodUserNames = [];
+		var goodGroupNames = [];
+		var permsToDelete = [];
+		var creator;
+
+		serverRest.getTaxonomies({
+			server: server,
+			fields: 'availableStates'
+		})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var taxonomies = result || [];
+				var nameMatched = [];
+				var idMatched;
+				for (var i = 0; i < taxonomies.length; i++) {
+					if (name && taxonomies[i].name === name) {
+						nameMatched.push(taxonomies[i]);
+					}
+					if (id && taxonomies[i].id === id) {
+						idMatched = taxonomies[i];
+					}
+				}
+
+				if (!idMatched && nameMatched.length === 0) {
+					console.error('ERROR: taxonomy does not exist');
+					return Promise.reject();
+				}
+				if (!idMatched && nameMatched.length > 1) {
+					console.error('ERROR: there are ' + nameMatched.length + ' taxonomies with name ' + name + ':');
+					var format = '   %-32s  %-12s  %-24s  %-12s %-s';
+					console.log(sprintf(format, 'Id', 'Abbreviation', 'Creation Date', 'Publishable', 'Status'));
+					nameMatched.forEach(function (tax) {
+						var availableStates = tax.availableStates;
+						var status = [];
+						for (var i = 0; i < availableStates.length; i++) {
+							status.push(availableStates[i].status + (availableStates[i].published ? '(published)' : ''));
+						}
+						console.log(sprintf(format, tax.id, tax.shortName, tax.createdDate && tax.createdDate.value,
+							(tax.isPublishable ? '    √' : ''), status.join(', ')));
+					});
+					console.log('Please try again with the taxonomy Id');
+					return Promise.reject();
+				}
+
+				taxonomy = idMatched || nameMatched[0];
+				creator = taxonomy.createdBy;
+				console.info(' - validate taxonomy ' + taxonomy.name + ' (id: ' + taxonomy.id + ' createdBy: ' + creator + ')');
+
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+
+			})
+			.then(function (result) {
+
+				if (groupNames.length > 0) {
+					console.info(' - verify groups');
+
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.error('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+					// console.log(groups);
+				}
+
+				var usersPromises = [];
+				for (let i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
+						server: server,
+						name: userNames[i]
+					}));
+				}
+
+				return Promise.all(usersPromises);
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
+					}
+				}
+				if (userNames.length > 0) {
+					console.info(' - verify users');
+				}
+
+				// verify users
+				for (let k = 0; k < userNames.length; k++) {
+					if (userNames[k].toLowerCase() === creator.toLowerCase()) {
+						console.error('ERROR: user ' + userNames[k] + ' is the taxonomy creator, cannot delete permission');
+					} else {
+						var found = false;
+						for (let i = 0; i < allUsers.length; i++) {
+							if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+								users.push(allUsers[i]);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found) {
+							console.error('ERROR: user ' + userNames[k] + ' does not exist');
+						}
+					}
+				}
+
+				if (users.length === 0 && groups.length === 0) {
+					return Promise.reject();
+				}
+
+				return _getTaxonomyPermissions(taxonomy.id, server);
+
+			})
+			.then(function (result) {
+				var taxPermissions = result && result.items || [];
+				// console.log(taxPermissions);
+
+				var userMgr;
+				var totalUserManagers = 0;
+				taxPermissions.forEach(function (perm) {
+					if (perm.roleName === 'manager' && perm.type === 'user') {
+						totalUserManagers += 1;
+						userMgr = perm;
+					}
+				});
+
+				for (let i = 0; i < groups.length; i++) {
+					let groupToDelete = undefined;
+					for (let j = 0; j < taxPermissions.length; j++) {
+						var perm = taxPermissions[j];
+						if (perm.type === 'group' &&
+							perm.groupType === groups[i].groupOriginType &&
+							(perm.fullName === groups[i].name || perm.id.toLowerCase() === groups[i].name.toLowerCase())) {
+							groupToDelete = perm;
+							break;
+						}
+					}
+					if (!groupToDelete) {
+						console.log(' - group ' + groups[i].name + ' has no permission on taxonomy ' + name);
+					} else {
+						permsToDelete.push(groupToDelete);
+						goodGroupNames.push(groups[i].name);
+					}
+				}
+
+				for (let i = 0; i < users.length; i++) {
+					let userToDelete = undefined;
+					for (let j = 0; j < taxPermissions.length; j++) {
+						let perm = taxPermissions[j];
+						if (perm.type === 'user' && perm.id === users[i].loginName) {
+							if (totalUserManagers === 1 && perm.id === userMgr.id) {
+								console.error('ERROR: user ' + userMgr.id + ' is the only user manager for taxonomy ' + name + ', cannot delete');
+								return Promise.reject();
+							} else {
+								userToDelete = perm;
+								break;
+							}
+						}
+					}
+					if (!userToDelete) {
+						console.log(' - user ' + users[i].loginName + ' has no permission on taxonomy ' + name);
+					} else {
+						permsToDelete.push(userToDelete);
+						goodUserNames.push(users[i].loginName);
+					}
+				}
+
+				return serverUtils.getCaasCSRFToken(server);
+
+			}).then(function (result) {
+				var csrfToken;
+				if (result.err) {
+					return Promise.reject();
+				} else {
+					csrfToken = result && result.token;
+				}
+
+				var deletePromises = [];
+				permsToDelete.forEach(function (perm) {
+					deletePromises.push(_deleteTaxonomyPermission(server, csrfToken, taxonomy, perm));
+				});
+
+				return Promise.all(deletePromises);
+
+			})
+			.then(function (results) {
+				let deletedUsers = [];
+				let deletedGroups = [];
+				let failed = false;
+				results.forEach(function (result) {
+					if (result.err) {
+						failed = true;
+					} else {
+						if (result.permission.type === 'user') {
+							deletedUsers.push(result.permission.id)
+						} else {
+							deletedGroups.push(result.permission.id);
+						}
+					}
+				});
+
+				if (deletedUsers.length > 0) {
+					console.log(' - the access of user ' + (deletedUsers.join(', ')) + ' to taxonomy ' + name + ' removed');
+				}
+				if (deletedGroups.length > 0) {
+					console.log(' - the access of group ' + (deletedGroups.join(', ')) + ' to taxonomy ' + name + ' removed');
+				}
+
+				done(!failed);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
 };

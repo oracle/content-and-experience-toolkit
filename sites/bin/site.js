@@ -4760,6 +4760,7 @@ module.exports.controlSite = function (argv, done) {
 		var compileOnly = typeof argv.compileonly === 'string' && argv.compileonly.toLowerCase() === 'true';
 		var fullpublish = typeof argv.fullpublish === 'string' && argv.fullpublish.toLowerCase() === 'true';
 		var deletestaticfiles = typeof argv.deletestaticfiles === 'string' && argv.deletestaticfiles.toLowerCase() === 'true';
+		var settingsFiles = argv.settingsfiles;
 
 		var metadataName = argv.name;
 		var metadataValue = argv.value ? argv.value : '';
@@ -4772,9 +4773,9 @@ module.exports.controlSite = function (argv, done) {
 				done();
 				return;
 			}
-			// if (server.useRest) {
+
 			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, theme,
-				metadataName, metadataValue, expireDate, deletestaticfiles)
+				metadataName, metadataValue, expireDate, deletestaticfiles, settingsFiles)
 				.then(function (result) {
 					if (result.err) {
 						done(result.exitCode);
@@ -4802,7 +4803,7 @@ module.exports.controlSite = function (argv, done) {
  * @param {*} done 
  */
 var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, newTheme,
-	metadataName, metadataValue, expireDate, deletestaticfiles) {
+	metadataName, metadataValue, expireDate, deletestaticfiles, settingsFiles) {
 
 	return new Promise(function (resolve, reject) {
 		var exitCode;
@@ -4863,21 +4864,33 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 					return Promise.reject();
 				}
 
+				// user publish-internal for incremental publish until support available in REST API
+				var incrementalPublish = !!(process.env.CEC_TOOLKIT_INCREMENTAL_COMPILE_FILE);
+				if ((action === 'publish') && incrementalPublish) {
+					console.log(' - incremental publish, using publish-internal');
+					action = 'publish-internal';
+				}
+
 				var actionPromise;
 				if (action === 'publish') {
-					actionPromise = sitesRest.publishSite({
-						server: server,
-						name: siteName,
-						usedContentOnly: usedContentOnly,
-						compileSite: compileSite,
-						staticOnly: staticOnly,
-						compileOnly: compileOnly,
-						fullpublish: fullpublish,
-						deletestaticfiles: deletestaticfiles
-					});
+					if (settingsFiles) {
+						let usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles;
+						actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles, settingsFiles)
+					} else {
+						actionPromise = sitesRest.publishSite({
+							server: server,
+							name: siteName,
+							usedContentOnly: usedContentOnly,
+							compileSite: compileSite,
+							staticOnly: staticOnly,
+							compileOnly: compileOnly,
+							fullpublish: fullpublish,
+							deletestaticfiles: deletestaticfiles
+						});
+					}
 				} else if (action === 'publish-internal') {
 					console.log(' - publish site using Idc service');
-					actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles);
+					actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles, settingsFiles);
 
 				} else if (action === 'unpublish') {
 					actionPromise = sitesRest.unpublishSite({
@@ -4938,6 +4951,8 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 					}
 				} else if (action === 'expire') {
 					console.log(' - site expires at ' + result.expiresAt);
+				} else if (settingsFiles) {
+					console.log(' - site settings files ' + settingsFiles + ' published');
 				} else {
 					console.log(' - ' + action + ' ' + siteName + ' finished');
 				}
@@ -4999,7 +5014,7 @@ var _setSiteMetadata = function (server, siteId, siteName, metadataName, metadat
 /**
  * Publish a site using IdcService (compile site workaround)
  */
-var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles) {
+var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles, settingsFiles) {
 	return new Promise(function (resolve, reject) {
 
 		serverUtils.getIdcToken(server)
@@ -5031,6 +5046,10 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 				}
 				if (staticOnly) {
 					body.LocalData.doStaticFilePublishOnly = true;
+
+					if (process.env.CEC_TOOLKIT_INCREMENTAL_COMPILE_FILE) {
+						body.LocalData.selectiveStaticPublish = true;
+					}
 				}
 				if (compileOnly) {
 					body.LocalData.doCompilePublishOnly = true;
@@ -5040,6 +5059,9 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 				}
 				if (deletestaticfiles) {
 					body.LocalData.doPurgeSiteStaticFiles = true;
+				}
+				if (settingsFiles) {
+					body.LocalData.siteSettings = settingsFiles;
 				}
 
 				var postData = {
@@ -5059,10 +5081,10 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 				var request = require('../test/server/requestUtils.js').request;
 				request.post(postData, function (err, response, body) {
 					if (response && response.statusCode !== 200) {
-						console.error('ERROR: Failed to publish site: ' + response.statusCode);
+						console.error('ERROR: failed to publish site: ' + response.statusCode);
 					}
 					if (err) {
-						console.error('ERROR: Failed to publish site');
+						console.error('ERROR: failed to publish site');
 						console.log(err);
 						return reject({
 							err: err
@@ -5080,7 +5102,7 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 					if (!data || !data.LocalData || data.LocalData.StatusCode !== '0' || !data.LocalData.JobID) {
 						// console.error('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 						var errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '';
-						console.error('ERROR: failed to publish site ' + errorMsg);
+						console.error('ERROR: failed to publish site ' + errorMsg + ' (ecid: ' + response.ecid + ')');
 						return resolve({
 							err: 'err'
 						});
