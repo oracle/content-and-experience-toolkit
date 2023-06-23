@@ -12,7 +12,7 @@
     "cec-compile-site": "cecCompileSite.sh"
   },
   "dependencies": {
-    "yargs": "13.2.4"
+    "yargs": "13.3.2"
   },
   "author": "Oracle"
 }
