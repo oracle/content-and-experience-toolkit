@@ -157,10 +157,10 @@ app.get('/connector*', connectorRouter);
 app.post('/connector*', connectorRouter);
 app.delete('/connector*', connectorRouter);
 
-// all /sites request 
+// all /sites request
 app.use('/sites*', sitesRouter);
 
-// all /system request 
+// all /system request
 app.use('/system*', systemRouter);
 
 app.get('/getsrcfolder', function (req, res) {
@@ -510,7 +510,7 @@ app.get('/isAuthenticated', function (req, res) {
 		} else {
 			console.error('status=' + JSON.stringify(response) + ' err=' + err);
 		}
-		// console.log(' - user: ' + user + ' authenticated: ' + authenticated);	
+		// console.log(' - user: ' + user + ' authenticated: ' + authenticated);
 		var result = {
 			isAuthenticated: authenticated
 		};
@@ -657,26 +657,26 @@ if (!app.locals.serverURL) {
 	// open a user session using the given credentials
 	authenticateUser(
 		server.env, {
-		username: server.username,
-		password: server.password,
-		onsuccess: function () {
-			app.locals.connectToServer = true;
-			var wait = server.env === 'dev_ec' ? 1500 : 15000;
-			app.listen(port, function () {
-				"use strict";
-				setTimeout(function () {
-					console.info('Server is listening on port: ' + port);
-					console.info('NodeJS running...:');
-					console.log('Toolkit local server: http://localhost:' + port);
-				}, wait);
-			});
-		},
-		onfailure: function (error, resp) {
-			console.error('Login to server failed - unexpected response from server');
-			console.error(error);
-			process.exit(0);
-		}
-	});
+			username: server.username,
+			password: server.password,
+			onsuccess: function () {
+				app.locals.connectToServer = true;
+				var wait = server.env === 'dev_ec' ? 1500 : 15000;
+				app.listen(port, function () {
+					"use strict";
+					setTimeout(function () {
+						console.info('Server is listening on port: ' + port);
+						console.info('NodeJS running...:');
+						console.log('Toolkit local server: http://localhost:' + port);
+					}, wait);
+				});
+			},
+			onfailure: function (error, resp) {
+				console.error('Login to server failed - unexpected response from server');
+				console.error(error);
+				process.exit(0);
+			}
+		});
 }
 
 function authenticateUser(env, params) {

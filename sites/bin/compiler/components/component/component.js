@@ -148,7 +148,7 @@ Component.prototype.compileNestedComponent = function (compId, compiledComps) {
 		// get the compiler
 		var CompObj = require('../' + componentCompiler.compiler);
 
-		// add in parentId 
+		// add in parentId
 		compData.data.parentId = this.id;
 		var nestedComp = new CompObj(compId, compData);
 
@@ -196,204 +196,206 @@ Component.prototype.getSeededCompFile = function (compName) {
 	return seededComp ? path.normalize(__dirname + '/../' + seededComp.compileFile) : '';
 };
 
-Component.prototype.compileComponent = function (args) {
+Component.prototype.compileComponent = async function (args) {
 	var self = this,
 		viewModel = this,
 		isSeeded = false;
 
 	// make sure we can compile
 	if (!this.canCompile) {
-		return Promise.resolve({
+		return {
 			hydrate: true,
 			content: ''
-		});
+		};
 	}
 
-	return new Promise(async function (resolve, reject) {
-		//
-		// compile in the referenced component
-		//
-		var custCompEntry = viewModel.custComp === 'scs-component' && viewModel.contentPlaceholder ? 'scs-contentplaceholder' : viewModel.custComp;
-		var compileFile = viewModel.getSeededCompFile(custCompEntry);
-		var moduleFile; 
-		if (compileFile) {
-			isSeeded = true;
+	//
+	// compile in the referenced component
+	//
+	var custCompEntry = viewModel.custComp === 'scs-component' && viewModel.contentPlaceholder ? 'scs-contentplaceholder' : viewModel.custComp;
+	var compileFile = viewModel.getSeededCompFile(custCompEntry);
+	var moduleFile;
+	if (compileFile) {
+		isSeeded = true;
+	} else {
+		compileFile = path.normalize(viewModel.componentsFolder + '/' + viewModel.custComp + '/assets/compile');
+		moduleFile = compileFile + '.mjs';
+	}
+
+	var foundComponentFile = false;
+	try {
+		var custComp,
+			CustCompImpl;
+
+		// see if the JavaScript modele based custom component
+		if (moduleFile && fs.existsSync(moduleFile)) {
+			foundComponentFile = true;
+
+			// JavaScript module based custom component, import it
+			const { default: importModule } = await import(url.pathToFileURL(moduleFile));
+			CustCompImpl = importModule;
 		} else {
-			compileFile = path.normalize(viewModel.componentsFolder + '/' + viewModel.custComp + '/assets/compile');
-			moduleFile = compileFile + '.mjs';
+			// verify if we can load the file
+			require.resolve(compileFile);
+			foundComponentFile = true;
+
+			// ok, file's there, load it in
+			CustCompImpl = require(compileFile);
 		}
 
-		var foundComponentFile = false;
-		try {
-			var custComp,
-				CustCompImpl;
+		custComp = new CustCompImpl({
+			id: self.componentId,
+			componentId: self.componentId,
+			componentInstanceObject: self.componentInstanceObject,
+			componentsFolder: self.componentsFolder,
+			SCSCompileAPI: args.SCSCompileAPI,
+			SCSComponentAPI: args.SCSCompileAPI.getSCSComponentAPI()
+		});
 
-			// see if the JavaScript modele based custom component
-			if (moduleFile && fs.existsSync(moduleFile)) {
-				foundComponentFile = true;
-
-				// JavaScript module based custom component, import it
-				const { default: importModule } = await import(url.pathToFileURL(moduleFile));
-				CustCompImpl = importModule;
-			} else {
-				// verify if we can load the file
-				require.resolve(compileFile);
-				foundComponentFile = true;
-
-				// ok, file's there, load it in
-				CustCompImpl = require(compileFile);
-			}
-
-			custComp = new CustCompImpl({
-				id: self.componentId,
-				componentId: self.componentId,
-				componentInstanceObject: self.componentInstanceObject,
-				componentsFolder: self.componentsFolder,
-				SCSCompileAPI: args.SCSCompileAPI,
-				SCSComponentAPI: args.SCSCompileAPI.getSCSComponentAPI()
-			});
-
-			// passing these in to compile as well for backwards compability
-			var compileArgs = {
-				SCSCompileAPI: args.SCSCompileAPI,
-				compVM: viewModel,
-				compId: viewModel.id,
-				componentLayout: viewModel.componentLayout,
-				customSettingsData: viewModel.customSettingsData || {}
-			};
+		// passing these in to compile as well for backwards compability
+		var compileArgs = {
+			SCSCompileAPI: args.SCSCompileAPI,
+			compVM: viewModel,
+			compId: viewModel.id,
+			componentLayout: viewModel.componentLayout,
+			customSettingsData: viewModel.customSettingsData || {}
+		};
 			// compile the component
-			if (typeof custComp.compile !== 'function') {
-				return resolve({
-					customContent: ''
-				});
-			}
-			custComp.compile(compileArgs).then(function (compiledComp) {
-				try {
-					// make sure there is something to render
-					if (compiledComp && compiledComp.content) {
-						//
-						// now compile in any nested components
-						//
-						var compiledComps = {},
-							nestedCompPromises = [];
-						(compiledComp.nestedIDs || []).forEach(function (id) {
-							nestedCompPromises.push(function () {
-								return viewModel.compileNestedComponent(id, compiledComps);
-							});
+		if (typeof custComp.compile !== 'function') {
+			return {
+				customContent: ''
+			};
+		}
+
+		// wait for the compile to finish
+		try {
+			const compiledComp = await custComp.compile(compileArgs);
+
+			try {
+				// make sure there is something to render
+				if (compiledComp && compiledComp.content) {
+					//
+					// now compile in any nested components
+					//
+					var compiledComps = {},
+						nestedCompPromises = [];
+					(compiledComp.nestedIDs || []).forEach(function (id) {
+						nestedCompPromises.push(function () {
+							return viewModel.compileNestedComponent(id, compiledComps);
 						});
-						var doNestedComponents = nestedCompPromises.reduce(function (previousPromise, nextPromise) {
-								return previousPromise.then(function () {
-									// wait for the previous promise to complete and then return a new promise for the next 
-									return nextPromise();
-								});
-							},
-							// Start with a previousPromise value that is a resolved promise 
-							Promise.resolve());
+					});
 
-						doNestedComponents.then(function () {
-							//
-							// now put it all together
-							//
-							try {
-								// render in the nested components into the custom component
-								var customContent = mustache.render(compiledComp.content, compiledComps);
+					// compile all the nested components
+					await nestedCompPromises.reduce(function (previousPromise, nextPromise) {
+						return previousPromise.then(function () {
+							// wait for the previous promise to complete and then return a new promise for the next
+							return nextPromise();
+						});
+					},
+					// Start with a previousPromise value that is a resolved promise
+					Promise.resolve());
 
-								// remove any cached entry from the mustache object, this was causing memory issues with large templates
-								if (typeof mustache.clearCache === 'function') {
-									mustache.clearCache();
-								}
+					//
+					// now put it all together
+					//
+					try {
+						// render in the nested components into the custom component
+						var customContent = mustache.render(compiledComp.content, compiledComps);
 
-								return resolve({
-									customContent: customContent,
-									hydrate: compiledComp.hydrate,
-									contentId: compiledComp && compiledComp.contentId,
-									contentType: compiledComp.contentType
-								});
-							} catch (e) {
-								compilationReporter.error({
-									message: 'compile component: failed to expand template',
-									error: e
-								});
-								compilationReporter.info({
-									message: 'Mustache template that failed to expand: ',
-									error: compiledComp.content
-								});
-								return resolve({
-									customContent: ''
-								});
-							}
+						// remove any cached entry from the mustache object, this was causing memory issues with large templates
+						if (typeof mustache.clearCache === 'function') {
+							mustache.clearCache();
+						}
+
+						return {
+							customContent: customContent,
+							hydrate: compiledComp.hydrate,
+							contentId: compiledComp && compiledComp.contentId,
+							contentType: compiledComp.contentType
+						};
+					} catch (e) {
+						compilationReporter.error({
+							message: 'compile component: failed to expand template',
+							error: e
+						});
+						compilationReporter.info({
+							message: 'Mustache template that failed to expand: ',
+							error: compiledComp.content
+						});
+						return {
+							customContent: ''
+						};
+					}
+				} else {
+					var message;
+					if (['scsCaaSLayout', 'scs-contentitem'].indexOf(viewModel.custComp) !== -1) {
+						compilationReporter.warn({
+							message: 'failed to compile content item with layout that maps to category: "' + (viewModel.contentLayoutCategory || 'default') + '"'
 						});
 					} else {
-						var message;
-						if (['scsCaaSLayout', 'scs-contentitem'].indexOf(viewModel.custComp) !== -1) {
+						// don't report if it's a placeholder
+						// or if it's section layouts without children
+						if (!self.contentPlaceholder && (!self.isSectionLayout || self.sectionLayoutHasChildren)) {
 							compilationReporter.warn({
-								message: 'failed to compile content item with layout that maps to category: "' + (viewModel.contentLayoutCategory || 'default') + '"'
+								message: 'failed to compile component with: ' + compileFile
 							});
-						} else {
-							// don't report if it's a placeholder
-							// or if it's section layouts without children
-							if (!self.contentPlaceholder && (!self.isSectionLayout || self.sectionLayoutHasChildren)) {
-								compilationReporter.warn({
-									message: 'failed to compile component with: ' + compileFile
-								});
-							}
 						}
-						return resolve({
-							customContent: ''
-						});
 					}
-				} catch (e) {
-					// unable to compile the custom component, js
-					compilationReporter.error({
-						message: 'failed to render nested components for : ' + viewModel.id + ' into the page. The component will render in the client.',
-						error: e
-					});
-					return resolve({
+					return {
 						customContent: ''
-					});
+					};
 				}
-			}).catch(function (e) {
+			} catch (e) {
+				// unable to compile the custom component, js
 				compilationReporter.error({
-					message: ' failed to compile component: ' + viewModel.id + ' into the page. The component will render in the client.',
+					message: 'failed to render nested components for : ' + viewModel.id + ' into the page. The component will render in the client.',
 					error: e
 				});
-				return resolve({
+				return {
 					customContent: ''
-				});
-			});
+				};
+			}
 		} catch (e) {
-			// unable to compile the custom component, js
-			if (foundComponentFile) {
-				compilationReporter.error({
-					message: 'require failed to load: "' + (moduleFile || (compileFile + '.js"')),
-					error: e
-				});
-			} else {
-				// don't report on placeholder components
-				var placeHolder = (viewModel.custComp === 'scs-component') && (viewModel.contentPlaceholder);
-				if (!placeHolder) {
-					// don't report on ootb component sectionLayout compilers
-					// these are temporary "components" for content lists that aren't compiled at this point so ignore them
-					var ootbSectionLayouts = [
-						'scs-sl-horizontal',
-						'scs-sl-slider',
-						'scs-sl-tabs',
-						'scs-sl-three-columns',
-						'scs-sl-two-columns',
-						'scs-sl-vertical'
-					];
-					if (ootbSectionLayouts.indexOf(viewModel.custComp) === -1) {
-						compilationReporter.warn({
-							message: 'no custom component compiler for: "' + compileFile + '.js"'
-						});
-					}
+			compilationReporter.error({
+				message: ' failed to compile component: ' + viewModel.id + ' into the page. The component will render in the client.',
+				error: e
+			});
+			return {
+				customContent: ''
+			};
+		}
+	} catch (e) {
+		// unable to compile the custom component, js
+		if (foundComponentFile) {
+			compilationReporter.error({
+				message: 'require failed to load: "' + (moduleFile || (compileFile + '.js"')),
+				error: e
+			});
+		} else {
+			// don't report on placeholder components
+			var placeHolder = (viewModel.custComp === 'scs-component') && (viewModel.contentPlaceholder);
+			if (!placeHolder) {
+				// don't report on ootb component sectionLayout compilers
+				// these are temporary "components" for content lists that aren't compiled at this point so ignore them
+				var ootbSectionLayouts = [
+					'scs-sl-horizontal',
+					'scs-sl-slider',
+					'scs-sl-tabs',
+					'scs-sl-three-columns',
+					'scs-sl-two-columns',
+					'scs-sl-vertical'
+				];
+				if (ootbSectionLayouts.indexOf(viewModel.custComp) === -1) {
+					compilationReporter.warn({
+						message: 'no custom component compiler for: "' + compileFile + '.js"'
+					});
 				}
 			}
-			return resolve({
-				customContent: ''
-			});
 		}
-	});
+		return {
+			customContent: ''
+		};
+	}
 };
 
 module.exports = Component;

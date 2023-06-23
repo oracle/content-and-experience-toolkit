@@ -125,7 +125,7 @@ SectionLayout.prototype = {
 			html += '#' + idPrefix + ' > .sl-slider-arrow { display: ' + displayValue + '; } ';
 
 			// If we have a responsive breakpoint, then allow the indexer
-			// and prev/next buttons to be hidden.  However, if we are in 
+			// and prev/next buttons to be hidden.  However, if we are in
 			// edit mode, we still need a way to get to the next slide(s).
 			if (config.breakpoint > 0) {
 				html += '@media screen and (max-width: ' + config.breakpoint + 'px) {';

@@ -11,10 +11,10 @@ var fs = require('fs'),
  * Manage persistence of the job during the jobs lifecycle. <br/>
  * This module is responsible for saving the state of the job and managing the state during startup/shutdown & failover. <br/>
  * <ul>
- *   <li>Specifically, it needs to: 
+ *   <li>Specifically, it needs to:
  *     <ul>
  *       <li>Keep track of all the jobs.</li>
- *       <li>For each job: 
+ *       <li>For each job:
  *         <ul>
  * 			 <li>Store metadata about the job.</li>
  *         </ul>
@@ -28,32 +28,32 @@ var fs = require('fs'),
  * @augments PersistenceStoreInterface
  */
 var SampleFilePersistenceStore = function (args) {
-		// If jobsDir is specified, use it. Otherwise,
-		// initialize the "out" folder for the persistence data
-		var persistenceDir = args && args.jobsDir ? path.normalize(args.jobsDir) : path.join(__dirname, 'out');
-		if (!fs.existsSync(persistenceDir)) {
-			fs.mkdirSync(persistenceDir);
-		}
+	// If jobsDir is specified, use it. Otherwise,
+	// initialize the "out" folder for the persistence data
+	var persistenceDir = args && args.jobsDir ? path.normalize(args.jobsDir) : path.join(__dirname, 'out');
+	if (!fs.existsSync(persistenceDir)) {
+		fs.mkdirSync(persistenceDir);
+	}
 
-		var connectorDir = path.join(persistenceDir, 'connector-data');
-		if (!fs.existsSync(connectorDir)) {
-			fs.mkdirSync(connectorDir);
-		}
-		
-		this.compilationJobsDir = path.join(connectorDir, 'compilation-jobs');
-		if (!fs.existsSync(this.compilationJobsDir)) {
-			fs.mkdirSync(this.compilationJobsDir);
-		}
-		// Job queue file has the host name in the suffix.
-		var queueFileName = 'queue-' + os.hostname() + '.json';
+	var connectorDir = path.join(persistenceDir, 'connector-data');
+	if (!fs.existsSync(connectorDir)) {
+		fs.mkdirSync(connectorDir);
+	}
 
-		this.queueFilePath = path.join(this.compilationJobsDir, queueFileName);
-		if (!fs.existsSync(this.queueFilePath)) {
-			var emptyArray = [];
-			fs.writeFileSync(this.queueFilePath, JSON.stringify(emptyArray), { mode: 0o600 });
-			console.log('SampleFilePersistenceStore queueFilePath', this.queueFilePath);
-		}
-	};
+	this.compilationJobsDir = path.join(connectorDir, 'compilation-jobs');
+	if (!fs.existsSync(this.compilationJobsDir)) {
+		fs.mkdirSync(this.compilationJobsDir);
+	}
+	// Job queue file has the host name in the suffix.
+	var queueFileName = 'queue-' + os.hostname() + '.json';
+
+	this.queueFilePath = path.join(this.compilationJobsDir, queueFileName);
+	if (!fs.existsSync(this.queueFilePath)) {
+		var emptyArray = [];
+		fs.writeFileSync(this.queueFilePath, JSON.stringify(emptyArray), { mode: 0o600 });
+		console.log('SampleFilePersistenceStore queueFilePath', this.queueFilePath);
+	}
+};
 
 SampleFilePersistenceStore.prototype = Object.create(persistenceStoreApi.prototype);
 
@@ -72,7 +72,7 @@ SampleFilePersistenceStore.prototype.getAllJobs = function () {
 			allJobs = jobDirs.filter(function (dirName) {
 				return dirName.startsWith('job');
 			}).map(function (jobId) {
-				// in this persistence API, the directory name is the same as the jobId 
+				// in this persistence API, the directory name is the same as the jobId
 				// create a function to return the promise to get the job config
 				return function () {
 					return self.getJob({
@@ -90,13 +90,13 @@ SampleFilePersistenceStore.prototype.getAllJobs = function () {
 			// now run through and get all the job configs
 			// chain the promises in the array so that they execute as: p1.then(p2.then(p3.then(...)));
 			var getJobConfigs = allJobs.reduce(function (previousPromise, nextPromise) {
-					return previousPromise.then(function () {
-						// wait for the previous promise to complete and then return a new promise for the next job config
-						return nextPromise();
-					});
-				},
-				// Start with a previousPromise value that is a resolved promise 
-				Promise.resolve());
+				return previousPromise.then(function () {
+					// wait for the previous promise to complete and then return a new promise for the next job config
+					return nextPromise();
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve());
 
 			// wait until we have all available configs
 			getJobConfigs.then(function () {
@@ -114,7 +114,7 @@ SampleFilePersistenceStore.prototype.getAllJobs = function () {
 
 //
 // Job CRUD
-// 
+//
 /** @inheritdoc */
 SampleFilePersistenceStore.prototype.createJob = function (args) {
 	var self = this;
@@ -426,7 +426,7 @@ SampleFilePersistenceStore.prototype.setQueue = function (args) {
 	}
 };
 
-// Export the persistence store 
+// Export the persistence store
 module.exports = function (args) {
 	return new SampleFilePersistenceStore(args);
 };

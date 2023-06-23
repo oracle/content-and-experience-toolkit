@@ -33,9 +33,13 @@ var distFolder;
 
 /**
  * Verify the source structure before proceed the command
- * @param {*} done 
+ * @param {*} done
  */
 var verifyRun = function (argv) {
+
+	if (process.shim) {
+		return true;
+	}
 	projectDir = argv.projectDir;
 
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
@@ -431,7 +435,7 @@ var _downloadContent = function (server, channel, name, publishedassets, approve
 	});
 };
 
-var _queryItemsWithIds = function (server, qstr, assetGUIDS, fields) {
+var _queryItemsWithIds = function (server, qstr, assetGUIDS, fields, useDelivery, channelToken) {
 	return new Promise(function (resolve, reject) {
 		var items = [];
 		if (assetGUIDS.length === 0) {
@@ -483,12 +487,14 @@ var _queryItemsWithIds = function (server, qstr, assetGUIDS, fields) {
 						server: server,
 						q: q,
 						fields: fields,
-						showTotal: false
+						showTotal: false,
+						useDelivery: useDelivery,
+						channelToken: channelToken
 					}).then(function (result) {
 						if (result && result.data && result.data.length > 0) {
 							items = items.concat(result.data);
 							if (console.showInfo()) {
-								process.stdout.write(' - validating items ' + items.length +
+								process.stdout.write(' - querying items ' + items.length +
 									' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 								readline.cursorTo(process.stdout, 0);
 								needNewLine = true;
@@ -498,8 +504,8 @@ var _queryItemsWithIds = function (server, qstr, assetGUIDS, fields) {
 
 				});
 			},
-				// Start with a previousPromise value that is a resolved promise 
-				Promise.resolve({}));
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
 
 			doQueryItems.then(function (result) {
 				if (needNewLine) {
@@ -634,8 +640,8 @@ var _queryApprovedItems = function (server, items) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doGetItems.then(function (result) {
 			resolve(approvedItems);
@@ -709,7 +715,7 @@ var _getChannelsFromServer = function (server) {
 
 /**
  * Call CAAS to create and export content template
- * @param {*} channelId 
+ * @param {*} channelId
  */
 var _exportChannelContent = function (request, server, channelId, publishedassets, assetGUIDS, exportfilepath, requiredContentTemplateName) {
 	var exportPromise = new Promise(function (resolve, reject) {
@@ -862,7 +868,7 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 									// Download the export zip
 									console.info(' - downloading export ' + downloadLink);
 									startTime = new Date();
-									// 
+									//
 									// if download fails, retry and total up to 3 times
 
 									var writer = fs.createWriteStream(exportfilepath);
@@ -1058,7 +1064,7 @@ var _uploadContentFromZip = function (args) {
 	return new Promise(function (resolve, reject) {
 		//
 		// create the content zip file
-		// 
+		//
 		var exportzippath = path.join(contentpath, 'export.zip');
 		gulp.src([contentpath + '/**', '!' + exportzippath])
 			.pipe(zip(contentfilename, {
@@ -1103,7 +1109,7 @@ var _uploadContentFromZipFile = function (args) {
 
 	return new Promise(function (resolve, reject) {
 
-		// 
+		//
 		// upload content zip file
 		//
 		var createFilePromise = serverRest.createFile({
@@ -2247,7 +2253,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						if (dateToPublish) {
 							var dateObj = new Date(dateToPublish);
 
-							// make sure we had a valid date 
+							// make sure we had a valid date
 							if (isNaN(dateObj.valueOf())) {
 								console.error('ERROR: invalid date - "' + dateToPublish + '"');
 								return cmdEnd(done);
@@ -3156,7 +3162,7 @@ var _getDocumentForAssets = function (server, sources) {
 					});
 			});
 		},
-			Promise.resolve({})
+		Promise.resolve({})
 		);
 
 		doGetDoc.then(function (result) {
@@ -3191,7 +3197,7 @@ var _createDigitalAssets = function (server, repositoryId, type, srcFiles, attri
 				});
 			});
 		},
-			Promise.resolve({})
+		Promise.resolve({})
 		);
 
 		doCreateAsset.then(function (result) {
@@ -3234,7 +3240,7 @@ var _createDigitalAssetsFromDocuments = function (server, repositoryId, type, sr
 				});
 			});
 		},
-			Promise.resolve({})
+		Promise.resolve({})
 		);
 
 		doCreateAsset.then(function (result) {
@@ -4365,7 +4371,7 @@ module.exports.transferSiteContent = function (argv, done) {
 			}
 			items = result;
 
-			// query items from other repository 
+			// query items from other repository
 			return _getSiteAssetsFromOtherRepos(server, channelId, site.repository.id, publishedassets);
 
 		})
@@ -4937,8 +4943,8 @@ var _getMasterItems = function (server, items) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doQueryItems.then(function (result) {
 			if (masterItems.length > 0 && console.showInfo()) {
@@ -5271,8 +5277,8 @@ var _getItemsWithRenditions = function (server, items) {
 				});
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doQueryItems.then(function (result) {
 			if (needNewLine) {
@@ -5295,7 +5301,7 @@ var _transferRenditions = function (server, destServer, items, idcToken) {
 		var needNewLine = false;
 		var doTransferRendition = items.reduce(function (itemPromise, item) {
 			return itemPromise.then(function (result) {
-				// get the item's version on the target server, 
+				// get the item's version on the target server,
 				// have to query for each rendition to get the accurate version
 				var rendition = item.rendition;
 				return serverRest.getItem({
@@ -5400,8 +5406,8 @@ var _transferRenditions = function (server, destServer, items, idcToken) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doTransferRendition.then(function (result) {
 			if (needNewLine) {

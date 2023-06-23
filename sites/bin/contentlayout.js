@@ -29,7 +29,7 @@ var projectDir,
 
 /**
  * Verify the source structure before proceed the command
- * @param {*} done 
+ * @param {*} done
  */
 var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
@@ -93,7 +93,7 @@ module.exports.createContentLayout = function (argv, done) {
 		return;
 	}
 
-	// verify the new content layout name 
+	// verify the new content layout name
 	var re = /^[a-z0-9_-]+$/ig;
 	if (layoutname.search(re) === -1) {
 		console.error('ERROR: Use only letters, numbers, hyphens, and underscores in component names.');

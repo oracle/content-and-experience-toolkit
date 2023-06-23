@@ -47,9 +47,13 @@ var templateBuildContentDirBase = '',
 
 /**
  * Verify the source structure before proceed the command
- * @param {*} done 
+ * @param {*} done
  */
 var verifyRun = function (argv) {
+
+	if (process.shim) {
+		return true;
+	}
 	projectDir = argv.projectDir;
 
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
@@ -350,7 +354,6 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 				})
 				.then(function (result) {
-
 					otherAssets = result && result.data || [];
 					if (otherAssets.length > 0) {
 						console.log(' - site has assets from other repositories and they will not be included in the template');
@@ -387,48 +390,50 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					if (!contentDownloaded && !excludeType && types.length > 0) {
 						var categoryLayoutMappings = [];
 						types.forEach(function (type) {
-							var mapping = type.layoutMapping;
-							if (mapping.data && mapping.data.length > 0) {
-								var typeMappings = mapping.data;
-								// console.log(type.name);
-								// console.log(JSON.stringify(typeMappings, null, 4));
-								var categoryList = [];
-								for (var j = 0; j < typeMappings.length; j++) {
-									if (typeMappings[j].label) {
-										var desktopLayout = typeMappings[j].formats && typeMappings[j].formats.desktop;
-										var mobileLayout = typeMappings[j].formats && typeMappings[j].formats.mobile;
-										if (desktopLayout) {
-											categoryList.push({
-												categoryName: typeMappings[j].label,
-												layoutName: desktopLayout
-											});
-											if (!contentLayoutNames.includes(desktopLayout)) {
-												contentLayoutNames.push(desktopLayout);
+							if (type && type.id && type.name) {
+								var mapping = type.layoutMapping;
+								if (mapping && mapping.data && mapping.data.length > 0) {
+									var typeMappings = mapping.data;
+									// console.log(type.name);
+									// console.log(JSON.stringify(typeMappings, null, 4));
+									var categoryList = [];
+									for (var j = 0; j < typeMappings.length; j++) {
+										if (typeMappings[j].label) {
+											var desktopLayout = typeMappings[j].formats && typeMappings[j].formats.desktop;
+											var mobileLayout = typeMappings[j].formats && typeMappings[j].formats.mobile;
+											if (desktopLayout) {
+												categoryList.push({
+													categoryName: typeMappings[j].label,
+													layoutName: desktopLayout
+												});
+												if (!contentLayoutNames.includes(desktopLayout)) {
+													contentLayoutNames.push(desktopLayout);
+												}
 											}
-										}
-										if (mobileLayout) {
-											categoryList.push({
-												categoryName: typeMappings[j].label + '|mobile',
-												layoutName: mobileLayout
-											});
-											if (!contentLayoutNames.includes(mobileLayout)) {
-												contentLayoutNames.push(mobileLayout);
+											if (mobileLayout) {
+												categoryList.push({
+													categoryName: typeMappings[j].label + '|mobile',
+													layoutName: mobileLayout
+												});
+												if (!contentLayoutNames.includes(mobileLayout)) {
+													contentLayoutNames.push(mobileLayout);
+												}
 											}
-										}
-										if (!desktopLayout && !mobileLayout) {
+											if (!desktopLayout && !mobileLayout) {
 											// default settings
-											categoryList.push({
-												categoryName: typeMappings[j].label,
-												layoutName: ''
-											});
+												categoryList.push({
+													categoryName: typeMappings[j].label,
+													layoutName: ''
+												});
+											}
 										}
-									}
 
+									}
+									categoryLayoutMappings.push({
+										type: type.name,
+										categoryList: categoryList
+									});
 								}
-								categoryLayoutMappings.push({
-									type: type.name,
-									categoryList: categoryList
-								});
 							}
 						});
 						// console.log(' - content layouts: ' + contentLayoutNames);
@@ -554,7 +559,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 };
 
 /**
- * If a template is created from a published site, theme and components, 
+ * If a template is created from a published site, theme and components,
  * some files that originally from settings should be removed from the top folder
  */
 var _cleanupPublishedTemplate = function (name, tempPath) {
@@ -672,7 +677,7 @@ var _downloadSiteComponents = function (server, compNames, publishedversion) {
 				// create _folder.json for all components
 				for (var i = 0; i < comps.length; i++) {
 					var itemGUID = comps[i].id;
-					// get the component's identity 
+					// get the component's identity
 					for (var j = 0; j < compFolderInfo.length; j++) {
 						var compInfo = compFolderInfo[j];
 						if (compInfo && compInfo.folderId === comps[i].id && compInfo.metadata.scsItemGUID) {
@@ -987,8 +992,8 @@ var _downloadComponents = function (comps, server, publishedversion) {
 					});
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doDownloadComp.then(function (result) {
 			// console.log(' - total number of downloaded files: ' + fileData.length);
@@ -1140,7 +1145,7 @@ module.exports.createTemplate = function (argv, done) {
 	}
 
 	var tempName = argv.name;
-	// verify the new template name 
+	// verify the new template name
 	var re = /^[a-z0-9_-]+$/ig;
 	if (tempName.search(re) === -1) {
 		console.error('ERROR: Use only letters, numbers, hyphens, and underscores in component names.');
@@ -1207,7 +1212,7 @@ module.exports.createTemplate = function (argv, done) {
 		console.info('Create Template: creating new template ' + tempName + ' from ' + srcTempName);
 		var unzipPromise = unzipTemplate(tempName, path.resolve(templatesDataDir + '/' + template), true);
 		unzipPromise.then(function (result) {
-			// update _folder.json 
+			// update _folder.json
 			var filePath = path.join(templatesSrcDir, tempName, '_folder.json');
 			if (fs.existsSync(filePath)) {
 				var infoJson = JSON.parse(fs.readFileSync(filePath));
@@ -1427,7 +1432,7 @@ module.exports.copyTemplate = function (argv, done) {
 
 		var themeName = tempName + 'Theme';
 
-		// verify the new template name 
+		// verify the new template name
 		var re = /^[a-z0-9_-]+$/ig;
 		if (tempName.search(re) === -1) {
 			console.error('ERROR: Use only letters, numbers, hyphens, and underscores in component names.');
@@ -1439,7 +1444,7 @@ module.exports.copyTemplate = function (argv, done) {
 				done();
 				return;
 			}
-			// check theme name 
+			// check theme name
 			if (fs.existsSync(path.join(themesSrcDir, themeName))) {
 				console.error('ERROR: A theme with the name ' + themeName + ' already exists. Please specify a different template name.');
 				done();
@@ -1804,7 +1809,7 @@ var _publishComponents = function (server, comps) {
 					});
 			});
 		},
-			Promise.resolve({})
+		Promise.resolve({})
 		);
 
 		doPublishComps.then(function (result) {
@@ -1911,6 +1916,17 @@ module.exports.describeTemplate = function (argv, done) {
 		return;
 	}
 
+	/*
+	Browser toolkit FIX for some reason argv.template has no data but our template name goes to argv.name within browser env
+	Also we must explicitly define server as __cecconfigserver otherwise it will look for templates locally
+	*/
+
+
+	if (process.shim) {
+		argv.template = argv.name;
+		argv.server = "__cecconfigserver";
+	}
+
 	if (typeof argv.template !== 'string') {
 		console.error('ERROR: please specify template');
 		done();
@@ -1962,7 +1978,7 @@ module.exports.describeTemplate = function (argv, done) {
 
 	} else {
 
-		// 
+		//
 		// local template
 		//
 
@@ -2453,7 +2469,7 @@ module.exports.removeThemeComponent = function (argv, done) {
 	done(true);
 };
 
-/** 
+/**
  * private
  * unzip template zip file and copy to /src
  */
@@ -2475,7 +2491,7 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 					console.error(err);
 				}
 
-				// get the theme name from theme/_folder.json 
+				// get the theme name from theme/_folder.json
 				var themeName = '';
 				if (createNew) {
 					themeName = tempName + 'Theme';
@@ -2520,7 +2536,7 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 					console.error('ERROR: ' + err);
 				}
 
-				// move all files under /template up 
+				// move all files under /template up
 				var files = fs.readdirSync(path.join(tempSrcDir, 'template'));
 				for (var i = 0; i < files.length; i++) {
 					fs.renameSync(path.join(tempSrcDir, 'template', files[i]), path.join(tempSrcDir, files[i]));
@@ -2653,7 +2669,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 		fileUtils.copy(tempSrcDir, path.join(tempBuildDir, 'template'));
 		console.info(' - template ' + name);
 
-		// remove static folder 
+		// remove static folder
 		var staticBuidDir = path.join(tempBuildDir, 'template', 'static');
 		if (fs.existsSync(staticBuidDir)) {
 			console.log(' - exclude site static files');
@@ -2752,8 +2768,8 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 					files.forEach(function (name) {
 						if (name.endsWith('.js')) {
 							var orig = fs.readFileSync(name, {
-								encoding: 'utf8'
-							}),
+									encoding: 'utf8'
+								}),
 								result = uglifyjs.minify(orig),
 								uglified = result.code;
 							if (result.error) {
@@ -3333,11 +3349,11 @@ module.exports.compileContent = function (argv, done) {
 
 /**
  * Delete a template on server with REST APIs
- * 
- * @param {Delete} server 
- * @param {*} name 
- * @param {*} permanent 
- * @param {*} done 
+ *
+ * @param {Delete} server
+ * @param {*} name
+ * @param {*} permanent
+ * @param {*} done
  */
 var _deleteTemplateREST = function (server, name, permanent, done) {
 
@@ -3389,11 +3405,11 @@ var _deleteTemplateREST = function (server, name, permanent, done) {
 
 /**
  * Create template from a site with REST APIs
- * @param {*} server 
- * @param {*} name 
- * @param {*} siteName 
- * @param {*} includeUnpublishedAssets 
- * @param {*} done 
+ * @param {*} server
+ * @param {*} name
+ * @param {*} siteName
+ * @param {*} includeUnpublishedAssets
+ * @param {*} done
  */
 var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpublishedAssets, enterprisetemplate) {
 	return new Promise(function (resolve, reject) {
@@ -3406,7 +3422,7 @@ var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpub
 
 			var site;
 
-			// verify template 
+			// verify template
 			sitesRest.resourceExist({
 				server: server,
 				type: 'templates',
@@ -3495,9 +3511,9 @@ var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpub
 
 /**
  * Download a template from server
- * @param {*} server 
- * @param {*} name 
- * @param {*} done 
+ * @param {*} server
+ * @param {*} name
+ * @param {*} done
  */
 var _downloadTemplateREST = function (server, name) {
 	return new Promise(function (resolve, reject) {
@@ -3648,10 +3664,10 @@ var _importTemplateToServerRest = function (server, name, folder, zipfile) {
 
 /**
  * Create and download template with Idc Service APIs (IC)
- * @param {*} server 
- * @param {*} name 
- * @param {*} siteName 
- * @param {*} done 
+ * @param {*} server
+ * @param {*} name
+ * @param {*} siteName
+ * @param {*} done
  */
 var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 	verifyRun(argv);

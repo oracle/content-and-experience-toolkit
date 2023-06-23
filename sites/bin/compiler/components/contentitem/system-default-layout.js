@@ -36,18 +36,18 @@ var isMarkdownText = function (content) {
 
 var getRichText = function (content) {
 	var newVal = content.replace(/<!doctype html>/i, '').
-	replace(/<script/gi, '&#60;script').
-	replace(/<\/script>/gi, '&#60;&#47;script&#62;').
-	replace(/<embed/gi, '&#60;embed').
-	replace(/<\/embed>/gi, '&#60;&#47;embed&#62;').
-	replace(/<form/gi, '&#60;form').
-	replace(/<\/form>/gi, '&#60;&#47;form&#62;').
-	replace(/<object/gi, '&#60;object').
-	replace(/<\/object>/gi, '&#60;&#47;object&#62;').
-	replace(/<applet/gi, '&#60;applet').
-	replace(/<\/applet>/gi, '&#60;&#47;applet&#62;').
-	replace(/javascript:/gi, 'java-script:').
-	replace(/vbscript:/gi, 'vb-script:');
+		replace(/<script/gi, '&#60;script').
+		replace(/<\/script>/gi, '&#60;&#47;script&#62;').
+		replace(/<embed/gi, '&#60;embed').
+		replace(/<\/embed>/gi, '&#60;&#47;embed&#62;').
+		replace(/<form/gi, '&#60;form').
+		replace(/<\/form>/gi, '&#60;&#47;form&#62;').
+		replace(/<object/gi, '&#60;object').
+		replace(/<\/object>/gi, '&#60;&#47;object&#62;').
+		replace(/<applet/gi, '&#60;applet').
+		replace(/<\/applet>/gi, '&#60;&#47;applet&#62;').
+		replace(/javascript:/gi, 'java-script:').
+		replace(/vbscript:/gi, 'vb-script:');
 
 	var $ = cheerio.load('<div>');
 	try {
@@ -87,9 +87,8 @@ var getRichText = function (content) {
 		// return the HTML
 		return $htmlDoc.html();
 	} catch (e) {
-		return newVal;
+		console.log('getRichText()', e);
 	}
-
 
 	return newVal;
 };
@@ -276,7 +275,7 @@ ContentLayout.prototype = {
 			}
 		}
 		// Handling seeded Digital Asset
-		if (content.typeCategory === 'DigitalAssetType' && 
+		if (content.typeCategory === 'DigitalAssetType' &&
 			(content.type === 'Image' ||
 			content.type === 'Video' ||
 			content.type === 'Video-Plus' ||

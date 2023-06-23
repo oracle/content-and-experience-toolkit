@@ -15,6 +15,10 @@ var projectDir,
 	serversSrcDir;
 
 var verifyRun = function (argv) {
+
+	if (process.shim) {
+		return true;
+	}
 	projectDir = argv.projectDir;
 
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
@@ -24,6 +28,7 @@ var verifyRun = function (argv) {
 
 	return true;
 };
+
 
 
 /**
@@ -71,11 +76,11 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 
 /**
  * Publish a theme on server using REST APIs
- * 
- * @param {*} server 
- * @param {*} action 
- * @param {*} themeName 
- * @param {*} done 
+ *
+ * @param {*} server
+ * @param {*} action
+ * @param {*} themeName
+ * @param {*} done
  */
 var _controlThemeREST = function (server, action, themeName, done) {
 
@@ -645,6 +650,9 @@ module.exports.describeTheme = function (argv, done) {
 					}
 				});
 
+				if (process.shim) {
+					themeSites = themeSites.map(t => `[!--dss--]${t}[/!--dss--]`)
+				}
 				console.log(sprintf(format1, 'Sites using the theme', themeSites.sort()));
 				console.log(sprintf(format1, 'Enterprise live sites', enterpriseLiveSites.sort()));
 				console.log(sprintf(format1, 'Enterprise live auto compilation sites', autoCompileSites.sort()));

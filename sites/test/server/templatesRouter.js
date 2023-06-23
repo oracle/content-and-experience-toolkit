@@ -67,14 +67,14 @@ router.get('/*', (req, res) => {
 	filePathSuffix = decodeURIComponent(filePathSuffix);
 
 	if (filePathSuffix.indexOf('/_compdelivery/') > 0) {
-		// get the theme name 
+		// get the theme name
 		var compName = filePathSuffix.substring(filePathSuffix.indexOf('/_compdelivery/') + '/_compdelivery/'.length),
 			compFile = '';
 		compName = compName.substring(0, compName.indexOf('/'));
 		compFile = filePathSuffix.substring(filePathSuffix.indexOf('/' + compName + '/') + compName.length + 2);
 		filePath = path.resolve(compsDir + '/' + compName + '/' + compFile);
 	} else if (filePathSuffix.indexOf('/_themesdelivery/') > 0) {
-		// get the theme name 
+		// get the theme name
 		var themeName = filePathSuffix.substring(filePathSuffix.indexOf('/_themesdelivery/') + '/_themesdelivery/'.length),
 			themeFile = '';
 		themeName = themeName.substring(0, themeName.indexOf('/'));
@@ -97,7 +97,7 @@ router.get('/*', (req, res) => {
 	} else if (filePathSuffix.indexOf('renderer.js') > 0) {
 		filePath = path.resolve(defaultTestDir + '/sitescloud/renderer/renderer.js');
 	} else if (filePathSuffix.indexOf('caas_contenttypemap.json') >= 0) {
-		// Get first from <temp>/assets/contenttemplate/summary.json 
+		// Get first from <temp>/assets/contenttemplate/summary.json
 		var summaryPath = path.join(templatesDir, tempName, 'assets', 'contenttemplate', 'summary.json');
 		var mappings = [];
 		if (fs.existsSync(summaryPath)) {
@@ -186,7 +186,7 @@ router.get('/*', (req, res) => {
 		// see if it's a non-compiled detail page slug, then return the compiled detail page if it exists:   .../{detailpage}/{slug}
 		if (!isSitePage && detailPageName && pageName) {
 			if (!pageName.endsWith('.htm') && !pageName.endsWith('.html')) {
-				// check for following format for detail page: 
+				// check for following format for detail page:
 				//   {detailPage}
 				//   {detailPage}.htm
 				//   {detailPage}.html
@@ -238,7 +238,7 @@ router.get('/*', (req, res) => {
 		//
 		if (existsAndIsFile(filePath)) {
 			//
-			// insert SCS 
+			// insert SCS
 			//
 			let baseSiteInfoPath = path.join(templatesDir, tempName, 'siteinfo.json');
 			let siteinfobuf = fs.readFileSync(baseSiteInfoPath).toString();
@@ -430,7 +430,7 @@ router.get('/*', (req, res) => {
 
 	} else if (filePath.indexOf('pages') > 0 && filePath.indexOf('.json') > 0) {
 		//
-		// page.json 
+		// page.json
 		//
 		if (existsAndIsFile(filePath)) {
 			//

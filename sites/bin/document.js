@@ -23,6 +23,10 @@ var projectDir,
  * @param {*} done
  */
 var verifyRun = function (argv) {
+
+	if (process.shim) {
+		return true;
+	}
 	projectDir = argv.projectDir;
 
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
@@ -106,10 +110,10 @@ var _createFolder = function (server, rootParentId, folderPath, showMessage) {
 				}
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise passing in the home folder id as the parentID
-			Promise.resolve({
-				id: rootParentId
-			}));
+		// Start with a previousPromise value that is a resolved promise passing in the home folder id as the parentID
+		Promise.resolve({
+			id: rootParentId
+		}));
 
 		doFindFolder.then(function (newFolder) {
 			if (newFolder && newFolder.id) {
@@ -805,10 +809,10 @@ var _findFolder = function (server, rootParentId, folderPath, showError, showDet
 				}
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise passing in the home folder id as the parentID
-			Promise.resolve({
-				id: rootParentId
-			}));
+		// Start with a previousPromise value that is a resolved promise passing in the home folder id as the parentID
+		Promise.resolve({
+			id: rootParentId
+		}));
 
 		doFindFolder.then(function (parentFolder) {
 			if (parentFolder && parentFolder.id) {
@@ -2059,8 +2063,8 @@ var _readAllFiles = function (server, files, showDetail, groupSize) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doReadFile.then(function (result) {
 			if (needNewLine) {
@@ -2445,8 +2449,8 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 				});
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 		if (showDetail) {
 			console.info(' - folder uploaded:');
 			console.info(sprintf(format, 'Type', 'Path'));
@@ -2517,8 +2521,8 @@ var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFo
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doWriteFile.then(function (result) {
 
@@ -3819,8 +3823,8 @@ var _deleteFromTrash = function (server, idcToken, items, noMsg) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doDelete.then(function (result) {
 			if (needNewLine) {

@@ -7,6 +7,7 @@
  *
  * Copyright (c) 2014, 2023, Oracle and/or its affiliates.
  */
+// eslint-disable-next-line no-redeclare
 /* global exports */
 (function defineSCSComponentAPI(scope, factory) {
 	// configure to run in various JS environments

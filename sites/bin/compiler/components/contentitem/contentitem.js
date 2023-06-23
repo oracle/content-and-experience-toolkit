@@ -134,7 +134,8 @@ ContentItem.prototype.getContentLayout = function (SCSCompileAPI, args) {
 		contentLayoutCategory: contentLayoutCategory,
 		defaultContentLayoutCategory: defaultContentLayoutCategory
 	}).then(function (contentLayoutName) {
-		var compileFile = '';
+		var compileFile = '',
+			foundComponentFile = false;
 		if (contentLayoutName) {
 			try {
 				if (contentLayoutName === SYSTEM_DEFAULT_LAYOUT) {
@@ -205,7 +206,7 @@ ContentItem.prototype.compile = function (args) {
 					CustomLayoutCompiler = require(component.compileFile);
 				}
 
-				// now get the content 
+				// now get the content
 				SCSCompileAPI.getContentClient().then(function (contentClient) {
 					var contentId = args.compVM.contentId;
 					if (!self.isComponentValid(args.compVM.id, contentId)) {
@@ -313,7 +314,7 @@ ContentItem.prototype.getContentItem = function (args) {
 			getItemArgs.language = SCSCompileAPI.pageLocale;
 		}
 
-		return new Promise (function (resolve, reject) {
+		return new Promise(function (resolve, reject) {
 			contentClient.getItem(getItemArgs).then(function (result) {
 				resolve(result);
 			}).catch(function (e) {

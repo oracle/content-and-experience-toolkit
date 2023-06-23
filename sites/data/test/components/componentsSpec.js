@@ -2,6 +2,7 @@
  * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
+/* globals serverConfig,browser,testConfig */
 
 var chai = require('chai'),
 	expect = chai.expect,
@@ -23,7 +24,7 @@ describe('Components Tests', function () {
 		var page,
 			components = getFolders(serverConfig.componentsFolder);
 
-		describe('Validate components render', async function () {
+		describe('Validate components render', function () {
 			before(async function () {
 				// create a new tab for all of these tests
 				page = await browser.newPage();
@@ -60,36 +61,36 @@ describe('Components Tests', function () {
 
 							// run generic tests by type
 							switch (appInfo.type) {
-								case 'contentlayout':
-									console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
-									break;
-								case 'sandboxed':
-									console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
-									break;
-								case 'sectionlayout':
-									console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
-									break;
-								case 'componentgroup':
-									console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
-									break;
-								default:
-									// render local component onto the page
-									var pageURL = serverConfig.url + '/components/' + componentName;
-									await page.goto(pageURL);
+							case 'contentlayout':
+								console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
+								break;
+							case 'sandboxed':
+								console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
+								break;
+							case 'sectionlayout':
+								console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
+								break;
+							case 'componentgroup':
+								console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
+								break;
+							default:
+								// render local component onto the page
+								var pageURL = serverConfig.url + '/components/' + componentName;
+								await page.goto(pageURL);
 
-									try {
-										// get the custom component container ID
-										await page.waitForSelector('.scs-component-container');
-										const componentId = await page.evaluate(() => document.querySelector('.scs-component-container').id);
+								try {
+									// get the custom component container ID
+									await page.waitForSelector('.scs-component-container');
+									const componentId = await page.evaluate(() => document.querySelector('.scs-component-container').id);
 
-										// wait until something has rendered into the customComponentDiv 
-										var custCompSelector = '#' + componentId + 'customComponentDiv';
-										await page.waitForSelector(custCompSelector);
-										await page.waitForFunction('document.querySelector("' + custCompSelector + '").innerText.length > 0');
-									} catch (e) {
-										console.log(e);
-										throw new Error('Failed to validate custom component code has rendered into the page: ' + componentName);
-									}
+									// wait until something has rendered into the customComponentDiv
+									var custCompSelector = '#' + componentId + 'customComponentDiv';
+									await page.waitForSelector(custCompSelector);
+									await page.waitForFunction('document.querySelector("' + custCompSelector + '").innerText.length > 0');
+								} catch (e) {
+									console.log(e);
+									throw new Error('Failed to validate custom component code has rendered into the page: ' + componentName);
+								}
 							}
 
 							// do any other tests

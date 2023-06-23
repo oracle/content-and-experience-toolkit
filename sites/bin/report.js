@@ -25,7 +25,7 @@ var projectDir,
 
 /**
  * Verify the source structure before proceed the command
- * @param {*} done 
+ * @param {*} done
  */
 var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
@@ -747,7 +747,7 @@ var _createAssetReport = function (server, serverName, siteName, pageIds, output
 											comp.files[k].err = results[i].err;
 										}
 									}
-									// remove file content 
+									// remove file content
 									comp.files[k].content = '';
 								}
 							}
@@ -1209,7 +1209,7 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 								var value = action.actionPayload[m].value;
 								// console.log(' - scsActionDownloadFile: ' + value);
 								if (value.indexOf('/') < 0) {
-									// file id 
+									// file id
 									if (!fileIds.includes(value)) {
 										fileIds.push(value);
 									}
@@ -1434,7 +1434,7 @@ var _getSitePages = function (server, siteId, pageIds) {
 				var masterPages = 0;
 				for (var i = 0; i < items.length; i++) {
 					// console.log('page ' + i + ' : ' + items[i].id + ' ' + items[i].name);
-					// do not include translations                                                                                                                             
+					// do not include translations
 					if (items[i].name && items[i].name.indexOf('_') < 0) {
 						masterPages += 1;
 						if (pageIds && pageIds.length > 0) {
@@ -1532,8 +1532,8 @@ var _getPageFiles = function (server, pages) {
 			});
 
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doGetFile.then(function (result) {
 			if (needNewLine) {
@@ -1637,8 +1637,8 @@ var _getComponents = function (server, compNames) {
 			});
 
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doGetComps.then(function (result) {
 			resolve(comps);
@@ -1702,8 +1702,8 @@ var _getComponentsFiles = function (server, comps) {
 			});
 
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doGetCompFiles.then(function (result) {
 			if (needNewLine) {
@@ -1839,8 +1839,8 @@ var _queryItems = function (server, itemIds, itemLabel) {
 				});
 
 			},
-				// Start with a previousPromise value that is a resolved promise 
-				Promise.resolve({}));
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
 
 			doGetItem.then(function (result) {
 				if (needNewLine) {
@@ -1904,8 +1904,8 @@ var _queryFiles = function (server, fileIds) {
 				});
 
 			},
-				// Start with a previousPromise value that is a resolved promise 
-				Promise.resolve({}));
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
 
 			doGetFile.then(function (result) {
 				if (needNewLine) {
@@ -2204,8 +2204,8 @@ var _verifyHrefLinks = function (server, pageLinks) {
 				});
 
 			},
-				// Start with a previousPromise value that is a resolved promise 
-				Promise.resolve({}));
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
 
 			doVerifyLinks.then(function (result) {
 				if (needNewLine) {
@@ -2467,7 +2467,7 @@ module.exports.createTemplateReport = function (argv, done) {
 			theme: siteinfoJson.properties.themeName
 		};
 
-		// 
+		//
 		// get site content
 		//
 		var contentPath = path.join(tempSrcDir, 'content');
@@ -3271,7 +3271,7 @@ module.exports.createAssetUsageReport = function (argv, done) {
 					var channels = item.channels;
 					for (var k = 0; k < item.sites.length; k++) {
 						var itemSite = item.sites[k];
-						// the the channel token 
+						// the the channel token
 						var channelToken;
 						for (var j = 0; j < channels.length; j++) {
 							if (channels[j].id === itemSite.channelId) {
@@ -3409,8 +3409,8 @@ var _contentListQuery = function (server, contentListData) {
 				});
 
 			},
-				// Start with a previousPromise value that is a resolved promise 
-				Promise.resolve({}));
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
 
 			doGetContentListValues.then(function (result) {
 				resolve(contentListItems);
@@ -3643,8 +3643,8 @@ var _getItemValues = function (server, itemIds, action) {
 				});
 
 			},
-				// Start with a previousPromise value that is a resolved promise 
-				Promise.resolve({}));
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
 
 			doGetItemValues.then(function (result) {
 				if (needNewLine) {

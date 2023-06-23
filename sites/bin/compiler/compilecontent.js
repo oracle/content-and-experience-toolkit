@@ -51,9 +51,9 @@ var channelAccessToken = '', // channel access token for the site
 	verbose, // run displaying all messages
 	targetDevice, // compile for mobile or desktop.  If not specified, both will be compiled
 	logLevel,
-	channelAccessToken, // token to use for Content calls 
-	server, // URL to the server that is hosting the content 
-	itemsDir, // output location for compiled items
+	outputFolder,
+	outputURL,
+	sitesCloudCDN,
 	jobProgress = 0, // progress of the compilation job
 	lastStatusUpdate = 0, // the last time an update was sent
 	zipFileName = "items.zip",
@@ -86,7 +86,6 @@ var compiler = {
 					beforeSend = function () {
 						return true;
 					},
-					getLocalTemplateURL = '',
 					contentClientType = 'draft';
 
 				// get/create the content client cache
@@ -115,9 +114,6 @@ var compiler = {
 					} else {
 						// no server available, default
 						serverURL = 'http://localhost:8085';
-
-						// set the template to use for the local server requests
-						getLocalTemplateURL = serverURL + '/templates/' + templateName;
 					}
 
 					self.contentClients[contentClientType] = contentSDK.createPreviewClient({
@@ -141,25 +137,25 @@ var compiler = {
 			installNodePackages: function (packages) {
 				var nodePackages = [];
 
-				(Array.isArray(packages) ? packages : (typeof packages === 'string' ? [packages] : [])).forEach(function (package) {
-					if (installedNodePackages.indexOf(package) === -1) {
+				(Array.isArray(packages) ? packages : (typeof packages === 'string' ? [packages] : [])).forEach(function (npmPackage) {
+					if (installedNodePackages.indexOf(npmPackage) === -1) {
 						// check if it has already been installed
-						var alreadyInstalled = false; 
+						var alreadyInstalled = false;
 						try {
-							var checkPackage = require(package);
-							var checkVersion = require(package + '/package.json').version
-							alreadyInstalled = true; 
+							var checkPackage = require(npmPackage);
+							var checkVersion = require(npmPackage + '/package.json').version
+							alreadyInstalled = true;
 						} catch (err) {
 							// not installed, install the package
 						}
 
 						if (!alreadyInstalled) {
 							// try to install this package
-							nodePackages.push(package);
+							nodePackages.push(npmPackage);
 						}
 
 						// don't try to install this package again
-						installedNodePackages.push(package);
+						installedNodePackages.push(npmPackage);
 					}
 				});
 
@@ -372,17 +368,17 @@ var compileContentItemLayout = function (contentContext, contentItem, componentN
 		// render the custom component with the content item
 		return contentContext.SCSCompileAPI.getContentClient().then(function (contentClient) {
 			var compileArgs = {
-				contentItemData: contentItem,
-				contentClient: contentClient,
-				scsData: {
-					id: id,
-					isMobile: isMobile,
-					SCSCompileAPI: contentContext.SCSCompileAPI,
+					contentItemData: contentItem,
 					contentClient: contentClient,
-					customSettingsData: {}
+					scsData: {
+						id: id,
+						isMobile: isMobile,
+						SCSCompileAPI: contentContext.SCSCompileAPI,
+						contentClient: contentClient,
+						customSettingsData: {}
+					},
+					SCSComponentAPI: contentContext.SCSCompileAPI.getSCSComponentAPI()
 				},
-				SCSComponentAPI: contentContext.SCSCompileAPI.getSCSComponentAPI()
-			},
 				custComp = new CustomLayoutCompiler(compileArgs);
 
 			return custComp.compile().then(function (compiledComp) {
@@ -402,7 +398,7 @@ var compileContentItemLayout = function (contentContext, contentItem, componentN
 					//    +- <id2>
 					//       +- ...
 
-					// create a clean ".../items/<id>/<version>/formats/<format>/<device>" folder 
+					// create a clean ".../items/<id>/<version>/formats/<format>/<device>" folder
 					var deviceDir = path.join(contentContext.itemsDir, 'items', contentItem.id, contentItem.version, 'formats', format, isMobile ? 'mobile' : 'desktop');
 					if (!fs.existsSync(deviceDir)) {
 						fs.mkdirSync(deviceDir, {
@@ -451,7 +447,7 @@ var compileContentItem = function (contentContext, item, index) {
 	}).then(function () {
 		return contentContext.SCSCompileAPI.getContentClient().then(function (contentClient) {
 			console.log('compileContentItem: Processing content item - ' + item.id + '...');
-			// get the content item 
+			// get the content item
 			// ToDo - add in version when available in the Content SDK
 			return contentClient.getItem({
 				id: item.id
@@ -522,8 +518,8 @@ var compileContentItem = function (contentContext, item, index) {
 								return nextPromise();
 							});
 						},
-							// Start with a previousPromise value that is a resolved promise 
-							Promise.resolve());
+						// Start with a previousPromise value that is a resolved promise
+						Promise.resolve());
 
 						return doCompileLayoutPromises;
 					} else {
@@ -565,8 +561,8 @@ var compileContentItems = function (contentContext) {
 			return nextPromise();
 		});
 	},
-		// Start with a previousPromise value that is a resolved promise 
-		Promise.resolve());
+	// Start with a previousPromise value that is a resolved promise
+	Promise.resolve());
 
 	// wait for all promises to resolve
 	return doCompileContentItems;
@@ -651,7 +647,7 @@ var zipCompiledContent = function (contentContext) {
 				var compiledItem = contentContext.items.find(function (contextItem) {
 					return Object.keys(item).indexOf(contextItem.id) !== -1;
 				});
-				// insert the version 
+				// insert the version
 				if (compiledItem && item[compiledItem.id]) {
 					item[compiledItem.id].version = compiledItem && compiledItem.version || '';
 				}
@@ -745,7 +741,7 @@ var zipCompiledContent = function (contentContext) {
 			}
 			fs.writeFileSync(metadataFilename, JSON.stringify(metadata));
 
-			// zip up the content 
+			// zip up the content
 			var distFolder = path.join(projectDir, 'dist');
 
 			// finish up the reporting for the console.log file
@@ -753,8 +749,8 @@ var zipCompiledContent = function (contentContext) {
 			compilationReporter.renderReport();
 
 			// if this is a partial compile, we are done. Final zip will happen after all partial compiles are complete
-			if (partialContentCompile) { 
-				return resolve(); 
+			if (partialContentCompile) {
+				return resolve();
 			}
 
 			// zip up all the files
@@ -788,15 +784,15 @@ var updateStatus = function (args) {
 		progress = args.progress;
 
 	// placeholder until server available
-	var timeStamp = new Date();
-	thisStatusUpdate = timeStamp.getTime();
+	var timeStamp = new Date(),
+		thisStatusUpdate = timeStamp.getTime();
 
 	// check if not complete and it was 5 seconds since last update
 	if ((progress !== 100) && (thisStatusUpdate - lastStatusUpdate < 5000)) {
 		return Promise.resolve();
 	}
 
-	// ToDo:  We're waiting for the server API. 
+	// ToDo:  We're waiting for the server API.
 	// This is just a placeholder until that becomes avialable
 
 	// update the status
@@ -851,15 +847,15 @@ var initializeContent = function () {
 				// load the IDs from the file
 				try {
 					var fileData = fs.readFileSync(assetFile, { encoding: 'utf8' });
-					var fileIds = JSON.parse(fileData); 
+					var fileIds = JSON.parse(fileData);
 
 					if (fileBoundary) {
-					 	if (fileBoundary.length > 1) {
+						if (fileBoundary.length > 1) {
 							fileIds = fileIds.slice(fileBoundary[0], fileBoundary[1]);
 						} else {
 							fileIds = fileIds.slice(fileBoundary[0]);
 						}
-					} 
+					}
 
 					return resolve(fileIds);
 				} catch (e) {
@@ -969,8 +965,8 @@ var initializeContent = function () {
 		// ouput console & reporter messages to: <items>/console.log
 		var logFile = fs.createWriteStream(
 			itemsDir + '/console.log', {
-			flags: 'w'
-		});
+				flags: 'w'
+			});
 		var logStdout = process.stdout;
 
 		// write console.log messages to console.log

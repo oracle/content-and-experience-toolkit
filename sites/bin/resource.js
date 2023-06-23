@@ -28,6 +28,9 @@ var projectDir,
 	templatesSrcDir;
 
 var verifyRun = function (argv) {
+	if (process.shim) {
+		return true;
+	}
 	projectDir = argv.projectDir;
 
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
@@ -273,7 +276,7 @@ module.exports.configProperties = function (argv, done) {
 		}
 	} else if (name === 'password' || name === 'client_id' || name === 'client_secret') {
 		if (server.key && fs.existsSync(server.key)) {
-			// encrypt 
+			// encrypt
 			console.info(' - key file ' + server.key);
 			var encryptKey = fs.readFileSync(server.key, 'utf8');
 			try {
@@ -471,7 +474,7 @@ module.exports.listLocalResources = function (argv, done) {
 		return;
 	}
 
-	// 
+	//
 	// Servers
 	//
 	console.log('Servers:');
@@ -511,7 +514,7 @@ module.exports.listLocalResources = function (argv, done) {
 	}
 	console.log('');
 
-	// 
+	//
 	// Content Types
 	//
 	console.log('Content Types:');
@@ -690,8 +693,8 @@ var _querySiteTotalItems = function (server, sites) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doGetItems.then(function (result) {
 			resolve(totalItems);
@@ -752,10 +755,19 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 			// List channels
 			//
 			var channelFormat = '  %-36s  %-36s  %-12s  %-8s  %-s';
+			if (process.shim) {
+				channelFormat = '  %-64s  %-32s  %-16s  %-8s  %-s';
+			}
 			channels = results.length > 0 ? results[0] : [];
 			if (listChannels) {
 				console.log('Channels:');
-				console.log(sprintf(channelFormat, 'Name', 'Token', 'SiteChannel', 'Access', 'Publishing'));
+				if (process.shim) {
+					let columnsFormat = '  %-41s  %-34s  %-14s  %-14s  %-s';
+					console.log(sprintf(columnsFormat, 'Name', 'Token', 'SiteChannel', 'Access', 'Publishing'));
+
+				} else {
+					console.log(sprintf(channelFormat, 'Name', 'Token', 'SiteChannel', 'Access', 'Publishing'));
+				}
 				for (var i = 0; i < channels.length; i++) {
 					var channel = channels[i];
 					var channelToken;
@@ -768,6 +780,9 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					}
 					if (!channelToken && tokens.length > 0) {
 						channelToken = tokens[0].token;
+					}
+					if (process.shim) {
+						channel.name = `[!--dsch--]${channel.name}[/!--dsch--]`;
 					}
 					var publishPolicy = channel.publishPolicy === 'anythingPublished' ? 'Anything can be published' : 'Only approved items can be published';
 					console.log(sprintf(channelFormat, channel.name, channelToken, channel.isSiteChannel ? '    √' : '', channel.channelType, publishPolicy));
@@ -818,7 +833,11 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 							typeLabel = 'RSS Template';
 						}
 						var published = comp.publishStatus === 'published' ? '    √' : '';
-						console.log(sprintf(format3, comp.name, typeLabel, published));
+						let browser_format = '  %-59s  %-36s  %-s';
+						if (process.shim) {
+							comp.name = `[!--dscp--]${comp.name}[/!--dscp--]`;
+						}
+						console.log(sprintf(process.shim ? browser_format : format3, comp.name, typeLabel, published));
 					}
 					if (comps.length > 0) {
 						console.log('Total: ' + comps.length);
@@ -895,7 +914,12 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 				if (listRepositories) {
 					console.log('Repositories:');
 					var repoFormat = '  %-4s  %-36s  %-16s  %-42s  %-s';
-					console.log(sprintf(repoFormat, 'Type', 'Name', 'Default Language', 'Channels', 'Content Types'));
+					if (process.shim) {
+						repoFormat = '  %-4s  %-59s  %-16s  %-200s  ';
+						console.log(sprintf('  %-4s  %-33s  %-21s  %-200s  %-s', 'Type', 'Name', 'Default Language', 'Channels'));
+					} else {
+						console.log(sprintf(repoFormat, 'Type', 'Name', 'Default Language', 'Channels', 'Content Types'));
+					}
 					for (var i = 0; i < repositories.length; i++) {
 						var repo = repositories[i];
 						var contentTypes = [];
@@ -912,6 +936,11 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 							}
 						}
 						var repoType = repositories[i].repositoryType === 'Business' ? ' B' : ' S';
+						if (process.shim) {
+							repo.name = `[!--dsr--]${repo.name}[/!--dsr--]`
+							//adding repository -> channel link , it affects spacing in output
+							repoChannels = repoChannels.map(c => `[!--dsch--]${c}[/!--dsch--]`)
+						}
 						console.log(sprintf(repoFormat, repoType, repo.name, repo.defaultLanguage, repoChannels, contentTypes));
 					}
 					if (repositories.length > 0) {
@@ -1013,7 +1042,13 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					var siteTotalItems = results && results[0] || [];
 					var siteFormat = '  %-36s  %-36s  %-10s  %-10s  %-6s  %-6s  %-s';
 					console.log('Sites:');
-					console.log(sprintf(siteFormat, 'Name', 'Theme', 'Type', 'Published', 'Online', 'Secure', 'Total Items'));
+					if (process.shim) {
+						siteFormat = '  %-59s  %-56s  %-16s  %-10s  %-6s  %-s %-s';
+						console.log(sprintf('  %-38s  %-36s  %-14s  %-10s  %-6s  %-s', 'Name', 'Theme', 'Type', 'Published', 'Online', 'Secure', 'Total Items'));
+					} else {
+						console.log(sprintf(siteFormat, 'Name', 'Theme', 'Type', 'Published', 'Online', 'Secure', 'Total Items'));
+
+					}
 					for (var i = 0; i < sites.length; i++) {
 						var site = sites[i];
 						var type = site.isEnterprise ? 'Enterprise' : 'Standard';
@@ -1027,6 +1062,10 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 									totalItems = siteTotalItems[j].totalItems;
 								}
 							}
+						}
+						if (process.shim) {
+							site.name = `[!--dss--]${site.name}[/!--dss--]`
+							site.themeName = `[!--dsth--]${site.themeName}[/!--dsth--]`
 						}
 						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online, secure, totalItems));
 					}
@@ -1048,11 +1087,20 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 				var templates = results.length > 0 ? results[0] : [];
 				if (listTemplates) {
 					console.log('Templates:');
-					console.log(sprintf(format3, 'Name', 'Theme', 'Type'));
+					if (process.shim) {
+						console.log(sprintf('  %-38s  %-36s  %-s', 'Name', 'Theme', 'Type'));
+					} else {
+						console.log(sprintf(format3, 'Name', 'Theme', 'Type'));
+					}
 					for (var i = 0; i < templates.length; i++) {
 						var temp = templates[i];
 						var type = temp.isEnterprise ? 'Enterprise' : 'Standard';
-						console.log(sprintf(format3, temp.name, temp.themeName, type));
+						let frmt_brow = '  %-59s  %-59s  %-s'
+						if (process.shim) {
+							temp.name = `[!--dst--]${temp.name}[/!--dst--]`;
+							temp.themeName = `[!--dsth--]${temp.themeName}[/!--dsth--]`
+						}
+						console.log(sprintf(process.shim ? frmt_brow : format3, temp.name, temp.themeName, type));
 					}
 				}
 				if (templates.length > 0) {
@@ -1077,7 +1125,13 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					console.log(sprintf(format2, 'Name', 'Published'));
 					for (var i = 0; i < themes.length; i++) {
 						var status = themes[i].publishStatus === 'published' ? '   √' : '';
-						console.log(sprintf(format2, themes[i].name, status));
+						themes[i].name = process.shim ? `[!--dsth--]${themes[i].name}[/!--dsth--]` : themes[i].name;
+						let frmt = format2;
+						if (process.shim) {
+							themes[i].name = `[!--dsth--]${themes[i].name}[/!--dsth--]`;
+							frmt = '  %-58s  %-36s';
+						}
+						console.log(sprintf(frmt, themes[i].name, status));
 					}
 				}
 				if (themes.length > 0) {
@@ -1101,7 +1155,13 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					var taxonomies = results && results.length > 0 && results[0] && results[0].length > 0 ? results[0] : [];
 					console.log('Taxonomies:');
 					var taxFormat = '  %-45s  %-32s  %-12s  %-14s  %-10s  %-8s  %-10s  %-s';
-					console.log(sprintf(taxFormat, 'Name', 'Id', 'Abbreviation', 'isPublishable', 'Status', 'Version', 'Published', 'Published Channels'));
+					if (process.shim) {
+						taxFormat = '  %-59s  %-32s  %-12s  %-14s  %-10s  %-8s  %-10s  %-s';
+						let fmt = '  %-36s  %-32s  %-12s  %-14s  %-10s  %-8s  %-10s  %-s';
+						console.log(sprintf(fmt, 'Name', 'Id', 'Abbreviation', 'isPublishable', 'Status', 'Version', 'Published', 'Published Channels'));
+					} else {
+						console.log(sprintf(taxFormat, 'Name', 'Id', 'Abbreviation', 'isPublishable', 'Status', 'Version', 'Published', 'Published Channels'));
+					}
 					taxonomies.forEach(function (tax) {
 						var publishable = tax.isPublishable ? '     √' : '';
 						var channels = [];
@@ -1117,6 +1177,9 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 							var version = states[i].version ? '   ' + states[i].version : '';
 							var published = states[i].published ? '    √' : '';
 							var channelLabel = states[i].published ? channels.join(', ') : '';
+							if (process.shim && name) {
+								name = `[!--dstx--]${name}[/!--dstx--]`
+							}
 							console.log(sprintf(taxFormat, name, id, abbr, publishable, states[i].status, version, published, channelLabel));
 						}
 					});
@@ -2219,7 +2282,7 @@ var _create10000Assets = function (server) {
 				});
 			});
 		},
-			Promise.resolve({}));
+		Promise.resolve({}));
 
 		doCreate.then(function (result) {
 			resolve(result);

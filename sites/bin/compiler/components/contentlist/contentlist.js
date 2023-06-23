@@ -269,8 +269,8 @@ ContentList.prototype.compileContentItems = function (args, results) {
 			return nextPromise();
 		});
 	},
-		// Start with a previousPromise value that is a resolved promise 
-		Promise.resolve());
+	// Start with a previousPromise value that is a resolved promise
+	Promise.resolve());
 
 	return doCompileItems.then(function (compiledItem) {
 		// if no items rendered, then we need to compile the default for the content list
@@ -304,7 +304,7 @@ ContentList.prototype.fetchData = function (args) {
 	// get the page locale
 	viewModel.language = viewModel.language || SCSCompileAPI.pageLocale;
 
-	// now get the content 
+	// now get the content
 	return SCSCompileAPI.getContentClient().then(function (contentClient) {
 		// generate query string from options, ignoring ones without a value
 		var getQueryString = function (options) {
@@ -347,7 +347,7 @@ ContentList.prototype.scimQueryString = function (viewModel) {
 	} else {
 		if (viewModel.compType === 'scs-dynamiclist') {
 			var sqr = viewModel.searchQueryString.trim();
-			sqr = sqr.replace(/\n/g,' '); // Server doesn't like newline char
+			sqr = sqr.replace(/\n/g, ' '); // Server doesn't like newline char
 			// ToDo: Support macro expansions
 			queryString = "(" + sqr + ")"; // group (in paren) the multi-type search query as it'll be "AND" with site language
 		}
@@ -484,7 +484,7 @@ ContentList.prototype.computeStyle = function () {
 	return this.computeBorderStyle;
 };
 
-// compute CSS 
+// compute CSS
 ContentList.prototype.computeListStyle = function () {
 	// not required for compiled content lists
 	return '';

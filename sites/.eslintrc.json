@@ -1,5 +1,41 @@
 {
 	"env": {
 		"node": true
+	},
+	"extends": [
+		"eslint:recommended",
+		"plugin:mocha/recommended"
+	],
+	"plugins": [
+		"mocha"
+	],
+	"parserOptions": {
+		"ecmaVersion": "latest",
+		"sourceType": "module"
+	},
+	"ignorePatterns": [
+		"src/libs/**/*.js",
+		"data/build/src-gulpfile.js",
+		"test/sitescloud/renderer/**/*.js",
+		"test/public/**/*.js",
+		"test/themes/**/*.js"
+	],
+	"rules": {
+		"indent": [
+			"error",
+			"tab"
+		],
+		"no-unused-vars": "off",
+		"mocha/no-nested-tests": "off",
+		"mocha/no-top-level-hooks": "off",
+		"no-prototype-builtins": "off",
+		"keyword-spacing": "error",
+		"space-before-blocks": "error",
+		"comma-spacing": "error",
+		"func-call-spacing": "error",
+		"space-infix-ops": "error",
+		"space-unary-ops": "error",
+		"arrow-spacing": "error",
+		"no-trailing-spaces": "error"
 	}
 }

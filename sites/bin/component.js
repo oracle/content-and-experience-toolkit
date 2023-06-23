@@ -31,6 +31,13 @@ var projectDir,
 	serversSrcDir;
 
 var verifyRun = function (argv) {
+	// verifyRun for browser
+	if (process.shim) {
+		// stub
+		process.stdout.write = console.log
+		readline.cursorTo = (...args) => {}
+		return true;
+	}
 	projectDir = argv.projectDir;
 
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
@@ -44,6 +51,7 @@ var verifyRun = function (argv) {
 
 	return true;
 };
+
 
 
 /**
@@ -101,7 +109,7 @@ module.exports.createComponent = function (argv, done) {
 		return;
 	}
 
-	// verify the new template name 
+	// verify the new template name
 	var re = /^[a-z0-9_-]+$/ig;
 	if (compName.search(re) === -1) {
 		console.error('ERROR: Use only letters, numbers, hyphens, and underscores in component names.');
@@ -236,7 +244,7 @@ module.exports.copyComponent = function (argv, done) {
 			return;
 		}
 
-		// verify the new component name 
+		// verify the new component name
 		var re = /^[a-z0-9_-]+$/ig;
 		if (compName.search(re) === -1) {
 			console.error('ERROR: Use only letters, numbers, hyphens, and underscores in component names.');
@@ -255,7 +263,7 @@ module.exports.copyComponent = function (argv, done) {
 
 		// update itemGUID
 		if (serverUtils.updateItemFolderJson(projectDir, 'component', compName)) {
-			// update appinfo.json 
+			// update appinfo.json
 			var appinfoPath = path.join(componentsSrcDir, compName, 'appinfo.json');
 			if (fs.existsSync(appinfoPath)) {
 				var appinfojson = JSON.parse(fs.readFileSync(appinfoPath));
@@ -610,7 +618,7 @@ module.exports.deployComponent = function (argv, done) {
 					});
 			});
 
-		}); // login 
+		}); // login
 
 	}); // export
 };
@@ -629,8 +637,8 @@ var _uploadComponents = function (server, folder, folderId, comps, publish, noMs
 					});
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doUploadComp.then(function (result) {
 			resolve({
@@ -640,7 +648,7 @@ var _uploadComponents = function (server, folder, folderId, comps, publish, noMs
 	});
 };
 
-/** 
+/**
  * private
  * unzip component zip file and copy to /src
  */
@@ -997,8 +1005,8 @@ var _downloadPublishedComponents = function (server, componentNames) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doDownloadComp.then(function (result) {
 			resolve({
@@ -1246,8 +1254,8 @@ var _controlComponentsREST = function (server, componentNames) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doPublishComps.then(function (result) {
 			resolve({
@@ -1705,8 +1713,8 @@ var _getSitesUsedComponents = function (server, sites) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doGetSiteData.then(function (result) {
 			if (needNewLine) {
@@ -1766,8 +1774,8 @@ var _getTypesUsedComponents = function (server, types) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doGetTypeData.then(function (result) {
 			if (needNewLine) {

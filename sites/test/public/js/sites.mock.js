@@ -21,39 +21,39 @@ define(['knockout', 'jquery', 'sitesMockData'],
 		// mock the Sites SDK messages
 		var receiveMessage = function (event) {
 			try {
-				var data = JSON.parse(event.data); 
-				
+				var data = JSON.parse(event.data);
+
 				// Mock the getProperty Event
 				if (data && data.eventName === getPropertyEvent) {
 					console.log('Sites received event: ' + event.data);
-					
+
 					var getPropertyData = JSON.stringify({
 						eventName: 'scsMockGetPropertyResponse',
 						eventPayload: {
 							propertyName: data.eventPayload.propertyName,
 							propertyValue: sitesMockData.properties[data.eventPayload.propertyName] || ''
 						}
-					}); 
-						
+					});
+
 					// send back the property
 					console.log('Sites responded with event: ' + getPropertyData);
-					event.source.postMessage(getPropertyData, '*'); 
+					event.source.postMessage(getPropertyData, '*');
 				}
-				
+
 				// Mock the setProperty Event
 				if (data && data.eventName === setPropertyEvent) {
 					console.log('Sites received event: ' + event.data);
-					
+
 					// store the data
-					sitesMockData.properties[data.eventPayload.propertyName] = data.eventPayload.propertyValue; 
-					
+					sitesMockData.properties[data.eventPayload.propertyName] = data.eventPayload.propertyValue;
+
 					// handle callback noting that settings have changed
 					if (typeof subscriptions[MESSAGE_TYPES.SETTINGS_UPDATED] === 'function') {
-						console.log('Sites responded with: callback'); 
+						console.log('Sites responded with: callback');
 						subscriptions[MESSAGE_TYPES.SETTINGS_UPDATED]({
 							property: data.eventPayload.propertyName,
 							value: data.eventPayload.propertyValue
-						}); 
+						});
 					} else {
 						var iframe = $('#sandbox1')[0],
 							iframewindow = iframe.contentWindow || iframe.contentDocument.defaultView;
@@ -89,7 +89,7 @@ define(['knockout', 'jquery', 'sitesMockData'],
 				sitesMockData.properties[propertyName] = propertyValue;
 			},
 			subscribe: function (name, callback) {
-				subscriptions[name] = callback; 
+				subscriptions[name] = callback;
 			},
 			publish: function (args) {
 				console.log('publish:');

@@ -59,6 +59,11 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	isSecureSite, // Is this a secure site -- used to populate the siteRootPath in the siteinfo properties
 	targetDevice = '', // 'mobile' or 'desktop' (no value implies compile for both if RegEx is specified)
 	mobilePages = false, // whether we are compiling mobile pages
+	includeLocale = false, // whether to include the default locale in the URLs
+	verbose = false, // display all messages
+	compileDetailPages = true, // assume we want detail pages
+	pages, // undefined means all pages
+	recurse = false, // Compile all child pages of those specifed in the page list
 	localeGroup = [], // list of locales to compile
 	useFallbackLocale, // locale to use is requested locale does not exist
 	incrementalCompile = {}, // any incremental compile definition
@@ -82,7 +87,7 @@ var useCrossSiteLinks = false;
 
 // entries for cross site links
 var crossSitePromises = {};
-var crossSiteEntries = {}; 
+var crossSiteEntries = {};
 
 
 // create a reporter object to output any required information during compile and then a summary report at the end
@@ -254,7 +259,7 @@ function readStructure(locale) {
 	var tempSiteInfo = structureObject.siteInfo && structureObject.siteInfo.base;
 	if (!tempSiteInfo) {
 		var tempSiteInfoData = getLocaleFileData(siteFolder, "siteinfo.json", locale, true);
-		tempSiteInfo = JSON.parse(tempSiteInfoData) || {}; 
+		tempSiteInfo = JSON.parse(tempSiteInfoData) || {};
 	}
 	var tempStructure = structureObject.base || structureObject;
 
@@ -278,7 +283,7 @@ function readStructure(locale) {
 		siteInfo.properties.channelAccessTokens.push({
 			name: "defaultToken",
 			value: channelAccessToken,
-			expirationDate: "01\/01\/2099"
+			expirationDate: "01/01/2099"
 		});
 	}
 
@@ -442,7 +447,7 @@ function getLocaleFileData(resourcePath, fileName, locale, loadBaseFile) {
 		}
 	}
 
-	return fileContent; 
+	return fileContent;
 }
 
 function getPageData(context, pageId) {
@@ -528,8 +533,8 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 
 
 	// now compile the page if compiler supplied
-	var baseName = layoutName.replace(/\.(htm|html)$/i, '') + '-compile';
-	compileFile = path.join(themesFolder, themeName, "layouts", baseName + '.js'),
+	var baseName = layoutName.replace(/\.(htm|html)$/i, '') + '-compile',
+		compileFile = path.join(themesFolder, themeName, "layouts", baseName + '.js'),
 		moduleFile = path.join(themesFolder, themeName, "layouts", baseName + '.mjs'),
 		useModuleCompiler = fs.existsSync(moduleFile);
 
@@ -557,7 +562,7 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 			} else {
 				compilationReporter.error({
 					message: 'failed to import: "' + moduleFile,
-					error: e
+					error: 'PageCompiler object not returned by module file'
 				});
 			}
 		} else {
@@ -710,9 +715,9 @@ function resolveLinks(pageModel, context, sitePrefix, fromContentClient) {
 	});
 
 	// Also fix up [!--$SCS_PAGE--]42[/!--$SCS_PAGE--] links that might appear in inline component data
-	// Also handle params [!--$SCS_PAGE--]42|param1=firstParam&amp;param2=secondParam[/!--$SCS_PAGE--] 
+	// Also handle params [!--$SCS_PAGE--]42|param1=firstParam&amp;param2=secondParam[/!--$SCS_PAGE--]
 	if (expandPages) {
-		// use the pageLocal if it exists. 
+		// use the pageLocal if it exists.
 		// if the pageLocale doesn't exist, then the page is rendering in  the defaultLocale so use that
 		// if the defaultLocale doesn't exist, then the default locale is not included in the URL so don't use any locale value
 		var ctxPageLocale = context.pageLocale || defaultLocale || '';
@@ -793,7 +798,7 @@ function resolveLinks(pageModel, context, sitePrefix, fromContentClient) {
 
 function parsePageIdAndParams(linkText) {
 	// CKEditor encodes "&" to "&amp;" in page links, decode the entry
-	var pageLink = typeof linkText === 'string' ? linkText.replace(/\&amp\;/g, '&') : linkText.toString();
+	var pageLink = typeof linkText === 'string' ? linkText.replace(/&amp;/g, '&') : linkText.toString();
 
 	// default the values (pageId === pageLink)
 	var pageValues = {
@@ -1098,8 +1103,8 @@ class ComponentCrossSiteLinks {
 		this.SCSCompileAPI = SCSCompileAPI;
 
 		// ToDo: Formalize how to get this value - default to current customer value stored against the site property
-		this.vanityURLPropertyName = 'SITE_VANITY_DOMAIN'; 
-		this.crossSiteLinksPropertyName = 'USE_CROSS_SITE_LINKS'; 
+		this.vanityURLPropertyName = 'SITE_VANITY_DOMAIN';
+		this.crossSiteLinksPropertyName = 'USE_CROSS_SITE_LINKS';
 		useCrossSiteLinks = (rootSiteInfo && rootSiteInfo.properties['customProperties'] || {})[this.crossSiteLinksPropertyName] === 'true';
 	}
 
@@ -1117,7 +1122,7 @@ class ComponentCrossSiteLinks {
 		var remoteSite = remoteSiteEntry.site;
 		var remoteSiteStructure = remoteSite.siteStructure || {
 			pageMap: {}
-		}; 
+		};
 		var remoteSiteProps = (remoteSite.siteInfo || {}).properties || {};
 
 		// see if the remote site has the locale as this page
@@ -1130,8 +1135,8 @@ class ComponentCrossSiteLinks {
 		// find the page we're looking for
 		var pageEntry = remoteSiteStructure.pageMap[pageId];
 
-		// get the page URL 
-		var pageUrl = (pageEntry && pageEntry.pageUrl || '').trim(); 
+		// get the page URL
+		var pageUrl = (pageEntry && pageEntry.pageUrl || '').trim();
 		if (!pageUrl) {
 			return '';
 		}
@@ -1140,8 +1145,8 @@ class ComponentCrossSiteLinks {
 		var remoteLocale = '';
 		var defaultLanguage = rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.defaultLanguage;
 		if ((this.SCSCompileAPI.pageLocale !== defaultLanguage) || includeLocale) {
-			// if the current locale language doesn't exist in the remote site, then we use the 
-			// default locale of the remote site. 
+			// if the current locale language doesn't exist in the remote site, then we use the
+			// default locale of the remote site.
 			if (remoteSiteHasLocale) {
 				remoteLocale = this.SCSCompileAPI.localeAlias || this.SCSCompileAPI.pageLocale || '';
 			} else {
@@ -1296,7 +1301,7 @@ class ComponentCrossSiteLinks {
 		var $ = cheerio.load('<div>');
 
 		if (useCrossSiteLinks) {
-			return new Promise ((resolve, reject) => {
+			return new Promise((resolve, reject) => {
 				if (compiledComp && compiledComp.content) {
 					// parse the component content and find any cross site links
 					var $text = $('<div>' + compiledComp.content + '</div>');
@@ -1304,19 +1309,19 @@ class ComponentCrossSiteLinks {
 					var foundOneLink = false; // assume we have no cross site links
 
 					// find site links
-					$text.find('a[linktype="scs-link-sitepage"]').each((i, elm) => { 
-						var attribs = elm && elm.attribs || {}; 
+					$text.find('a[linktype="scs-link-sitepage"]').each((i, elm) => {
+						var attribs = elm && elm.attribs || {};
 						var siteId = attribs.siteid;
 						var href = attribs.href || '';
-	
+
 						if (siteId && (siteId !== targetSiteName) && (href || '').match(regPageLink)) {
 							crossSiteEntries[siteId] = crossSiteEntries[siteId] || {
 								pageIds: {}
 							};
-	
+
 							href.replace(regPageLink, function (match, pageId) {
 								crossSiteEntries[siteId].pageIds[pageId] = crossSiteEntries[siteId].pageIds[pageId] || {};
-								foundOneLink = true; 
+								foundOneLink = true;
 							});
 						}
 					});
@@ -1331,15 +1336,15 @@ class ComponentCrossSiteLinks {
 					// otherwise, get the URLs for all the remote site links
 					this.getRemoteSiteLinks().then(function () {
 						// replace the remote site links
-						$text.find('a[linktype="scs-link-sitepage"]').each((i, elm) => { 
-							var attribs = elm && elm.attribs || {}; 
+						$text.find('a[linktype="scs-link-sitepage"]').each((i, elm) => {
+							var attribs = elm && elm.attribs || {};
 							var siteId = attribs.siteid;
 							var href = attribs.href;
-	
+
 							// expand the cross-site link macros
 							if (siteId && siteId !== targetSiteName && (href || '').match(regPageLink)) {
 								var siteEntry = crossSiteEntries[siteId];
-	
+
 								if (siteEntry) {
 									// replace with the corresponding cross-site link
 									href = href.replace(regPageLink, function (match, pageId) {
@@ -1408,14 +1413,14 @@ class ComponentCrossSiteLinks {
 /**
  * Compiled Content Results.
  * @memberof SCSCompileAPI
- * @typedef {Object} CompiledContent 
- * @property {String} content - The generated HTML for the component, which will be inserted into the page.  
+ * @typedef {Object} CompiledContent
+ * @property {String} content - The generated HTML for the component, which will be inserted into the page.
  * @property {Boolean} hydrate - true if the hydrate function within the render.js for this component should be called at runtime.
  */
 /**
- * Details on how to navigate to another page from the current page. 
+ * Details on how to navigate to another page from the current page.
  * @memberof SCSCompileAPI
- * @typedef {Object} PageLinkData 
+ * @typedef {Object} PageLinkData
  * @property {String} href - Relative URL path to the referenced page from the current page.
  * @property {String} target - Whether to open the page in a new tab or replace the current tab.
  * @property {Boolean} hideInNavigation - Should the page be hidden or visible in the navigation menu.
@@ -1473,11 +1478,11 @@ var compiler = {
 			},
 			/**
 			 * Get the contentClient object that can be used to make OCM Content REST calls
-			 * @memberof SCSCompileAPI 
-			 * @instance 
-			 * @returns {Promise} JavaScript Promise object that is resolved to a Content Client object that can be used to make OCM Content REST calls. 
-			 * @example 
-			 * // Get the information about the content client 
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @returns {Promise} JavaScript Promise object that is resolved to a Content Client object that can be used to make OCM Content REST calls.
+			 * @example
+			 * // Get the information about the content client
 			 * SCSCompileAPI.getContentClient().then((contentClient) => {
 			 *      console.log(contentClient.getInfo());
 			 *  });
@@ -1537,7 +1542,7 @@ var compiler = {
 					});
 
 					// override the expand macros function to use the compiler tokens expansion
-					// this is because the relative page URLs are only known to the compiler 
+					// this is because the relative page URLs are only known to the compiler
 					self.contentClients[type || 'default'].expandMacros = function (value) {
 						return resolveLinks(value, self.context, self.sitePrefix, true);
 					};
@@ -1554,7 +1559,7 @@ var compiler = {
 			 * call the referenced item's compiler instead of duplicating the code. <br/>
 			 * <br/>
 			 * Note: The hydrate method on the compiled content layout is not called automatically. If it is required<br/>
-			 * then the hydrate function on the current content layout will need to handle it. 
+			 * then the hydrate function on the current content layout will need to handle it.
 			 * @memberof SCSCompileAPI
 			 * @instance
 			 * @param {Object} contentItemData - Data to use when the content item is compiled.
@@ -1608,7 +1613,7 @@ var compiler = {
 				return channelAccessToken;
 			},
 			/**
-			 * Get the ID of the site that is being compiled. 
+			 * Get the ID of the site that is being compiled.
 			 * @memberof SCSCompileAPI
 			 * @instance
 			 * @returns {String} siteId of the site being compiled.
@@ -1647,12 +1652,12 @@ var compiler = {
 
 						if ( dotPos > slashPos + 1 ) {
 							pageUrl = pageUrl.substring( 0, dotPos );
-						} 
+						}
 						pageUrl = pageUrl + '/' + options.contentItem.slug;
 					}
 
-					pageUrl = addUrlParams(pageUrl, options && options.queryParams); 
-					pageUrl = addUrlFragment(pageUrl, options && options.fragment); 
+					pageUrl = addUrlParams(pageUrl, options && options.queryParams);
+					pageUrl = addUrlFragment(pageUrl, options && options.fragment);
 
 					// update the URL entry in the page Data
 					pageData.href = pageUrl;
@@ -1793,7 +1798,7 @@ var compiler = {
 			 * Compile the designated content item using the specified detail page.
 			 * @memberof SCSCompileAPI
 			 * @instance
-			 * @param {String} detailPageId - The page ID of the detail page to be used. If this is undefined, it will use the default detail page. 
+			 * @param {String} detailPageId - The page ID of the detail page to be used. If this is undefined, it will use the default detail page.
 			 * @param {Object} contentItem - The content information for the Content Item to compile.
 			 * @example
 			 * SCSCompileAPI.compileDetailPage('104', contentItemData);
@@ -1830,7 +1835,7 @@ var compiler = {
 			},
 			/**
 			 * Get the link href value to link to another page in the site from the current page being compiled.
-			 * In most cases, this will be the relative URL to the new page from the current page in the hierarchy. 
+			 * In most cases, this will be the relative URL to the new page from the current page in the hierarchy.
 			 * @memberof SCSCompileAPI
 			 * @instance
 			 * @param {String} pageId - Id of the target page.
@@ -1947,14 +1952,14 @@ var compiler = {
 			getDeviceInfo: function () {
 				return self.context.deviceInfo || {
 					isMobile: false
-				}; 
+				};
 			}
 		};
 
 		// create a new SCSComponentAPI based on the SCSCompileAPI
 		_scsComponentAPI = new SCSComponentAPI(scsCompileAPI);
 
-		return scsCompileAPI; 
+		return scsCompileAPI;
 	},
 	compileComponentInstance: function (compId, compInstance) {
 		var self = this;
@@ -1983,16 +1988,6 @@ var compiler = {
 							// store the compiled component
 							self.compiledComponents[compId] = compiledComp;
 
-							// if nothing was returned, let the user know
-							if (false && !compiledComp.content) {
-								// don't warn for content placeholders
-								if (!(compInstance.data && compInstance.data.contentPlaceholder)) {
-									compilationReporter.warn({
-										message: 'Compiling component: "' + compId + '" of type "' + compInstance.type + '" resulted in no content - it will render dynamically at runtime',
-									});
-								}
-							}
-
 							return resolve();
 						}).catch(function (e) {
 							compilationReporter.error({
@@ -2000,7 +1995,7 @@ var compiler = {
 								error: e
 							});
 
-							return resolve(); 
+							return resolve();
 						});
 					}).catch(function (e) {
 						compilationReporter.error({
@@ -2261,7 +2256,7 @@ function fixupPage(pageId, pageUrl, layoutMarkup, pageModel, localePageModel, co
 		pageMarkup = '';
 		pageMarkup = resolveComponents(pageMarkup);
 	} else {
-		// now we have the compiled components, resolve the page markup 
+		// now we have the compiled components, resolve the page markup
 		pageMarkup = resolveSlots(pageMarkup, pageModel, sitePrefix);
 		pageMarkup = resolveTokens(pageId, pageMarkup, pageModel, context, sitePrefix);
 		pageMarkup = resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, context, sitePrefix);
@@ -2302,11 +2297,11 @@ function encodeHTML(textData) {
 		"<": "&lt;",
 		">": "&gt;",
 		"\"": "&quot;",
-		"\'": "&#x27;",
+		"'": "&#x27;",
 		"/": "&#x2F;"
 	};
 
-	var encodedText = textData.replace(/[&"<>'\/]/g, function (m) {
+	var encodedText = textData.replace(/[&"<>'/]/g, function (m) {
 		return replacements[m];
 	});
 
@@ -2699,7 +2694,7 @@ function findEndTag(layout, tagName, startPos) {
 		matchStartResult;
 
 	try {
-		reEndTag = new RegExp('<\/' + tagName + '\\s*>', 'gi');
+		reEndTag = new RegExp('</' + tagName + '\\s*>', 'gi');
 		reEndTag.lastIndex = startPos;
 
 		// Find the first closing tag
@@ -2919,7 +2914,9 @@ function getLayoutSlotIds(layoutName, layoutMarkup) {
 		try {
 			var layoutInfo = JSON.parse(json);
 			slotIds = layoutInfo.slotIds;
-		} catch (e) { }
+		} catch (e) {
+			console.log('getLayoutSlotIds()', e);
+		}
 
 		return "";
 	});
@@ -3019,8 +3016,8 @@ function computeSitePrefix(context, pageUrl, pageInfo) {
 		// so add an extra relative segment for the slug.  (Were we to allow the other detail
 		// page formats, we would not know how many extra relative segments to add.)
 
-		// This only applies when compiling the detail page itself.  
-		// When compiling an instance of the detail page, we don't need this. 
+		// This only applies when compiling the detail page itself.
+		// When compiling an instance of the detail page, we don't need this.
 		if (!creatingDetailPages) {
 			sitePrefix = '../' + sitePrefix;
 		}
@@ -3088,7 +3085,7 @@ function createPage(context, pageInfo) {
 						pageCompiler = pageCompileResult.pageCompiler;
 
 					pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
-					// now fixup the page 
+					// now fixup the page
 					fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) {
 						pageCompiler.afterPageCompile(pageMarkup).then(function (finalMarkup) {
 							var pagePrefix = (localeAlias || locale) ? ((localeAlias || locale) + '/') : '';
@@ -3285,13 +3282,13 @@ function addIncrementalDetailPages() {
 	return new Promise(function (resolve, reject) {
 		var detailPageAssetIds = incrementalCompile.detailPageAssetIds || [];
 		if (detailPageAssetIds.length > 0) {
-			var scsCompileAPI = compiler.getSCSCompileAPI(); 
+			var scsCompileAPI = compiler.getSCSCompileAPI();
 			scsCompileAPI.getContentClient().then(function (contentClient) {
 				// query back all the requested items
 				incrementalCompile.detailItemsPromise = incrementalCompile.detailItemsPromise || contentClient.getItems({ids: detailPageAssetIds});
 				incrementalCompile.detailItemsPromise.then(function (result) {
 					// create a map for the items
-					var itemMap = {}; 
+					var itemMap = {};
 					var items = result && result.items;
 					(Array.isArray(items) && items || []).forEach(function (item) {
 						itemMap[item.id] = item;
@@ -3312,7 +3309,7 @@ function addIncrementalDetailPages() {
 				});
 			});
 		} else {
-			return resolve(); 
+			return resolve();
 		}
 	});
 }
@@ -3351,8 +3348,8 @@ function createDetailPages() {
 			return nextPromise();
 		});
 	},
-		// Start with a previousPromise value that is a resolved promise 
-		Promise.resolve());
+	// Start with a previousPromise value that is a resolved promise
+	Promise.resolve());
 
 	// create all the detail pages
 	return doCreateDetailPages;
@@ -3422,7 +3419,7 @@ function writeCommonSiteInfo(context) {
 
 	// Escape JavaScript characters also
 	SCSSiteCommon = SCSSiteCommon.replace(/[']/g, '\\\'');
-	SCSSiteCommon = SCSSiteCommon.replace(/["]/g, '\\\"');
+	SCSSiteCommon = SCSSiteCommon.replace(/["]/g, '\\"');
 	SCSSiteCommon = SCSSiteCommon.replace(/[\\]/g, '\\\\');
 	SCSSiteCommon = SCSSiteCommon.replace(/[\n]/g, '\\n');
 	SCSSiteCommon = SCSSiteCommon.replace(/[\r]/g, '\\r');
@@ -3447,7 +3444,7 @@ function writeCommonSiteInfo(context) {
 	var fileName = 'siteinfo-common' + (context.pageLocale ? ('-' + context.pageLocale) : '') + '.js';
 	console.log('writeCommonSiteInfo: Generating shared ' + fileName);
 	writePage(fileName, js);
-};
+}
 
 // this registers the template to use when running content queries with the local server
 var registerTemplateWithServer = function () {
@@ -3507,7 +3504,7 @@ var compilePages = function (compileTargetDevice) {
 	console.log(message);
 	console.log("-".repeat(message.length));
 
-	// create the pages 
+	// create the pages
 	var createPagePromises = [];
 
 	var languages = getAvailableLanguages();
@@ -3540,15 +3537,15 @@ var compilePages = function (compileTargetDevice) {
 			return nextPromise();
 		});
 	},
-		// Start with a previousPromise value that is a resolved promise 
-		Promise.resolve());
+	// Start with a previousPromise value that is a resolved promise
+	Promise.resolve());
 
 	// wait until all pages have been created
 	return doCreatePages.then(function () {
 		console.log('All page creation calls complete.');
 
 		// create detail pages as well if they were found during page compilation
-		return addIncrementalDetailPages().then(function () { 
+		return addIncrementalDetailPages().then(function () {
 			if (compileDetailPages && Object.keys(detailPageList).length > 0) {
 				console.log('');
 				console.log('Creating detail pages:');
@@ -3568,11 +3565,11 @@ var compilePages = function (compileTargetDevice) {
 
 // See if a incremental compile definition file has been defined, this will have been set up in the run.sh file if it exists for this job
 // Note: We are driving this from an environment variable rather than a parameter in order to support backwards compatibility
-//       customers with existing compile_site.sh files will not need to update the files to take advantage of this 
+//       customers with existing compile_site.sh files will not need to update the files to take advantage of this
 var checkIncrementalCompile = function (args) {
 	// update the 'pages' entry with all the listed incremental pages and any detail pages
 	var getIncrementalPages = function () {
-		var incrementalPages = []; 
+		var incrementalPages = [];
 
 		// get both the specific pages and detail pages
 		(incrementalCompile.pages || []).forEach(function (pageDefinition) {
@@ -3582,17 +3579,17 @@ var checkIncrementalCompile = function (args) {
 			incrementalPages.push(pageDefinition.pageId);
 		});
 
-		return incrementalPages; 
+		return incrementalPages;
 	};
 
 	// query back all the detail pages content items, which will be added later
 	var getDetailPageAssetIds = function () {
 		// get the union of all IDs across all detail pages
-		var detailPageAssetIds = {}; 
+		var detailPageAssetIds = {};
 
 		(incrementalCompile.detailPages || []).forEach(function (pageDefinition) {
 			(pageDefinition.assets || []).forEach(function (id) {
-				detailPageAssetIds[id] = id; 
+				detailPageAssetIds[id] = id;
 			});
 		});
 
@@ -3612,14 +3609,14 @@ var checkIncrementalCompile = function (args) {
 			incrementalCompile = JSON.parse(incrementalCompileFile);
 
 			// extract the pages to compile
-			var incrementalPages = getIncrementalPages(); 
+			var incrementalPages = getIncrementalPages();
 
 			if (incrementalPages.length > 0) {
 				// update the list of pages to compile
 				pages = incrementalPages.join(',');
 
 				// extract the detail page IDs to compile
-				incrementalCompile.detailPageAssetIds = getDetailPageAssetIds(); 
+				incrementalCompile.detailPageAssetIds = getDetailPageAssetIds();
 			}
 
 			console.log(' - incremental job pages: ' + pages)
@@ -3628,7 +3625,7 @@ var checkIncrementalCompile = function (args) {
 		} catch (e) {
 			throw new Error(' Failed to parse incremental compile file: ' + incrementalCompileFilePath);
 		}
-	} 
+	}
 
 	return true;
 };
@@ -3681,33 +3678,33 @@ var compileSite = function (args) {
 				var key = entry.replace('--', ''); // allow for both '--includeLocale' & 'includeLocale'
 				console.log(' option override: --' + key + '=' + value);
 				switch (key) {
-					case 'includeLocale':
-						includeLocale = value;
-						break;
-					case 'verbose':
-						verbose = value;
-						break;
-					case 'noDetailPages':
-						compileDetailPages = !value; // inverse of noDetailPages
-						break;
-					case 'noDefaultDetailPageLink':
-						useDefaultDetailPageLink = !value; // inverse of noDefaultDetailPageLink
-						break;
-					case 'channelToken':
-						channelAccessToken = value;
-						break;
-					case 'targetDevice':
-						targetDevice = value;
-						break;
-					case 'localeGroup':
-						localeGroup = value ? value.split(',') : [];
-						break;
-					case 'type':
-						defaultContentType = (value === 'draft' ? 'draft' : 'published');
-						break;
-					default:
-						console.log('  unsupported option: ' + entry);
-						break;
+				case 'includeLocale':
+					includeLocale = value;
+					break;
+				case 'verbose':
+					verbose = value;
+					break;
+				case 'noDetailPages':
+					compileDetailPages = !value; // inverse of noDetailPages
+					break;
+				case 'noDefaultDetailPageLink':
+					useDefaultDetailPageLink = !value; // inverse of noDefaultDetailPageLink
+					break;
+				case 'channelToken':
+					channelAccessToken = value;
+					break;
+				case 'targetDevice':
+					targetDevice = value;
+					break;
+				case 'localeGroup':
+					localeGroup = value ? value.split(',') : [];
+					break;
+				case 'type':
+					defaultContentType = (value === 'draft' ? 'draft' : 'published');
+					break;
+				default:
+					console.log('  unsupported option: ' + entry);
+					break;
 				}
 			});
 		} catch (e) {
@@ -3759,7 +3756,7 @@ var compileSite = function (args) {
 
 	// if using the local server, register the template that will be used for content queries
 	return registerTemplateWithServer().then(function () {
-		// compile pages for desktop 
+		// compile pages for desktop
 		return compilePages('desktop').then(function () {
 			console.log('');
 
@@ -3767,9 +3764,9 @@ var compileSite = function (args) {
 			process.env.scsIsMobile = true;
 
 			// clear the detail page list so that it is re-created for mobile pages
-			detailPageList = {}; 
+			detailPageList = {};
 
-			// compile pages for mobile 
+			// compile pages for mobile
 			return compilePages('mobile').then(function () {
 				compilationReporter.renderReport();
 				return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();

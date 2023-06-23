@@ -14,6 +14,7 @@
  *
  * $Id: component-registration.js 166785 2019-01-10 18:46:18Z muralik $
  */
+// eslint-disable-next-line no-redeclare
 /* global exports */
 (function defineComponentConstants(scope, factory) {
 	// configure to run in various JS environments

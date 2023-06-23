@@ -18,8 +18,8 @@ define(['knockout', 'jquery'], function (ko, $) {
 
 		// create the observables
 
-		// handle initialization 
-		
+		// handle initialization
+
 		self.initialized = ko.computed(function () {
 			return true;
 		}, self);
@@ -37,10 +37,10 @@ define(['knockout', 'jquery'], function (ko, $) {
 		};
 
 
-		// 
+		//
 		// Handle property changes
 		//
-	
+
 		// listen for the EXECUTE ACTION request to handle custom actions
 		SitesSDK.subscribe(SitesSDK.MESSAGE_TYPES.EXECUTE_ACTION, $.proxy(self.executeActionsListener, self));
 		// listen for settings update
@@ -105,7 +105,7 @@ define(['knockout', 'jquery'], function (ko, $) {
 				if (property) {
 					if (property.name === 'customSettingsData') {
 						self.viewModel.updateComponentData(property.value);
-					} 
+					}
 				}
 			});
 		}, this);

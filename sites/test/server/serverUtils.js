@@ -171,6 +171,26 @@ module.exports.getConfiguredServer = function (currPath, showError) {
 	return _getConfiguredServer(currPath, showError);
 };
 var _getConfiguredServer = function (currPath, showError) {
+	if (process.shim) {
+		// if under webbrowser , return current server where toolkit is loaded
+		return  {
+			fileloc: 'cec.properties',
+			fileexist: true,
+			configured: true,
+			//use dev instance as base url if under dev
+			url: document.location.origin.includes('localhost') ? "http://ssvrint-oracle.us.oracle.com/" : document.location.origin,
+			username: 'ssvrint.SitesAdmin1.admin',
+			password: 'welcome1',
+			oauthtoken: '',
+			env: 'dev_ec',
+			useRest: false,
+			idcs_url: '',
+			client_id: '',
+			client_secret: '',
+			scope: ''
+		};
+
+	}
 	var configFile;
 	if (process.env.CEC_PROPERTIES) {
 		configFile = process.env.CEC_PROPERTIES;
@@ -996,9 +1016,15 @@ var _getTemplateComponents = function (templateName, includeThemeComps) {
 	};
 	for (var i = 0; i < pages.length; i++) {
 		var pagepath = path.join(tempSrcDir, 'pages', pages[i]),
-			pagestr = fs.readFileSync(pagepath),
+			pagestr = fs.readFileSync(pagepath);
+
+		var pagejson;
+		try {
 			pagejson = JSON.parse(pagestr);
-		if (pagejson.componentInstances) {
+		} catch (e) {
+			// handle invalid files in pages folder
+		}
+		if (pagejson && pagejson.componentInstances) {
 			processInstances(pagejson.componentInstances);
 		}
 	}

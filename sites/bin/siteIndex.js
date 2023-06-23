@@ -359,8 +359,8 @@ var _readPageFiles = function (server, files) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doReadFile.then(function (result) {
 			if (needNewLine) {
@@ -375,7 +375,7 @@ var _readPageFiles = function (server, files) {
 
 /**
  * Get the id of all content item on the pages
- * @param {*} pageData 
+ * @param {*} pageData
  */
 var _getPageContentItemIds = function (pageData) {
 	var pageContentIds = [];
@@ -432,7 +432,7 @@ var _getContentListQueryString = function (type, limit, offset, orderBy, querySt
 
 /**
  * set the query string for all content list items on the page
- * @param {*} pageData 
+ * @param {*} pageData
  */
 var _getPageContentListQuery = function (pageData, contenttype, locale) {
 	var pageContentListQueries = [];
@@ -449,7 +449,7 @@ var _getPageContentListQuery = function (pageData, contenttype, locale) {
 				var limit = data.maxResults;
 				var orderBy = data.sortOrder;
 				var queryString = data.queryString;
-				// Skip the page index content type 
+				// Skip the page index content type
 				if (type !== contenttype) {
 					var str = _getContentListQueryString(type, limit, offset, orderBy, queryString, locale);
 					pageContentListQueries.push({
@@ -466,7 +466,7 @@ var _getPageContentListQuery = function (pageData, contenttype, locale) {
 
 /**
  * Get all content types used on the pages
- * @param {*} pageData 
+ * @param {*} pageData
  */
 var _getPageContentTypes = function (pageData) {
 	var pageContentTypes = [];
@@ -490,7 +490,7 @@ var _getPageContentTypes = function (pageData) {
 
 
 /**
- * 
+ *
  */
 var _getPageContent = function (server, channelToken, q, pageId, queryType) {
 	var pageContentPromise = new Promise(function (resolve, reject) {
@@ -598,8 +598,8 @@ var _getPageContentPromise = function (server, channelToken, pageContentIds, loc
 
 
 /**
- * 
- * @param {*} pageData 
+ *
+ * @param {*} pageData
  * @param {*} items The query result in the form of [{pageId: <page id>, data: <item data>}, {}, ...]
  */
 var _assignPageContent = function (pageData, pageContentIds, items) {
@@ -628,8 +628,8 @@ var _assignPageContent = function (pageData, pageContentIds, items) {
 };
 
 /**
- * 
- * @param {*} contentTypes 
+ *
+ * @param {*} contentTypes
  */
 var _getTypeTextFields = function (contentTypes) {
 	var textFields = [];
@@ -655,8 +655,8 @@ var _getTypeTextFields = function (contentTypes) {
 };
 
 /**
- * 
- * @param {*} siteInfo 
+ *
+ * @param {*} siteInfo
  */
 var _getSiteChannelToken = function (siteInfo) {
 	var tokens = siteInfo.channelAccessTokens || [];
@@ -749,7 +749,7 @@ var _stripHTMLTags = function (str) {
 
 /**
  * Return an array of strings and each string is no more than 2000 characters
- * @param {*} keywords 
+ * @param {*} keywords
  */
 var _addKeywords = function (strings) {
 	var limit = 2000 - 10;
@@ -791,9 +791,9 @@ var _unescapeHTML = function (str) {
 };
 
 /**
- * 
+ *
  * @param {*} pages
- * @param {*} pageData 
+ * @param {*} pageData
  */
 var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextFields) {
 	var pageIndex = [];
@@ -802,7 +802,7 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 		var pageId = pageData[i] && pageData[i].id;
 		var masterPageData = _getMasterPageData(pageId);
 
-		// 
+		//
 		// check if the page is hidden from search
 		//
 		var properties = masterPageData && masterPageData.properties;
@@ -869,7 +869,7 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 							if (typeTextFields[i].name === fieldName) {
 								var value = fields[key];
 								if (value && typeTextFields[i].type === 'largetext') {
-									// unescape richtext 
+									// unescape richtext
 									// console.log(value);
 									value = _unescapeHTML(value);
 								}
@@ -940,7 +940,7 @@ var _timeUsed = function (start, end) {
 	// strip the ms
 	timeDiff /= 1000;
 
-	// get seconds 
+	// get seconds
 	var seconds = Math.round(timeDiff);
 	return seconds.toString() + 's';
 };
@@ -1260,7 +1260,7 @@ var _getItemMasterId = function (pageIndexData, locale) {
 };
 
 /**
- * 
+ *
  * @param {*} pageid <locale>_<page id>
  */
 var _getMasterPageData = function (pageid) {
@@ -1296,9 +1296,9 @@ var _getPageFromMastrStructure = function (pageid) {
 
 /**
  * Create or update page index for the site on the server
- * 
- * @param {*} siteChannelToken 
- * @param {*} pageIndex 
+ *
+ * @param {*} siteChannelToken
+ * @param {*} pageIndex
  */
 var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contenttype, pageIndex, locale, isMaster) {
 	var indexSiteOnServerPromise = new Promise(function (resolve, reject) {
@@ -1561,7 +1561,7 @@ var _publishPageIndexItems = function (server, channelId, done) {
 
 /**
  * Get all data and verify before create index
- * 
+ *
  */
 var _prepareData = function (server, site, contenttype, publish, done) {
 	var dataPromise = new Promise(function (resolve, reject) {
@@ -1675,8 +1675,8 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 			})
 			.then(function (result) {
 				//
-				// Get repository 
-				// 
+				// Get repository
+				//
 				if (result.err) {
 					return Promise.reject();
 				}
@@ -1732,7 +1732,7 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 				}
 			})
 			.then(function (result) {
-				// 
+				//
 				// Get the master site structure
 				//
 
@@ -1915,7 +1915,7 @@ var _indexSiteWithLocale = function (server, site, contenttype, locale, isMaster
 						});
 					}
 
-				}); // page content 
+				}); // page content
 		}); // site structure
 	});
 	return sitePromise;
@@ -1923,13 +1923,13 @@ var _indexSiteWithLocale = function (server, site, contenttype, locale, isMaster
 
 /**
  * Main entry
- * 
+ *
  */
 var _indexSite = function (server, site, contenttype, publish, done) {
 
 	//
 	// get site info and other metadata
-	// 
+	//
 	var dataPromise = _prepareData(server, site, contenttype, publish, done);
 	dataPromise.then(function (result) {
 		if (result.err) {

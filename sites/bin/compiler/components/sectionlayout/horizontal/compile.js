@@ -41,8 +41,8 @@ SectionLayout.prototype = {
 		var config = slData.customSettingsData || {};
 
 		try {
-			// Add the child components to the section layout.  For each of the child 
-			// components, add a <div> to the page.  The child components will be 
+			// Add the child components to the section layout.  For each of the child
+			// components, add a <div> to the page.  The child components will be
 			// rendered into these <div>s.
 			if (Array.isArray(slData.components) && (slData.components.length > 0)) {
 

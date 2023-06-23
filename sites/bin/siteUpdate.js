@@ -75,19 +75,19 @@ var _getFilesFromTemplate = function (projectDir, templateName, folders) {
 };
 
 var _getContentFromTemplate = function (projectDir, templateName) {
-	// get all the content 
+	// get all the content
 	return _getFilesFromTemplate(projectDir, templateName, ['content']);
 };
 var _getPagesFromTemplate = function (projectDir, templateName) {
-	// get all the pages 
+	// get all the pages
 	return _getFilesFromTemplate(projectDir, templateName, ['pages']);
 };
 var _getSystemFromTemplate = function (projectDir, templateName) {
-	// get all the system files 
+	// get all the system files
 	return _getFilesFromTemplate(projectDir, templateName);
 };
 var _getSettingsFolderFromTemplate = function (projectDir, templateName, folderPath) {
-	// get all the system files 
+	// get all the system files
 	return _getFilesFromTemplate(projectDir, templateName, folderPath);
 };
 
@@ -116,14 +116,14 @@ var _recreateFolder = function (siteGUID, folderPath) {
 					// store the parent
 					parentGUID = folderDetails.id;
 
-					// wait for the previous promise to complete and then return a new promise for the next 
+					// wait for the previous promise to complete and then return a new promise for the next
 					return nextPromise(parentGUID);
 				});
 			},
-				// Start with a previousPromise value that is a resolved promise passing in the siteGUID as the parentID
-				Promise.resolve({
-					id: siteGUID
-				}));
+			// Start with a previousPromise value that is a resolved promise passing in the siteGUID as the parentID
+			Promise.resolve({
+				id: siteGUID
+			}));
 
 			// once we've found the folder (and parent folder)
 			doFindFolder.then(function (folderDetails) {
@@ -132,7 +132,7 @@ var _recreateFolder = function (siteGUID, folderPath) {
 					server: server,
 					fFolderGUID: folderDetails.id
 				}).then(function (result) {
-					// create a new folder and return it's GUID 
+					// create a new folder and return it's GUID
 					serverRest.createFolder({
 						server: server,
 						parentID: parentGUID,
@@ -150,7 +150,7 @@ var _recreateFolder = function (siteGUID, folderPath) {
 };
 
 /**
- * Refresh all the files in the folder in the site with those from the template. 
+ * Refresh all the files in the folder in the site with those from the template.
  * @param {object} argv command line arguments
  * @param {string} updateStep name of the step currently being executed
  * @param {Array.<string>} folderPath path to the folder to update
@@ -230,12 +230,12 @@ SiteUpdate.prototype.updateSiteFiles = function (argv, siteEntry, updateStep, fo
 			// run promises sequentially
 			var doFileCreate = createFilePromises.reduce(function (previousPromise, nextPromise) {
 				return previousPromise.then(function () {
-					// wait for the previous promise to complete and then return a new promise for the next 
+					// wait for the previous promise to complete and then return a new promise for the next
 					return nextPromise();
 				});
 			},
-				// Start with a previousPromise value that is a resolved promise 
-				Promise.resolve());
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve());
 
 			// once all files are downloaded, can continue
 			doFileCreate.then(function (pages) {
@@ -257,7 +257,7 @@ SiteUpdate.prototype.updateSiteFiles = function (argv, siteEntry, updateStep, fo
 };
 
 // merge the site instance specific fields from the file on the server with that in the template
-// This contains information such as "siteName" and "channelID" that is specific to the created site.  
+// This contains information such as "siteName" and "channelID" that is specific to the created site.
 // The value of this file in the template does not reflect the values created in the site.
 SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 	return new Promise(function (resolve, reject) {
@@ -276,25 +276,25 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 			// get the siteinfo file from the server
 			// copy across the properties that are site specific
 			var nonUpdatableProperties = [
-				'themeName',
-				'siteName',
-				'isLive',
-				'repositoryId',
-				'channelId',
-				'channelAccessTokens',
-				'collectionId',
-				'targetId',
-				'targetAccessTokens',
-				'arCollectionId',
-				'conversationId',
-				'isEnterprise',
-				'defaultLanguage',
-				'localizationPolicy',
-				'siteRootPrefix',
-				'siteURL',
-				'siteConnections',
-				'availableLanguages',
-			],
+					'themeName',
+					'siteName',
+					'isLive',
+					'repositoryId',
+					'channelId',
+					'channelAccessTokens',
+					'collectionId',
+					'targetId',
+					'targetAccessTokens',
+					'arCollectionId',
+					'conversationId',
+					'isEnterprise',
+					'defaultLanguage',
+					'localizationPolicy',
+					'siteRootPrefix',
+					'siteURL',
+					'siteConnections',
+					'availableLanguages',
+				],
 				updatableProperties = [
 					'description',
 					'keywords',
@@ -421,7 +421,7 @@ SiteUpdate.prototype.updateSiteFolder = function (argv, siteEntry, stepName, fol
 };
 
 /**
- * Refresh all the content in the site with those from the template. 
+ * Refresh all the content in the site with those from the template.
  * @param {object} argv command line arguments
  * @param {object} siteEntry object containing site GUID
  * @returns {Promise.<boolean>} true on successful upload of all files
@@ -431,7 +431,7 @@ SiteUpdate.prototype.updateContent = function (argv, siteEntry) {
 };
 
 /**
- * Refresh all the pages in the site with those from the template. 
+ * Refresh all the pages in the site with those from the template.
  * @param {object} argv command line arguments
  * @returns {Promise.<boolean>} true on successful upload of all files
  */
@@ -440,7 +440,7 @@ SiteUpdate.prototype.updatePages = function (argv, siteEntry) {
 };
 
 /**
- * Refresh all the compiled static files in the site with those from the template. 
+ * Refresh all the compiled static files in the site with those from the template.
  * @param {object} argv command line arguments
  * @returns {Promise.<boolean>} true on successful upload of all files
  */
@@ -449,7 +449,7 @@ SiteUpdate.prototype.updateStaticFiles = function (argv, siteEntry) {
 };
 
 /**
- * Refresh all the site settings files in the site with those from the template. 
+ * Refresh all the site settings files in the site with those from the template.
  * @param {object} argv command line arguments
  * @returns {Promise.<boolean>} true on successful upload of all files
  */
@@ -458,7 +458,7 @@ SiteUpdate.prototype.updateSettingsFiles = function (argv, siteEntry) {
 };
 
 /**
- * Refresh all the site system files in the site with those from the template. 
+ * Refresh all the site system files in the site with those from the template.
  * @param {object} argv command line arguments
  * @returns {Promise.<boolean>} true on successful upload of all files
  */
@@ -474,7 +474,7 @@ SiteUpdate.prototype.updateSystemFiles = function (argv, siteEntry) {
 	return self.updateSiteInfoFile(argv, siteEntry).then(function (siteInfoUpdated) {
 		// Now continue as before and update all the system files
 		return self.updateSiteFiles(argv, siteEntry, stepName, [], excludeFiles, _getSystemFromTemplate).then(function (result) {
-			// if siteinfo not included, increase the reported error count 
+			// if siteinfo not included, increase the reported error count
 			if (!siteInfoUpdated) {
 				result.errors = 1;
 			}
@@ -506,7 +506,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 
 	//
 	// Call the control-content API to remove all the existing content from the channel
-	// 
+	//
 	// set up the args to the control-content call
 	var contentArgv = JSON.parse(JSON.stringify(argv));
 	contentArgv.projectDir = projectDir;
@@ -724,8 +724,8 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 						} else {
 							// console.log(siteResult);
 							var siteEntry = {
-								siteGUID: siteResult.siteId
-							},
+									siteGUID: siteResult.siteId
+								},
 								siteInfo = siteResult.siteInfo;
 							// console.log(siteInfo);
 
@@ -742,7 +742,7 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 							//
 							// Include all the steps to update the site
 							// Note: Running steps serially to avoid overloading the server.  Could be run in parallel depending on performance/load impact.
-							// 
+							//
 							updateSitePromises.push(function () {
 								return self.updatePages(argv, siteEntry);
 							});
@@ -772,12 +772,12 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 										results.push(result);
 									}
 
-									// wait for the previous promise to complete and then return a new promise for the next 
+									// wait for the previous promise to complete and then return a new promise for the next
 									return nextPromise();
 								});
 							},
-								// Start with a previousPromise value that is a resolved promise 
-								Promise.resolve());
+							// Start with a previousPromise value that is a resolved promise
+							Promise.resolve());
 
 							// once all files are downloaded, can continue
 							doUpdateSteps.then(function (finalResult) {

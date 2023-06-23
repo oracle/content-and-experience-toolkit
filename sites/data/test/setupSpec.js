@@ -2,6 +2,7 @@
  * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
+/* globals browser */
 
 var puppeteer = require('puppeteer'),
 	chai = require('chai'),
@@ -11,7 +12,7 @@ var puppeteer = require('puppeteer'),
 	globalVariables = _.pick(global, ['browser', 'expect', 'should', 'serverConfig', 'testConfig']),
 	testUtils = require('./utils/testUtils.js');
 
-// Get test config values from the npm environment. e.g.: 
+// Get test config values from the npm environment. e.g.:
 // > npm run test --headless --remote
 var testConfig = {
 	headless: process.env.hasOwnProperty('npm_config_headless') ? process.env.npm_config_headless : false,

@@ -101,7 +101,7 @@ router.get('/*', (req, res) => {
 	console.info('   template: ' + customTemplate + ' content: ' + localContent + ' theme: ' + customThemeName + ' server channel token: ' + app.locals.channelToken);
 
 	if (req.path.indexOf('/_compdelivery/') === 0) {
-		// 
+		//
 		// component render
 		//
 		var compFile = req.path.replace(/\/_compdelivery\//, '').replace(/\/$/, '');
@@ -168,7 +168,7 @@ router.get('/*', (req, res) => {
 		}
 
 	} else if (req.path.indexOf('/_themes/_components/') === 0) {
-		// 
+		//
 		// component render (contentClient.renderItem)
 		//
 		let compFile = req.path.replace(/\/_themes\/_components\//, '').replace(/\/$/, '');
@@ -295,38 +295,38 @@ router.get('/*', (req, res) => {
 			comptype = '';
 
 		switch (apptype) {
-			case 'sectionlayout':
-				comptype = 'scs-sectionlayout';
-				break;
-			case 'componentgroup':
-				comptype = 'scs-componentgroup';
-				break;
-			case 'sandboxed':
-				comptype = 'scs-app';
-				break;
-			case 'vbcs':
-				comptype = 'scs-app';
-				break;
-			default:
-				comptype = apptype;
+		case 'sectionlayout':
+			comptype = 'scs-sectionlayout';
+			break;
+		case 'componentgroup':
+			comptype = 'scs-componentgroup';
+			break;
+		case 'sandboxed':
+			comptype = 'scs-app';
+			break;
+		case 'vbcs':
+			comptype = 'scs-app';
+			break;
+		default:
+			comptype = apptype;
 		}
 
 		var pagename;
 		switch (comptype) {
-			case 'scs-sectionlayout':
-				pagename = '/pages/300.json';
-				break;
-			case 'scs-componentgroup':
-				pagename = '/pages/200.json';
-				break;
-			case 'scs-app':
-				pagename = '/pages/100.json';
-				break;
-			case 'remote':
-				pagename = '/pages/100.json';
-				break;
-			default:
-				pagename = '/pages/1.json';
+		case 'scs-sectionlayout':
+			pagename = '/pages/300.json';
+			break;
+		case 'scs-componentgroup':
+			pagename = '/pages/200.json';
+			break;
+		case 'scs-app':
+			pagename = '/pages/100.json';
+			break;
+		case 'remote':
+			pagename = '/pages/100.json';
+			break;
+		default:
+			pagename = '/pages/1.json';
 		}
 		if (apptype === 'contentlayout') {
 			pagename = '/pages/400.json';
@@ -526,7 +526,7 @@ router.get('/*', (req, res) => {
 
 		} else if (filePathSuffix.indexOf('edit.html') > 0 && apptype === 'contentform') {
 			console.info(' - modify content form edit.html to use content published API');
-			// 
+			//
 			// content form: use content published API for local testing
 			//
 			filePath = path.join(componentsDir, compName, 'assets', 'edit.html');
@@ -566,7 +566,7 @@ router.get('/*', (req, res) => {
 	if (filePath && existsAndIsFile(filePath)) {
 		if (filePath.indexOf('controller.html') > 0) {
 			//
-			// insert SCS 
+			// insert SCS
 			//
 			var buf = fs.readFileSync(filePath).toString(),
 				loc = buf.indexOf('<script'),
@@ -810,7 +810,7 @@ router.get('/*', (req, res) => {
 				}
 			}
 		} else if (filePath.indexOf('settings.html') > 0) {
-			// 
+			//
 			// update the SitesSDK for settings
 			//
 			let buf = fs.readFileSync(filePath).toString();

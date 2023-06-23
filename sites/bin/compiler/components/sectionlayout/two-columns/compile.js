@@ -54,32 +54,32 @@ SectionLayout.prototype = {
 				html += '@media screen and (max-width: ' + config.breakpoint + 'px) {';
 
 				switch (config.behavior) {
-					case 'stack12':
-						html += '#' + idPrefix + ' { flex-wrap: wrap; } ';
-						html += '#' + idPrefix + ' > .sl-two-columns-left { flex: 0 0 100%; order: 1; } ';
-						html += '#' + idPrefix + ' > .sl-two-columns-right { flex: 0 0 100%; order: 2; } ';
-						break;
+				case 'stack12':
+					html += '#' + idPrefix + ' { flex-wrap: wrap; } ';
+					html += '#' + idPrefix + ' > .sl-two-columns-left { flex: 0 0 100%; order: 1; } ';
+					html += '#' + idPrefix + ' > .sl-two-columns-right { flex: 0 0 100%; order: 2; } ';
+					break;
 
-					case 'stack21':
-						html += '#' + idPrefix + ' { flex-wrap: wrap; } ';
-						html += '#' + idPrefix + ' > .sl-two-columns-left { flex: 0 0 100%; order: 2; } ';
-						html += '#' + idPrefix + ' > .sl-two-columns-right { flex: 0 0 100%; order: 1; } ';
-						break;
+				case 'stack21':
+					html += '#' + idPrefix + ' { flex-wrap: wrap; } ';
+					html += '#' + idPrefix + ' > .sl-two-columns-left { flex: 0 0 100%; order: 2; } ';
+					html += '#' + idPrefix + ' > .sl-two-columns-right { flex: 0 0 100%; order: 1; } ';
+					break;
 
-					case 'hide1':
-						html += '#' + idPrefix + ' > .sl-two-columns-left { display: none; } ';
-						html += '#' + idPrefix + ' > .sl-two-columns-right { flex: 0 0 100%; } ';
-						break;
+				case 'hide1':
+					html += '#' + idPrefix + ' > .sl-two-columns-left { display: none; } ';
+					html += '#' + idPrefix + ' > .sl-two-columns-right { flex: 0 0 100%; } ';
+					break;
 
-					case 'hide2':
-						html += '#' + idPrefix + ' > .sl-two-columns-left { flex: 0 0 100%; } ';
-						html += '#' + idPrefix + ' > .sl-two-columns-right { display: none; } ';
-						break;
+				case 'hide2':
+					html += '#' + idPrefix + ' > .sl-two-columns-left { flex: 0 0 100%; } ';
+					html += '#' + idPrefix + ' > .sl-two-columns-right { display: none; } ';
+					break;
 
-					case 'hide12':
-						html += '#' + idPrefix + ' > .sl-two-columns-left { display: none; } ';
-						html += '#' + idPrefix + ' > .sl-two-columns-right { display: none; } ';
-						break;
+				case 'hide12':
+					html += '#' + idPrefix + ' > .sl-two-columns-left { display: none; } ';
+					html += '#' + idPrefix + ' > .sl-two-columns-right { display: none; } ';
+					break;
 				}
 
 				html += '}';

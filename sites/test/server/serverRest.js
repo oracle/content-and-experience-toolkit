@@ -196,10 +196,10 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
 				}
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise passing in the home folder id as the parentID
-			Promise.resolve({
-				id: rootParentId
-			}));
+		// Start with a previousPromise value that is a resolved promise passing in the home folder id as the parentID
+		Promise.resolve({
+			id: rootParentId
+		}));
 
 		doFindFolder.then(function (parentFolder) {
 			if (parentFolder && parentFolder.id) {
@@ -453,8 +453,8 @@ module.exports.getAllChildItems = function (args) {
 				}
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			_getChildItems(args.server, args.parentID, limit));
+		// Start with a previousPromise value that is a resolved promise
+		_getChildItems(args.server, args.parentID, limit));
 
 		doGetItems.then(function (result) {
 			// console.log(childItems.length);
@@ -1266,7 +1266,7 @@ var _unshareFolder = function (server, folderId, userId) {
 			try {
 				data = JSON.parse(body);
 			} catch (e) {
-				// handle non json 
+				// handle non json
 			}
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
@@ -1615,7 +1615,7 @@ var _queryAllItems = function (useDelivery, server, q, fields, orderBy, limit, o
 		}
 
 		// console.log(' - QUERY_SIZE: ' + QUERY_SIZE + ' limit: ' + limit + ' offset: ' + offset + ' groups: ' + groups.length);
-		// 
+		//
 		// console.log(groups);
 
 		var items = [];
@@ -1644,7 +1644,7 @@ var _queryAllItems = function (useDelivery, server, q, fields, orderBy, limit, o
 				});
 			});
 		},
-			Promise.resolve({}));
+		Promise.resolve({}));
 
 		doGetItems.then(function (result) {
 			return resolve({
@@ -1755,8 +1755,8 @@ var _scrollAllItems = function (useDelivery, server, q, fields, orderBy, limit, 
 				}
 			});
 		},
-			// first scroll
-			_scrollItems(server, url));
+		// first scroll
+		_scrollItems(server, url));
 
 		doGetItems.then(function (result) {
 			if (items.length > 0) {
@@ -1862,11 +1862,20 @@ var _getAllItemIds = function (server, repositoryId, channelId, publishedassets)
 			}
 
 			if (response && response.statusCode === 200) {
+				var ids = [];
+				if (data && data.items) {
+					data.items.forEach(function (item) {
+						if (item && item.id) {
+							ids.push(item.id);
+						}
+					});
+				}
 				return resolve({
 					data: data && data.items,
 					query: query,
 					hasMore: data && data.hasMore,
-					limit: data && data.limit
+					limit: data && data.limit,
+					ids: ids
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
@@ -3211,8 +3220,8 @@ var _getAllResources = function (server, endpoint, type, fields, q, orderBy) {
 				}
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			_getResources(server, endpoint, type, fields, 0, q, orderBy));
+		// Start with a previousPromise value that is a resolved promise
+		_getResources(server, endpoint, type, fields, 0, q, orderBy));
 
 		doGetResources.then(function (result) {
 			// console.log(resources.length);
@@ -4539,8 +4548,8 @@ var _getAllTaxonomies = function (server, fields) {
 				}
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			_getTaxonomies(server, fields));
+		// Start with a previousPromise value that is a resolved promise
+		_getTaxonomies(server, fields));
 
 		doGetResources.then(function (result) {
 			// console.log(resources.length);
@@ -8505,8 +8514,8 @@ module.exports.addMembersToGroup = function (args) {
 								});
 						});
 					},
-						// Start with a previousPromise value that is a resolved promise
-						Promise.resolve({}));
+					// Start with a previousPromise value that is a resolved promise
+					Promise.resolve({}));
 
 					doAddMember.then(function (result) {
 						// console.log(resources.length);
@@ -9477,8 +9486,8 @@ var _cancelScheduledJobs = function (server, ids) {
 			return nextPromise();
 		});
 	},
-		// Start with a previousPromise value that is a resolved promise
-		Promise.resolve());
+	// Start with a previousPromise value that is a resolved promise
+	Promise.resolve());
 };
 
 /**

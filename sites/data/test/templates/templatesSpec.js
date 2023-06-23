@@ -2,7 +2,7 @@
  * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-
+/* globals serverConfig,browser,testConfig */
 var chai = require('chai'),
 	expect = chai.expect,
 	should = chai.should,
@@ -23,7 +23,7 @@ describe('Template Tests', function () {
 		var page,
 			templates = getFolders(serverConfig.templatesFolder);
 
-		describe('Validate templates render', async function () {
+		describe('Validate templates render', function () {
 			before(async function () {
 				// create a new tab for all of these tests
 				page = await browser.newPage();

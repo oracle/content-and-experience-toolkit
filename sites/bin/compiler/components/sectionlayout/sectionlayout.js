@@ -126,121 +126,126 @@ SectionLayout.prototype = {
 
 	},
 
-	compileComponent: function (parameters) {
+	compileComponent: async function (parameters) {
 		var self = this;
 		var instanceObject = this.componentInstanceObject || {};
 		var SCSCompileAPI = parameters.SCSCompileAPI;
 
-		return new Promise(async function (resolve, reject) {
-			try {
-				if (instanceObject && instanceObject.id) {
-					var sectionLayoutName = instanceObject.id;
-					var compileFile;
-					var directoryName;
-					var ootbSectionLayout = false;
-					var moduleFile;
+		try {
+			if (instanceObject && instanceObject.id) {
+				var sectionLayoutName = instanceObject.id;
+				var compileFile;
+				var directoryName;
+				var ootbSectionLayout = false;
+				var moduleFile;
 
-					if (instanceObject.data.componentFactory) {
-						// Compute the path to the out-of-the-box or custom section layout
-						directoryName = factoryToNameMap[instanceObject.data.componentFactory];
-						if (directoryName) {
-							compileFile = __dirname + '/' + directoryName + '/compile';
-						}
-						ootbSectionLayout = true;
-					} else {
-						// Compute the path to the custom section layout
-						compileFile = self.componentsFolder + '/' + sectionLayoutName + '/assets/compile';
-						moduleFile = compileFile + '.mjs';
+				if (instanceObject.data.componentFactory) {
+					// Compute the path to the out-of-the-box or custom section layout
+					directoryName = factoryToNameMap[instanceObject.data.componentFactory];
+					if (directoryName) {
+						compileFile = __dirname + '/' + directoryName + '/compile';
 					}
+					ootbSectionLayout = true;
+				} else {
+					// Compute the path to the custom section layout
+					compileFile = self.componentsFolder + '/' + sectionLayoutName + '/assets/compile';
+					moduleFile = compileFile + '.mjs';
+				}
 
-					if (compileFile) {
-						var SectionLayoutImpl;
-						var foundComponentFile = false;
-						if (fs.existsSync(moduleFile)) {
-							try {
-								foundComponentFile = true;
+				if (compileFile) {
+					var SectionLayoutImpl;
+					var foundComponentFile = false;
+					if (fs.existsSync(moduleFile)) {
+						try {
+							foundComponentFile = true;
 
-								// JavaScript module based section layout, import it
-								const { default: importModule } = await import(url.pathToFileURL(moduleFile));
-								SectionLayoutImpl = importModule;
-							} catch (e) {
+							// JavaScript module based section layout, import it
+							const { default: importModule } = await import(url.pathToFileURL(moduleFile));
+							SectionLayoutImpl = importModule;
+						} catch (e) {
+							compilationReporter.error({
+								message: 'failed to import: "' + moduleFile,
+								error: e
+							});
+							return {};
+						}
+					} else {
+						try {
+							compileFile = path.normalize(compileFile);
+
+							// verify if we can load the file
+							require.resolve(compileFile);
+							foundComponentFile = true;
+
+							// ok, file's there, load it in
+							SectionLayoutImpl = require(compileFile);
+						} catch (e) {
+							if (foundComponentFile) {
 								compilationReporter.error({
-									message: 'failed to import: "' + moduleFile,
+									message: 'require failed to load: "' + compileFile + '.js"',
 									error: e
 								});
-								return resolve({});
-							}
-						} else {
-							try {
-								compileFile = path.normalize(compileFile);
-
-								// verify if we can load the file
-								require.resolve(compileFile);
-								foundComponentFile = true;
-
-								// ok, file's there, load it in
-								SectionLayoutImpl = require(compileFile);
-							} catch (e) {
-								if (foundComponentFile) {
-									compilationReporter.error({
-										message: 'require failed to load: "' + compileFile + '.js"',
-										error: e
-									});
-								} else {
-									compilationReporter.warn({
-										message: 'no custom section layout compiler for: "' + compileFile + '.js"'
-									});
-								}
-								return resolve({});
-							}
-						}
-
-						var logic;
-						if (ootbSectionLayout) {
-							logic = new SectionLayoutImpl(self.componentId, self.componentInstanceObject, self.componentsFolder);
-						} else {
-							logic = new SectionLayoutImpl({
-								componentId: self.componentId,
-								componentInstanceObject: self.componentInstanceObject,
-								componentsFolder: self.componentsFolder,
-								SCSComponentAPI: SCSCompileAPI.getSCSComponentAPI()
-							});
-						}
-						if (logic && (typeof logic.compile === 'function')) {
-							logic.compile(parameters).then(function (compileData) {
-								// Return the supplied data to the caller
-								return resolve({
-									hydrate: (compileData && compileData.hydrate) ? true : false,
-									content: compileData && compileData.content,
-									componentIds: compileData && compileData.componentIds
+							} else {
+								compilationReporter.warn({
+									message: 'no custom section layout compiler for: "' + compileFile + '.js"'
 								});
-							}, function () {
-								// An error occurred
-								return resolve({});
+							}
+							return {};
+						}
+					}
+
+					var logic;
+					if (ootbSectionLayout) {
+						logic = new SectionLayoutImpl(self.componentId, self.componentInstanceObject, self.componentsFolder);
+					} else {
+						logic = new SectionLayoutImpl({
+							componentId: self.componentId,
+							componentInstanceObject: self.componentInstanceObject,
+							componentsFolder: self.componentsFolder,
+							SCSComponentAPI: SCSCompileAPI.getSCSComponentAPI()
+						});
+					}
+					if (logic && (typeof logic.compile === 'function')) {
+						try {
+							// compile the component
+							const compileData = await logic.compile(parameters);
+
+							// Return the supplied data to the caller
+							return {
+								hydrate: (compileData && compileData.hydrate) ? true : false,
+								content: compileData && compileData.content,
+								componentIds: compileData && compileData.componentIds
+							};
+						} catch (e) {
+							// An error occurred
+							compilationReporter.error({
+								message: 'failed to compile section layout: ' + sectionLayoutName,
+								error: e
 							});
-						} else {
-							compilationReporter.warn({
-								message: 'no compile function found for section layout: ' + sectionLayoutName
-							});
-							return resolve({});
+							return {};
 						}
 					} else {
 						compilationReporter.warn({
-							message: 'no compiler found for section layout: ' + sectionLayoutName
+							message: 'no compile function found for section layout: ' + sectionLayoutName
 						});
-						return resolve({});
+						return {};
 					}
 				} else {
-					return resolve({});
+					compilationReporter.warn({
+						message: 'no compiler found for section layout: ' + sectionLayoutName
+					});
+					return {};
 				}
-			} catch (e) {
-				compilationReporter.error({
-					message: 'error compiling section layout: ' + (instanceObject && instanceObject.id),
-					error: e
-				});
-				return resolve({});
+			} else {
+				return {};
 			}
-		});
+		} catch (e) {
+			compilationReporter.error({
+				message: 'error compiling section layout: ' + (instanceObject && instanceObject.id),
+				error: e
+			});
+			return {};
+		}
 	}
 };
 

@@ -3,6 +3,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
  * $Id: content.js 167153 2019-01-25 21:29:15Z muralik $
  */
+/* globals requirejs */
 (function defineContentSDK(scope, factory) {
 	// configure to run in various JS environments
 	if (typeof define === 'function' && define.amd) {
@@ -71,7 +72,7 @@
 	// ------------------------------- Internal Implementation -------------------------------------
 	//
 
-	// RequireJS config support 
+	// RequireJS config support
 	var _requireConfig = {
 		requirePaths: {},
 		getContentLayoutRequirePath: function (info) {
@@ -108,41 +109,41 @@
 		preloadContentLayout: function (requireLayout, resolve, reject) {
 			// require in the content layout to populate the require cache but don't render the item
 			require([requireLayout], function (ContentLayout) {
-					// resolve the promise
-					resolve();
-				},
-				function (err) {
-					// note that can't find the layout and reject
-					_logger.warn('ContentClient.renderLayout: Unable to render the layout.  Ensure you can access the layout: If running against published content, that the layout has been published. If draft, that you are logged onto the Sites server');
-					reject('Failed to get layout: ' + requireLayout + ' with error: ' + err);
-				});
+				// resolve the promise
+				resolve();
+			},
+			function (err) {
+				// note that can't find the layout and reject
+				_logger.warn('ContentClient.renderLayout: Unable to render the layout.  Ensure you can access the layout: If running against published content, that the layout has been published. If draft, that you are logged onto the Sites server');
+				reject('Failed to get layout: ' + requireLayout + ' with error: ' + err);
+			});
 		},
 		renderContentLayout: function (requireLayout, layoutParams, container, resolve, reject) {
 			// require in the render.js for the layout
 			require([requireLayout], function (ContentLayout) {
-					var renderLayout = new ContentLayout(layoutParams);
+				var renderLayout = new ContentLayout(layoutParams);
 
-					// call render to add the component to the page
-					var renderPromise = renderLayout.render(container);
-					if (typeof renderPromise === 'object' && typeof renderPromise.then === 'function') {
-						renderPromise.then(function (status) {
-								// resolve the passed in Promise
-								resolve();
-							},
-							function (errorStatus) {
-								// failed to render, reject the passed in promise
-								reject(errorStatus);
-							});
-					} else {
-						// simply resolve the passed in promise
+				// call render to add the component to the page
+				var renderPromise = renderLayout.render(container);
+				if (typeof renderPromise === 'object' && typeof renderPromise.then === 'function') {
+					renderPromise.then(function (status) {
+						// resolve the passed in Promise
 						resolve();
-					}
-				},
-				function (err) {
-					// note that can't find the layout and reject
-					_logger.warn('ContentClient.renderLayout: Unable to render the layout.  Ensure you can access the layout: If published, that the layout has been published. If draft, that you are logged onto the Sites server');
-					reject('failed to get layout: ' + requireLayout + ' with error: ' + err);
-				});
+					},
+					function (errorStatus) {
+						// failed to render, reject the passed in promise
+						reject(errorStatus);
+					});
+				} else {
+					// simply resolve the passed in promise
+					resolve();
+				}
+			},
+			function (err) {
+				// note that can't find the layout and reject
+				_logger.warn('ContentClient.renderLayout: Unable to render the layout.  Ensure you can access the layout: If published, that the layout has been published. If draft, that you are logged onto the Sites server');
+				reject('failed to get layout: ' + requireLayout + ' with error: ' + err);
+			});
 		}
 	};
 
@@ -234,10 +235,12 @@
 							}
 						} else {
 							// body will contain the error message JSON
-							var error = body; 
+							var error = body;
 							try {
 								error = JSON.parse(body);
-							} catch (e) {}
+							} catch (e) {
+								// ignore parsing errors
+							}
 
 							// add to the response object for backwards compatibilty
 							response.debugError = {
@@ -428,7 +431,7 @@
 		callRestServer: function (targetURL, restArgs) {
 			var self = this;
 			var featureFlags = require('../featureFlags');
-			
+
 			// create a sites toolkit server entry
 			var serverURL = new URL(targetURL);
 			var server = {
@@ -612,13 +615,13 @@
 	_ContentAPI.prototype.contextRoot = '/content';
 	_ContentAPI.prototype.defaultVersion = 'v1';
 	_ContentAPI.prototype.supportedVersions = [{
-			semanticVersion: '1.0.0',
-			contentVersion: 'v1'
-		},
-		{
-			semanticVersion: '1.1.0',
-			contentVersion: 'v1.1'
-		}
+		semanticVersion: '1.0.0',
+		contentVersion: 'v1'
+	},
+	{
+		semanticVersion: '1.1.0',
+		contentVersion: 'v1.1'
+	}
 	];
 	_ContentAPI.prototype.getContentVersion = function (caller, requestedVersion) {
 		// get semantic version
@@ -675,7 +678,7 @@
 	};
 	// Format the fully qualified REST URL
 	// path: section of the URL beyond the standard REST API
-	// args: 
+	// args:
 	//    contentServer: '<protocol>://<host>:<port>' of the content server
 	//    contentType: [management|published]
 	//    search: search string to add as query string
@@ -721,75 +724,75 @@
 
 				// get all the layouts from the server
 				self.callRestServer(typesURL, restArgs).then(_utils.bind(function (contentTypes) {
-						var typeFolderIDMap = {},
-							folderGUIDURL;
+					var typeFolderIDMap = {},
+						folderGUIDURL;
 
-						// store the type to folderID map
-						// The folder containing the meta-data is stored in the externalFile property, 
-						// if it exists, get the folder meta-data
-						if (contentTypes.externalFile) {
-							typeFolderIDMap[contentTypes.externalFile.folderId] = contentTypes.name;
-							folderGUIDURL = self.makeGetFolderMetadataURL({
-								'contentServer': restArgs.contentServer,
-								'folderGUID': [contentTypes.externalFile.folderId]
+					// store the type to folderID map
+					// The folder containing the meta-data is stored in the externalFile property,
+					// if it exists, get the folder meta-data
+					if (contentTypes.externalFile) {
+						typeFolderIDMap[contentTypes.externalFile.folderId] = contentTypes.name;
+						folderGUIDURL = self.makeGetFolderMetadataURL({
+							'contentServer': restArgs.contentServer,
+							'folderGUID': [contentTypes.externalFile.folderId]
+						});
+
+						self.callRestServer(folderGUIDURL, restArgs).then(_utils.bind(function (layouts) {
+							var categoryNameFieldIndex,
+								categoryLayoutFieldIndex,
+								folderIdFieldIndex,
+								layoutMappingData = layouts && layouts.ResultSets && layouts.ResultSets.xCaasTypeCategoryLayoutMappingCollection,
+								fields,
+								rows,
+								layoutMap = {};
+
+							if (!layoutMappingData) {
+								// User might not have permission.
+								reject(layouts.LocalData.StatusMessage);
+								return;
+							}
+
+							fields = layoutMappingData.fields;
+							rows = layoutMappingData.rows;
+
+							// Find the field indexes
+							for (var fldIndex = 0; fldIndex < fields.length; fldIndex++) {
+								if (fields[fldIndex].name === 'xCaasCategoryName') {
+									categoryNameFieldIndex = fldIndex;
+								} else if (fields[fldIndex].name === 'xCaasLayoutName') {
+									categoryLayoutFieldIndex = fldIndex;
+								} else if (fields[fldIndex].name === 'dParentMetadataUnitID') {
+									folderIdFieldIndex = fldIndex;
+								}
+							}
+
+							// Create the category to layout map for each type
+							rows.forEach(function (row) {
+								var type = typeFolderIDMap[row[folderIdFieldIndex]],
+									layoutMapEntry;
+
+								// add the map to the type
+								if (!layoutMap[type]) {
+									layoutMap[type] = {};
+								}
+								layoutMap[type][row[categoryNameFieldIndex]] = row[categoryLayoutFieldIndex];
 							});
 
-							self.callRestServer(folderGUIDURL, restArgs).then(_utils.bind(function (layouts) {
-									var categoryNameFieldIndex,
-										categoryLayoutFieldIndex,
-										folderIdFieldIndex,
-										layoutMappingData = layouts && layouts.ResultSets && layouts.ResultSets.xCaasTypeCategoryLayoutMappingCollection,
-										fields,
-										rows,
-										layoutMap = {};
 
-									if (!layoutMappingData) {
-										// User might not have permission.
-										reject(layouts.LocalData.StatusMessage);
-										return;
-									}
-
-									fields = layoutMappingData.fields;
-									rows = layoutMappingData.rows;
-
-									// Find the field indexes
-									for (var fldIndex = 0; fldIndex < fields.length; fldIndex++) {
-										if (fields[fldIndex].name === 'xCaasCategoryName') {
-											categoryNameFieldIndex = fldIndex;
-										} else if (fields[fldIndex].name === 'xCaasLayoutName') {
-											categoryLayoutFieldIndex = fldIndex;
-										} else if (fields[fldIndex].name === 'dParentMetadataUnitID') {
-											folderIdFieldIndex = fldIndex;
-										}
-									}
-
-									// Create the category to layout map for each type
-									rows.forEach(function (row) {
-										var type = typeFolderIDMap[row[folderIdFieldIndex]],
-											layoutMapEntry;
-
-										// add the map to the type
-										if (!layoutMap[type]) {
-											layoutMap[type] = {};
-										}
-										layoutMap[type][row[categoryNameFieldIndex]] = row[categoryLayoutFieldIndex];
-									});
-
-
-									// return the layout map
-									resolve(layoutMap);
-								}, self),
-								function (jqXHR, textStatus) {
-									reject(textStatus);
-								});
-						} else {
-							// no external file defined - return undefined
-							resolve(undefined);
-						}
-					}, self),
-					function (jqXHR, textStatus) {
-						reject(textStatus);
-					});
+							// return the layout map
+							resolve(layoutMap);
+						}, self),
+						function (jqXHR, textStatus) {
+							reject(textStatus);
+						});
+					} else {
+						// no external file defined - return undefined
+						resolve(undefined);
+					}
+				}, self),
+				function (jqXHR, textStatus) {
+					reject(textStatus);
+				});
 			});
 
 		return layoutsPromise;
@@ -1417,7 +1420,7 @@
 	 * Get a list of items based on their IDs.
 	 *
 	 * @param {object} args - A JavaScript object containing the "getItems" parameters.
-	 * @param {array} [args.ids=[]] - Restrict results to the list of requested items. 
+	 * @param {array} [args.ids=[]] - Restrict results to the list of requested items.
 	 * @param {string} args.language - The language locale variant of the content items to return.
 	 * @param {function} [args.beforeSend=undefined] - A callback passing in the xhr (browser) or options (node) object before making the REST call.
 	 * @param {string} [args.fields='ALL'] - Any additional properties in the "args" object will be added to the query string parameters; for example, "fields".
@@ -1427,7 +1430,7 @@
 	 * contentClient.getItems().then(function (items) {
 	 *     console.log(items);
 	 * });
-	 * 
+	 *
 	 * @example
 	 * // get all items and order by type and name
 	 * contentClient.getItems().then(function (data) {
@@ -1561,7 +1564,7 @@
 
 	/**
 	 * Get a list of items based on GraphQL POST query.<br/>
-	 * 
+	 *
 	 * See GraphQL Explorer: https://<domain>/content/published/api/v1.1/graphql/explorer
 	 *
 	 * @param {object} args - A JavaScript object containing the "GraphQL" parameters.
@@ -1750,11 +1753,11 @@
 	};
 
 	/**
-	 * Require in the requested content layout 
+	 * Require in the requested content layout
 	 * <b>Note:</b> This method isn't supported if the Content Delivery SDK is used in NodeJS.
 	 * @param {object} args - A JavaScript object containing the "renderItem" parameters.
 	 * @param {string} args.layout - Name of the layout to use to render the component.
-	 * @returns {Promise} JavaScript Promise object that is resolved when the layout JavaScript is loaded 
+	 * @returns {Promise} JavaScript Promise object that is resolved when the layout JavaScript is loaded
 	 */
 	ContentDeliveryClientImpl.prototype.loadContentLayout = function (params) {
 		var self = this,
@@ -1810,7 +1813,7 @@
 	 *         contentClient.renderItem({
 	 *             'data': {
 	 *                 contentItemData: contentItemData,
-	 *                 scsData { 
+	 *                 scsData {
 	 *                     contentClient: contentClient
 	 *                 }
 	 *             },
@@ -1895,14 +1898,14 @@
 	/**
 	 * Expand Content Macros.<br/>
 	 * Content item fields can contain macros that reference other content items. For example, a Rich Text field can have links to digital assets. <br/>
-	 * If a field that you want to render can contain macros, you can use this utilty function to 
+	 * If a field that you want to render can contain macros, you can use this utilty function to
 	 * expand the macros.
 	 * @param {string} fieldValue - A field value that may contain macros.
 	 * @returns {string} The "fieldValue" string with all macros expanded.
 	 * @example
 	 * // expand any macros
 	 * console.log(contentClient.expandMacros('<img src="[!--$CEC_DIGITIAL_ASSET--]CONT21B61179DFA4424D942410573E8B5BCF[/!--$CEC_DIGITAL_ASSET--]"/>');
-	 * 
+	 *
 	 */
 	ContentDeliveryClientImpl.prototype.expandMacros = function (fieldValue) {
 		var afterValue = fieldValue || '';
@@ -2003,7 +2006,7 @@
 	 * <li>Read draft content items.</li>
 	 * <li>Render draft content using named content layouts.</li>
 	 * </ul>
-	 * The content preview client SDK object uses the "/management/" Content REST API calls.  This requires the user to be logged in to the system. 
+	 * The content preview client SDK object uses the "/management/" Content REST API calls.  This requires the user to be logged in to the system.
 	 * @constructor
 	 * @alias ContentPreviewClient
 	 * @augments ContentDeliveryClient
@@ -2042,7 +2045,7 @@
 		// store if running in compiler
 		this.isCompiler = args.isCompiler;
 
-		// set the authorization value 
+		// set the authorization value
 		this.info.authorization = args.authorization;
 
 		// note supported content types
@@ -2080,7 +2083,7 @@
 
 	/**
 	 * Get a list of item types based on the search criteria.
-	 * @param {object} args A JavaScript object containing the "getTypes" parameters. If empty, it will return all content types. 
+	 * @param {object} args A JavaScript object containing the "getTypes" parameters. If empty, it will return all content types.
 	 * @param {number} [args.limit] - Limit the number of content types returned.
 	 * @param {number} [args.offset] - Return results starting at this number in the results.
 	 * @param {function} [args.beforeSend=undefined] - A callback passing in the xhr (browser) or options (node) object before making the REST call.
@@ -2093,8 +2096,8 @@
 	 *         console.log(error);
 	 *     });
 	 * @example
-	 * contentClient.getTypes({ 
-	 *     limit: 10 
+	 * contentClient.getTypes({
+	 *     limit: 10
 	 * }).then(
 	 *     function (data) {
 	 *         console.log(data);
@@ -2122,7 +2125,7 @@
 	 * The name can be found from the search results.
 	 * @param {object} args A JavaScript object containing the "getType" parameters.
 	 * @param {string} args.typeName The name of the content type to return.
-	 * @returns {Promise} A JavaScript Promise object that can be used to retrieve the data after the call has completed 
+	 * @returns {Promise} A JavaScript Promise object that can be used to retrieve the data after the call has completed
 	 * @example
 	 * contentClient.getType({
 	 *     'typeName': 'Customer'
@@ -2151,14 +2154,14 @@
 	/**
 	 * Get the content type category => layout mapping<br/>
 	 * Each content type has a mapping from a "category" to a "layout".  <br/>
-	 * Based on the selected category, you choose the corresponding layout. 
+	 * Based on the selected category, you choose the corresponding layout.
 	 * @ignore
 	 * @param {object} args arguments to use to return the item
 	 * @param {array} [args.types=[]] - Array of types. Mappings are retrieved for each type.  If not supplied all types are retrieved.
 	 * @param {string} [args.timeout=ContentPreviewClient.getInfo().timeout] - Timeout for the AJAX calls, defaults to value set for client
 	 * @returns {Promise} JavaScript Promise object that is resolved to {@link ContentSDK.ContentCategoryToLayoutMapping}
 	 * @example
-	 * // Get all the category to layout mappings 
+	 * // Get all the category to layout mappings
 	 * contentClient.getCategoryToLayoutMapping().then(function (layouts) {
 	 *     console.log(layouts);
 	 * }, function (error) {
@@ -2167,7 +2170,7 @@
 	 * @example
 	 * // Get the category to layout mappings for 'Car'
 	 * contentClient.getCategoryToLayoutMapping().then(function (layouts) {
-	 *     console.log(layouts); 
+	 *     console.log(layouts);
 	 * }, function (error) {
 	 *     console.log('Error: ' + error);
 	 * });
@@ -2181,13 +2184,13 @@
 
 				// get all the layouts from the server
 				self.restAPI.getLayouts(types, restCallArgs).then(function (categoryLayoutMap) {
-						// return the layouts
-						resolve(categoryLayoutMap);
-					},
-					function (error) {
-						// report the error
-						reject('Failed to retrieve layouts from the content server. Verify that you can connect to the content server. ' + error);
-					});
+					// return the layouts
+					resolve(categoryLayoutMap);
+				},
+				function (error) {
+					// report the error
+					reject('Failed to retrieve layouts from the content server. Verify that you can connect to the content server. ' + error);
+				});
 			});
 
 		return layoutsPromise;
@@ -2252,7 +2255,7 @@
 	 * @param {string} [args.timeout=0] - Timeout for the AJAX calls, defaults to no timeout.
 	 * @param {object} args.logger - An object that implements the standard log functions: ['error', 'warn', 'info', 'debug', 'log'].
 	 * @returns {ContentDeliveryClient}
-	 * 
+	 *
 	 * @example
 	 * // create a ContentDeliveryClient and output logging 'info' messages to the console
 	 * var contentClient = contentSDK.createDeliveryClient({
@@ -2284,7 +2287,7 @@
 	 * <li>Read draft content items.</li>
 	 * <li>Render draft content using named content layouts.</li>
 	 * </ul>
-	 * The content preview client SDK object uses the "/management/" Content REST API calls.  This requires the user to be logged in to the system. 
+	 * The content preview client SDK object uses the "/management/" Content REST API calls.  This requires the user to be logged in to the system.
 	 * @memberof ContentSDK
 	 * @param {object} args - A JavaScript object containing the parameters to create the content delivery client instance.
 	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content Management instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
@@ -2297,7 +2300,7 @@
 	 * @param {string} [args.timeout=0] - Timeout for the AJAX calls, defaults to no timeout.
 	 * @param {object} args.logger - An object that implements the standard log functions: ['error', 'warn', 'info', 'debug', 'log'].
 	 * @returns {ContentPreviewClient}
-	 * 
+	 *
 	 * @example
 	 * // create a ContentPreviewClient and output logging 'info' messages to the console
 	 * var contentClient = contentSDK.createPreviewClient({

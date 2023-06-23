@@ -6,13 +6,13 @@ module.exports = {
 				offsetTime = pieces[5].match(/[-+]\d{4}/),
 				offset = (offsetTime) ? offsetTime : pieces[5],
 				parts = [
-						pieces[0] + ',',
-						pieces[2],
-						pieces[1],
-						pieces[3],
-						pieces[4],
-						offset
-					];
+					pieces[0] + ',',
+					pieces[2],
+					pieces[1],
+					pieces[3],
+					pieces[4],
+					offset
+				];
 
 			return parts.join(' ');
 		}

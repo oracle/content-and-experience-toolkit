@@ -58,7 +58,9 @@ var _get = function (options, callback) {
 	return fetch(url, options)
 		.then(function (response) {
 			logResponseHeaders(options, response);
-			return response.buffer().then(function (data) {
+			const responseData = process.shim ? response.text() : response.buffer();
+
+			return responseData.then(function (data) {
 				logResponseBody(options, response, data);
 				var err = response.error;
 				var res = {
@@ -107,7 +109,9 @@ var _post = function (options, callback) {
 	return fetch(url, options)
 		.then(function (response) {
 			logResponseHeaders(options, response);
-			return response.buffer().then(function (data) {
+			//fix request error under browser
+			let req = process.shim ? response.text() : response.buffer();
+			return req.then(function (data) {
 				logResponseBody(options, response, data);
 				var err = response.error;
 				var location = response.headers.get('location');

@@ -154,7 +154,7 @@ CompilationReporter.prototype.renderMessage = function (level, args) {
 		// now we can call the base implementation to handle standard logging
 		CompilationLogger.prototype.renderMessage.call(this, level, args);
 
-		// cache the message entry globally 
+		// cache the message entry globally
 		messages[message] = args;
 
 		// cache against the page, not currently used but can be applied to a page-based table report (see below)
@@ -201,7 +201,8 @@ CompilationReporter.prototype.renderReport = function () {
 			totalWarnings += row.warnings;
 		});
 
-		if (false) {
+		var renderAsTable = false;
+		if (renderAsTable) {
 			// render the table
 			console.log('Summary of compilation errors and warnings: ');
 			console.log(' Page ID  Errors  Warnings');

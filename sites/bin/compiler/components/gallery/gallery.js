@@ -170,7 +170,7 @@ Gallery.prototype.computeImages = function () {
 			'view': image.contentId
 		});
 		image.dataAnalyticsClick = viewModel.addAnalytics({
-			'click': image.linkContentId, 
+			'click': image.linkContentId,
 			'operation': 'download'
 		});
 
@@ -236,14 +236,14 @@ Gallery.prototype.computeOptions = function () {
 
 Gallery.prototype.computeObjectFit = function() {
 	switch (this.scaling) {
-		case 'stretch':
-			return 'fill';
-		case 'fit':
-			return 'contain';
-		case 'crop':
-			return 'cover';
-		default:
-			return 'none';
+	case 'stretch':
+		return 'fill';
+	case 'fit':
+		return 'contain';
+	case 'crop':
+		return 'cover';
+	default:
+		return 'none';
 	}
 };
 

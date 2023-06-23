@@ -7,7 +7,7 @@ define(['jquery', 'knockout'], function($, ko) {
 	'use strict';
 	var instance,
 		Singleton = function() {};
-   
+
 	function getComponentName(url) {
 		if (!url) {
 			return;

@@ -352,7 +352,7 @@ var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
 
 		// console.log(' - site id: ' + siteId);
 
-		// get settings folder 
+		// get settings folder
 		return serverRest.findFile({
 			server: server,
 			parentID: siteId,
@@ -366,7 +366,7 @@ var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
 			}
 			var settingsFolderId = result.id;
 
-			// get seo folder 
+			// get seo folder
 			return serverRest.findFile({
 				server: server,
 				parentID: settingsFolderId,
@@ -405,15 +405,15 @@ var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
 
 /**
  * Create RSS feed using REST APIs
- * @param {*} server 
- * @param {*} tempPath 
- * @param {*} rssFile 
- * @param {*} query 
- * @param {*} limit 
- * @param {*} orderby 
- * @param {*} language 
- * @param {*} publish 
- * @param {*} done 
+ * @param {*} server
+ * @param {*} tempPath
+ * @param {*} rssFile
+ * @param {*} query
+ * @param {*} limit
+ * @param {*} orderby
+ * @param {*} language
+ * @param {*} publish
+ * @param {*} done
  */
 var _createRSSFeedREST = function (server, siteName, url, tempPath, rssFile,
 	query, limit, orderby, language, publish, title, description, ttl, newlink, javascript, done) {

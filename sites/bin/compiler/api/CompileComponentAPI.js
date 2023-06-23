@@ -26,7 +26,7 @@ var CompileComponentAPI = function (compileAPI) {
 	};
 
 	this.checkRenderState = function (state) {
-		// no other states supported during compile, 
+		// no other states supported during compile,
 		// all components are already downloaded so there is no "DRAFT" or "PUBLISED" for accessing the components
 		return false;
 	};

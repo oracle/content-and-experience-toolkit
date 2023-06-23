@@ -152,11 +152,11 @@ router.get('/*', (req, res) => {
 		}
 		location = app.locals.serverURL + requestUrl;
 
-		// remove the local server's channel token 
+		// remove the local server's channel token
 		location = serverUtils.replaceAll(location, '?channelToken=02a11b744a9828b6c08c832cc4efeaa4', '');
 		location = serverUtils.replaceAll(location, '&channelToken=02a11b744a9828b6c08c832cc4efeaa4', '');
 
-		// use management api 
+		// use management api
 		if (app.locals.channelToken) {
 			if (location.indexOf('?channelToken=') > 0) {
 				// remove channel token
@@ -528,7 +528,7 @@ router.get('/*', (req, res) => {
 					console.error(' - content item directory ' + itemsdir + ' does not exist');
 				}
 			});
-			// sort 
+			// sort
 			if (orderBy === 'name:asc' || orderBy === 'name:des') {
 				var byName = items.slice(0);
 				byName.sort(function (a, b) {
@@ -613,8 +613,8 @@ router.get('/*', (req, res) => {
 	} else if (cntPath.indexOf('/content/published/api/v1/items/') === 0 ||
 		cntPath.indexOf('/content/published/api/v1.1/items/') === 0) {
 		//
-		// handle item 
-		// 
+		// handle item
+		//
 		let id = cntPath.substring(cntPath.indexOf('/items/') + 7),
 			ids = [],
 			isBulk = false;
@@ -773,7 +773,7 @@ router.get('/*', (req, res) => {
 
 	} else if (cntPath.indexOf('/content/published/api/v1/digital-assets/') === 0 ||
 		cntPath.indexOf('/content/published/api/v1.1/assets/') === 0) {
-		// 
+		//
 		// handle digital assets
 		//
 		let prefix = cntPath.indexOf('/content/published/api/v1/digital-assets/') === 0 ? '/content/published/api/v1/digital-assets/' : '/content/published/api/v1.1/assets/',
@@ -874,7 +874,7 @@ router.post('/*', (req, res) => {
 
 	console.info('   server channel token: ' + app.locals.channelToken);
 
-	// remove the local server's channel token 
+	// remove the local server's channel token
 	requestUrl = serverUtils.replaceAll(requestUrl, '?channelToken=02a11b744a9828b6c08c832cc4efeaa4', '');
 	requestUrl = serverUtils.replaceAll(requestUrl, '&channelToken=02a11b744a9828b6c08c832cc4efeaa4', '');
 

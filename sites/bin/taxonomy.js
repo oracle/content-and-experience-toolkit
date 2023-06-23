@@ -18,9 +18,13 @@ var projectDir,
 
 /**
  * Verify the source structure before proceed the command
- * @param {*} done 
+ * @param {*} done
  */
 var verifyRun = function (argv) {
+
+	if (process.shim) {
+		return true;
+	}
 	projectDir = argv.projectDir;
 
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
@@ -35,7 +39,7 @@ var verifyRun = function (argv) {
 	return true;
 };
 
-var _getTaxonomy = function (id, status, server) {
+var _getTaxonomy = function(id, status, server) {
 	return new Promise(function (resolve, reject) {
 		var url = '/content/management/api/v1.1/taxonomies/' + id;
 		url += '?q=(status eq "' + status + '")&fields=all';

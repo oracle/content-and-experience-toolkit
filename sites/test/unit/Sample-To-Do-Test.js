@@ -100,7 +100,7 @@ define(function() {
 				viewModel.add('item2');
 				viewModel.add('item3');
 				viewModel.add('item4');
-				
+
 				var item = viewModel.getItem('item1');
 				// delete
 				viewModel.delete(item);

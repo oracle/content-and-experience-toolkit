@@ -14,43 +14,43 @@
 		// Identify the Theme URL for theme assets and the JET CDN version & URL
 		var renderAPI = SCSRenderAPI,
 			themeURLprefix = renderAPI.getThemeUrlPrefix(),
-			JETVersion = '12.1.0', 
+			JETVersion = '12.1.0',
 			CDNPrefix = 'https://static.oracle.com/cdn/jet/' + JETVersion;
 
 		// Define the Require.js config entries to:
 		// - include access to JS files from the theme
 		// - include JET from CDN
 		var JETConfig = {
-				paths: {
-					'context': 'JET' + JETVersion,
+			paths: {
+				'context': 'JET' + JETVersion,
 
-					// app specific end points
-					'appController': themeURLprefix + '/assets/js/appController',
+				// app specific end points
+				'appController': themeURLprefix + '/assets/js/appController',
 
-					// JET & dependencies
-					'ojs': CDNPrefix + '/default/js/min',
-					'ojL10n': CDNPrefix + '/default/js/ojL10n',
-					'ojtranslations': CDNPrefix + '/default/js/resources',
-					'signals': CDNPrefix + '/3rdparty/js-signals/signals.min',
-					'promise': CDNPrefix + '/3rdparty/es6-promise/es6-promise.min',
-					'ojdnd': CDNPrefix + '/3rdparty/dnd-polyfill/dnd-polyfill-1.0.2.min',
-					'customElements': CDNPrefix + '/3rdparty/webcomponents/custom-elements.min',
-					'hammerjs': CDNPrefix + '/3rdparty/hammer/hammer-2.0.8.min',
-					'proj4js': CDNPrefix + '/3rdparty/proj4js/dist/proj4',
-					'jqueryui-amd': CDNPrefix + '/3rdparty/jquery/jqueryui-amd-1.13.0.min',
-					'knockout': CDNPrefix + '/3rdparty/knockout/knockout-3.5.1',
-					'jquery': CDNPrefix + '/3rdparty/jquery/jquery-3.6.0.min',
-					'text': CDNPrefix + '/3rdparty/require/text',
-					'css': CDNPrefix + '/3rdparty/require-css/css.min',
-					'css-builder': CDNPrefix + '/3rdparty/require-css/css-builder',
-					'normalize': CDNPrefix + '/3rdparty/require-css/normalize',
-					'preact': CDNPrefix + '/3rdparty/preact/dist/preact.umd',
-					'preact/hooks': CDNPrefix + '/3rdparty/preact/hooks/dist/hooks.umd',
-					'preact/compat': CDNPrefix + '/3rdparty/preact/compat/dist/compat.umd',
-					'proj4': CDNPrefix + '/3rdparty/proj4js/dist/proj4',
-					'touchr': CDNPrefix + '/3rdparty/touchr/touchr'
-				}
+				// JET & dependencies
+				'ojs': CDNPrefix + '/default/js/min',
+				'ojL10n': CDNPrefix + '/default/js/ojL10n',
+				'ojtranslations': CDNPrefix + '/default/js/resources',
+				'signals': CDNPrefix + '/3rdparty/js-signals/signals.min',
+				'promise': CDNPrefix + '/3rdparty/es6-promise/es6-promise.min',
+				'ojdnd': CDNPrefix + '/3rdparty/dnd-polyfill/dnd-polyfill-1.0.2.min',
+				'customElements': CDNPrefix + '/3rdparty/webcomponents/custom-elements.min',
+				'hammerjs': CDNPrefix + '/3rdparty/hammer/hammer-2.0.8.min',
+				'proj4js': CDNPrefix + '/3rdparty/proj4js/dist/proj4',
+				'jqueryui-amd': CDNPrefix + '/3rdparty/jquery/jqueryui-amd-1.13.0.min',
+				'knockout': CDNPrefix + '/3rdparty/knockout/knockout-3.5.1',
+				'jquery': CDNPrefix + '/3rdparty/jquery/jquery-3.6.0.min',
+				'text': CDNPrefix + '/3rdparty/require/text',
+				'css': CDNPrefix + '/3rdparty/require-css/css.min',
+				'css-builder': CDNPrefix + '/3rdparty/require-css/css-builder',
+				'normalize': CDNPrefix + '/3rdparty/require-css/normalize',
+				'preact': CDNPrefix + '/3rdparty/preact/dist/preact.umd',
+				'preact/hooks': CDNPrefix + '/3rdparty/preact/hooks/dist/hooks.umd',
+				'preact/compat': CDNPrefix + '/3rdparty/preact/compat/dist/compat.umd',
+				'proj4': CDNPrefix + '/3rdparty/proj4js/dist/proj4',
+				'touchr': CDNPrefix + '/3rdparty/touchr/touchr'
 			}
+		}
 
 		// create a JET require config context
 		var jetRequireCtx = requirejs.config(JETConfig),
@@ -96,7 +96,7 @@
 				$('body').fadeTo('fast', 100);
 			};
 
-			// If running in a hybrid (e.g. Cordova) environment, we need to wait for the deviceready 
+			// If running in a hybrid (e.g. Cordova) environment, we need to wait for the deviceready
 			// event before executing any code that might interact with Cordova APIs or plugins.
 			if ($(document.body).hasClass('oj-hybrid')) {
 				document.addEventListener("deviceready", init);

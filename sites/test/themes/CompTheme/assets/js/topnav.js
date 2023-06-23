@@ -7,7 +7,7 @@ function renderNode(id, navBar)
 	if (id >= 0)
 	{
 		var navNode = SCS.structureMap[id];
-		if( navNode &&
+		if ( navNode &&
 			(
 				( typeof navNode.hideInNavigation != "boolean" ) ||
 				( navNode.hideInNavigation === false )
@@ -16,12 +16,12 @@ function renderNode(id, navBar)
 			var navItem = document.createElement("li");
 			var navLink = document.createElement("a");
 			var navText = document.createTextNode(navNode.name);
-			
+
 			var linkData = SCSRenderAPI.getPageLinkData(navNode.id) || {};
-			if( linkData.href ) {
+			if ( linkData.href ) {
 				navLink.href = linkData.href;
 			}
-			if( linkData.target ) {
+			if ( linkData.target ) {
 				navLink.target = linkData.target;
 			}
 
@@ -31,12 +31,12 @@ function renderNode(id, navBar)
 			if (navNode.children.length > 0)
 			{
 				var navSub = document.createElement("ul");
-				
+
 				for (var c = 0; c < navNode.children.length; c++)
 				{
 					renderNode(navNode.children[c], navSub);
 				}
-				
+
 				navItem.appendChild(navSub);
 			}
 			navBar.appendChild(navItem);
@@ -62,7 +62,7 @@ function renderNav()
 if (document.addEventListener)
 {
 
-	document.addEventListener('scsrenderstart', renderNav, false); 
+	document.addEventListener('scsrenderstart', renderNav, false);
 }
 else if (document.attachEvent)
 {

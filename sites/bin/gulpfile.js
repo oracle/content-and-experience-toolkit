@@ -53,7 +53,7 @@ const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
 
 /**
  * Verify the source structure before proceed the command
- * @param {*} done 
+ * @param {*} done
  */
 var verifyRun = function () {
 	projectDir = argv.projectDir;
@@ -74,7 +74,7 @@ var _readLoggerLevel = function (projectDir) {
 /******************************* gulp tasks *******************************/
 
 /**
- * 
+ *
  */
 gulp.task('install-src', function (done) {
 	'use strict';
@@ -137,7 +137,7 @@ gulp.task('install-src', function (done) {
 		fileUtils.copy(testDataDir, path.join(projectDir, 'test'));
 	}
 
-	// ./samples/ 
+	// ./samples/
 	if (!fs.existsSync(path.join(projectDir, 'samples'))) {
 		fs.mkdirSync(path.join(projectDir, 'samples'));
 	}
@@ -172,7 +172,7 @@ gulp.task('install-src', function (done) {
 		}
 	}
 
-	// copy over libs 
+	// copy over libs
 
 	var libsPath = path.join(cecDir, 'src', 'libs');
 	var items = fs.readdirSync(libsPath);
@@ -2038,7 +2038,7 @@ gulp.task('create-rss-feed', function (done) {
 });
 
 /**
- * Generate asset usage report for a site 
+ * Generate asset usage report for a site
  */
 gulp.task('create-asset-report', function (done) {
 	'use strict';
@@ -2645,7 +2645,7 @@ gulp.task('refresh-translation-job', function (done) {
 });
 
 /**
- * Ingest translatedjob 
+ * Ingest translatedjob
  */
 gulp.task('ingest-translation-job', function (done) {
 	'use strict';
@@ -2861,7 +2861,7 @@ gulp.task('execute-delete', function (done) {
 gulp.task('check-version', function (done) {
 	'use strict';
 
-	// check if the message already shown 
+	// check if the message already shown
 	var msgFile = path.join(os.tmpdir(), 'cec_sitestoolkit_message');
 	// console.log(msgFile);
 

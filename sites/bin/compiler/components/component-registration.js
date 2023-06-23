@@ -14,6 +14,7 @@
  *
  * $Id: component-registration.js 166785 2019-01-10 18:46:18Z muralik $
  */
+// eslint-disable-next-line no-redeclare
 /* global exports */
 (function defineComponentRegistration(scope, factory) {
 	// configure to run in various JS environments
@@ -1352,6 +1353,9 @@
 						'visible',
 						'visibleOnMobile'
 					],
+					'asynchronousUpdateProperties': [
+						'backgroundImageName'
+					],
 					'fileReferenceProperties': [{
 						'propName': 'backgroundImage',
 						'propType': 'string'
@@ -1387,6 +1391,7 @@
 						'backgroundAttachment',
 						'backgroundColor',
 						'backgroundImage',
+						'backgroundImageName',
 						'backgroundPosition',
 						'backgroundRepeat',
 						'backgroundSize',
@@ -1399,7 +1404,8 @@
 					],
 					'instanceProperties': [
 						'visible',
-						'visibleOnMobile'
+						'visibleOnMobile',
+						'backgroundImageName'
 					],
 					'fileReferenceProperties': [{
 						'propName': 'backgroundImage',
@@ -1435,6 +1441,7 @@
 						'backgroundAttachment',
 						'backgroundColor',
 						'backgroundImage',
+						'backgroundImageName',
 						'backgroundPosition',
 						'backgroundRepeat',
 						'backgroundSize',
@@ -1454,11 +1461,12 @@
 					'instanceProperties': [
 						'nestedComponents',
 						'componentFactory',
-
+						'backgroundImageName',
 						'visible',
 						'visibleOnMobile'
 					],
 					'asynchronousUpdateProperties': [
+						'backgroundImageName',
 						'nestedComponents'
 					],
 					'dataProperties': [{

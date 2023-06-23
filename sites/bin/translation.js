@@ -36,7 +36,7 @@ const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
 
 /**
  * Verify the source structure before proceed the command
- * @param {*} done 
+ * @param {*} done
  */
 var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
@@ -56,12 +56,12 @@ var verifyRun = function (argv) {
 };
 
 /**
- * Global variables 
+ * Global variables
  */
 var _CSRFToken;
 
-/** 
- * private 
+/**
+ * private
  */
 var localServer;
 var _cmdEnd = function (done, success) {
@@ -74,9 +74,9 @@ var _cmdEnd = function (done, success) {
 
 /**
  * Query translation jobs on the server
- * 
- * @param {*} server 
- * @param {*} jobType 
+ *
+ * @param {*} server
+ * @param {*} jobType
  */
 var _getTranslationJobs = function (server, jobType) {
 	return serverRest.getTranslationJobs({
@@ -87,9 +87,9 @@ var _getTranslationJobs = function (server, jobType) {
 
 /**
  * Query translation job on the server
- * 
- * @param {*} server 
- * @param {*} jobType 
+ *
+ * @param {*} server
+ * @param {*} jobType
  */
 var _getTranslationJob = function (server, jobId) {
 	var jobPromise = new Promise(function (resolve, reject) {
@@ -189,7 +189,7 @@ var _updateTranslationJobStatus = function (server, csrfToken, job, status) {
 
 /**
  * Get the data field of a job and return as an object
- * 
+ *
  * @param {*} job the result from /content/management/api/v1.1/translationJobs/{jobid}
  */
 var _getJobData = function (job) {
@@ -1085,7 +1085,7 @@ var _getTranslationFromConnector = function (translationconnector, jobId, target
 
 /**
  * Validate translation job file
- * @param {*} file 
+ * @param {*} file
  */
 var _validateTranslationJobZip = function (file) {
 	var validatePromise = new Promise(function (resolve, reject) {
@@ -1306,7 +1306,7 @@ var _listServerTranslationJobs = function (argv, done) {
 				// console.log(connectorJobs);
 
 				//
-				// display 
+				// display
 				//
 				var format = '%-40s %-14s %-15s %-36s %-36s %-s';
 
@@ -1420,7 +1420,7 @@ var _getJob = function (jobName) {
 
 /**
  * Ge the connection and jobID from the translation job
- * @param {*} jobName 
+ * @param {*} jobName
  */
 var _getJobConnectionInfo = function (jobName) {
 	var connectionpath = path.join(transSrcDir, jobName, 'connectionjob.json');
@@ -1479,7 +1479,7 @@ module.exports.downloadTranslationJob = function (argv, done) {
 		return;
 	}
 
-	// download the zip to dist 
+	// download the zip to dist
 	var destdir = path.join(projectDir, 'dist');
 	if (!fs.existsSync(destdir)) {
 		fs.mkdirSync(destdir);
@@ -1861,7 +1861,7 @@ module.exports.createTranslationJob = function (argv, done) {
 				if (site) {
 					_createTranslationJob(server, site, name, langs, exportType, connector, done);
 				} else {
-					_createAssetTranslationJob(server, repositoryName, name, langs, connector, argv.collection, argv.query, argv.assets)
+					_createAssetTranslationJob(server, repositoryName, name, langs, connector, argv.collection, argv.query, argv.assets, argv.sourcelanguage)
 						.then(function (result) {
 							if (!result || result.err) {
 								done();
@@ -1881,7 +1881,7 @@ module.exports.createTranslationJob = function (argv, done) {
 
 };
 
-var _createAssetTranslationJob = function (server, repositoryName, name, langs, connector, collectionName, query, assetGUIDStr) {
+var _createAssetTranslationJob = function (server, repositoryName, name, langs, connector, collectionName, query, assetGUIDStr, sourcelanguage) {
 	return new Promise(function (resolve, reject) {
 		var repository;
 		var collection;
@@ -1912,6 +1912,12 @@ var _createAssetTranslationJob = function (server, repositoryName, name, langs, 
 
 				allLangs = repository.configuredLanguages;
 
+				if (sourcelanguage) {
+					if (!allLangs.includes(sourcelanguage)) {
+						console.error('ERROR: source language ' + sourcelanguage + ' is not configured for the repository');
+						return Promise.reject();
+					}
+				}
 				if (langs && langs.toLowerCase() !== 'all') {
 					//
 					// validate languages
@@ -1937,6 +1943,7 @@ var _createAssetTranslationJob = function (server, repositoryName, name, langs, 
 					console.error('ERROR: no target language');
 					return Promise.reject();
 				}
+				console.info(' - source languages: ' + sourcelanguage || repository.defaultLanguage);
 				console.info(' - target languages: ' + targetLanguages);
 
 				var queryCollectionPromises = [];
@@ -2063,7 +2070,7 @@ var _createAssetTranslationJob = function (server, repositoryName, name, langs, 
 					repositoryId: repository.id,
 					collectionId: collection ? collection.id : '',
 					contentIds: guids,
-					sourceLanguage: repository.defaultLanguage,
+					sourceLanguage: sourcelanguage || repository.defaultLanguage,
 					targetLanguages: targetLanguages,
 					connectorId: connector ? connector.connectorId : ''
 				});
@@ -2232,7 +2239,7 @@ module.exports.submitTranslationJob = function (argv, done) {
 			var zippath = path.join(projectDir, 'dist', name + '.zip');
 			console.info(' - created translation job zip file ' + zippath);
 
-			// 
+			//
 			// create connector job
 			//
 			var jobPromise = _createConnectorJob(connectionjson, name);
@@ -2512,7 +2519,11 @@ var _ingestTranslationJobSCS = function (server, idcToken, jobId, connectorId) {
 			} else {
 				var jobId = data.LocalData.JobID;
 				idcToken = data.LocalData.idcToken;
-
+				if (console.showInfo()) {
+					console.info(' - submit validate and import background job (JobId: ' + jobId + ')');
+					console.info(' - If this command is terminated, use the following command to continue to monitor the background job:');
+					console.info('   cec describe-background-job ' + jobId);
+				}
 				// wait ingest to finish
 				var startTime = new Date();
 				var needNewLine = false;

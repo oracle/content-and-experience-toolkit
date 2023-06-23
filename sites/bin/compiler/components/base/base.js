@@ -63,10 +63,10 @@ Base.prototype.init = function (compType, compId, compInstance) {
 
 	// populate all the properties
 	for (var i = 0; i < properties.length; i += 1) {
-		propName = properties[i];
-		initialValue = '';
+		var propName = properties[i],
+			initialValue = '';
 
-		// determine the initial value for the property 
+		// determine the initial value for the property
 		if (typeof this.data[propName] !== 'undefined') {
 			initialValue = this.data[propName];
 		} else if (typeof defaults[propName] !== 'undefined') {
@@ -102,7 +102,7 @@ Base.prototype.init = function (compType, compId, compInstance) {
 	this.computedWidthStyle = this.encodeCSS(this.createWidthStyle(this));
 
 	// Return CSS for margin on wrapper div.
-	// TODO: use style binding (e.g. return {'marginTop': marginTop, ...}) 
+	// TODO: use style binding (e.g. return {'marginTop': marginTop, ...})
 	this.computedMarginStyle = this.encodeCSS(this.createMarginStyle(this));
 
 
@@ -160,10 +160,10 @@ Base.prototype.getContentIdFromURL = function (href) {
 Base.prototype.addAnalytics = function (args) {
 	var analytics = '';
 	if (args.view) {
-		analytics = 'data-asset-operation="view:' + args.view + '"'; 
+		analytics = 'data-asset-operation="view:' + args.view + '"';
 	}
 	if (args.click) {
-		analytics = 'data-asset-operation="click:' + args.click + (args.operation ? ':' + args.operation : '') + '"'; 
+		analytics = 'data-asset-operation="click:' + args.click + (args.operation ? ':' + args.operation : '') + '"';
 	}
 
 	return analytics;
@@ -216,52 +216,52 @@ Base.prototype.getAssetUrl = function (caasGUID, options) {
 };
 
 Base.prototype.generateUUID = function (options) {
-    var guid = "";
-    var i;
-    var str;
+	var guid = "";
+	var i;
+	var str;
 
-    // Create an array filled with random bytes
-    var byteArray;
-    var cryptLib = require('crypto');
-    if (cryptLib && (typeof cryptLib.getRandomValues == "function")) {
-        byteArray = new Uint8Array(16);
-        cryptLib.getRandomValues(byteArray);
-    } else {
-        byteArray = new Array(16);
-        for (i = 0; i < byteArray.length; i++) {
-            byteArray[i] = Math.floor(Math.random() * 256); // [0..255] inclusive
-        }
-    }
+	// Create an array filled with random bytes
+	var byteArray;
+	var cryptLib = require('crypto');
+	if (cryptLib && (typeof cryptLib.getRandomValues == "function")) {
+		byteArray = new Uint8Array(16);
+		cryptLib.getRandomValues(byteArray);
+	} else {
+		byteArray = new Array(16);
+		for (i = 0; i < byteArray.length; i++) {
+			byteArray[i] = Math.floor(Math.random() * 256); // [0..255] inclusive
+		}
+	}
 
-    // Create a version 4 GUID
-    byteArray[6] = 0x40 | (byteArray[6] & 0x0F);
-    byteArray[8] = (byteArray[8] & 0xBF) | 0x80;
+	// Create a version 4 GUID
+	byteArray[6] = 0x40 | (byteArray[6] & 0x0F);
+	byteArray[8] = (byteArray[8] & 0xBF) | 0x80;
 
-    if (!options || options.alphaFirstChar) {
-        // Ensure the first character is an alpha character -- because these GUIDs will be used as IDs.
-        byteArray[0] = (byteArray[0] | 0x80) | ((byteArray[0] & 0x60) || 0x20);
-    }
+	if (!options || options.alphaFirstChar) {
+		// Ensure the first character is an alpha character -- because these GUIDs will be used as IDs.
+		byteArray[0] = (byteArray[0] | 0x80) | ((byteArray[0] & 0x60) || 0x20);
+	}
 
-    // Change the bytes into a string
-    for (i = 0; i < byteArray.length; i++) {
-        str = byteArray[i].toString(16);
-        if (str.length == 1) {
-            str = "0" + str;
-        }
-        guid += str;
-    }
+	// Change the bytes into a string
+	for (i = 0; i < byteArray.length; i++) {
+		str = byteArray[i].toString(16);
+		if (str.length == 1) {
+			str = "0" + str;
+		}
+		guid += str;
+	}
 
-    if (!options || options.addDashes) {
-        // Insert dashes at the traditional places
-        // nnnnnnnn-nnnn-4nnn-vnnn-nnnnnnnnnnnn
-        guid = guid.substring(0, 8) + "-" +
+	if (!options || options.addDashes) {
+		// Insert dashes at the traditional places
+		// nnnnnnnn-nnnn-4nnn-vnnn-nnnnnnnnnnnn
+		guid = guid.substring(0, 8) + "-" +
             guid.substring(8, 12) + "-" +
             guid.substring(12, 16) + "-" +
             guid.substring(16, 20) + "-" +
             guid.substring(20);
-    }
+	}
 
-    return guid;
+	return guid;
 };
 
 Base.prototype.getDetailPageUrl = function (pageUrl, options) {

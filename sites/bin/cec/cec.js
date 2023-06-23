@@ -23,6 +23,11 @@ const _isWindows = /^win/.test(process.platform) ? true : false;
 if (_isWindows && cwd.endsWith(':\\')) {
 	cwd = cwd.substring(0, cwd.length - 1);
 }
+// overriding console underbrowser
+if (process.shim) {
+	// eslint-disable-next-line no-global-assign
+	console = require('../../test/server/loggerforWeb').console;
+}
 
 // console.log("Current working directory is: " + cwd);
 
@@ -101,7 +106,7 @@ const appRoot = path.join(cecRootReal, '../..');
 // console.log('cec Root: ' + appRoot);
 
 /**************************
- * Private helper functions 
+ * Private helper functions
  ***************************/
 
 var getComponentSources = function () {
@@ -1710,6 +1715,9 @@ const controlSite = {
 		['cec control-site publish -s Site1 -f ', 'Do a full publish of Site1'],
 		['cec control-site publish -s Site1 -i seo ', 'Only publish Sitemap and Robots files of site Site1'],
 		['cec control-site publish -s Site1 -i seo,rssFeeds ', 'Only publish Sitemap, Robots and RSS Feed files of site Site1'],
+		['cec control-site publish -s Site1 -a 100,200 ', 'Only publish page 100 and 200 of site Site1'],
+		['cec control-site publish -s Site1 -a 100 -b ', 'Only publish page 100 and its sub pages of site Site1'],
+		// ['cec control-site publish -s Site1 -l 150:GUID1,GUID2 ', 'Only publish assets GUID1 and GUID2 on detail page 150 of site Site1'],
 		['cec control-site publish -s Site1 -r SampleServer1', 'Publish site Site1 on the registered server SampleServer1'],
 		['cec control-site unpublish -s Site1 -r SampleServer1', 'Unpublish site Site1 on the registered server SampleServer1'],
 		['cec control-site bring-online -s Site1 -r SampleServer1', 'Bring site Site1 online on the registered server SampleServer1'],
@@ -1785,7 +1793,8 @@ const transferSitePage = {
 	},
 	example: [
 		['cec transfer-site-page Site1 -s SampleServer -d SampleServer1 -p 100', 'Create or update page 100 on server SampleServer1 based on server SampleServer'],
-		['cec transfer-site-page Site1 -s SampleServer -d SampleServer1 -p 100,200', 'Create or update page 100 and 200 on server SampleServer1 based on server SampleServer']
+		['cec transfer-site-page Site1 -s SampleServer -d SampleServer1 -p 100,200', 'Create or update page 100 and 200 on server SampleServer1 based on server SampleServer'],
+		['cec transfer-site-page Site1 -s SampleServer -d SampleServer1 -p 100 -t Site2', 'Create or update page 100 for site Site2 on server SampleServer1 based on site Site1 on server SampleServer']
 	]
 };
 
@@ -2848,7 +2857,7 @@ const describeType = {
 		*/
 	]
 };
-/** 
+/**
  * 2021-08-20 removed
 const createWordTemplate = {
 	command: 'create-word-template <type>',
@@ -3252,7 +3261,8 @@ const createTranslationJob = {
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT -c Lingotek'],
 		['cec create-translation-job job1 -p Repo1 -o collection1 -l all -r SampleServer1'],
 		['cec create-translation-job job1 -p Repo1 -a GUID1,GUID2 -l all -r SampleServer1'],
-		['cec create-translation-job job1 -p Repo1 -q \'type eq "BlogType"\' -l all -c Lingotek -r SampleServer1']
+		['cec create-translation-job job1 -p Repo1 -q \'type eq "BlogType"\' -l all -c Lingotek -r SampleServer1'],
+		['cec create-translation-job job1 -p Repo1 -q \'language eq "en"\' -n en -l de-DE -c Lingotek -r SampleServer1']
 	]
 };
 
@@ -5252,7 +5262,7 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${createTemplateReport.command}\n\n${createTemplateReport.usage.long}`);
 		})
-	.command([cleanupTemplate.command, cleanupTemplate.alias], false,
+	.command([cleanupTemplate.command], false,
 		(yargs) => {
 			yargs.example(...cleanupTemplate.example[0])
 				.help(false)
@@ -6720,8 +6730,13 @@ const argv = yargs.usage(_usage)
 					description: 'The comma separated list of page IDs',
 					demandOption: true
 				})
+				.option('targetsite', {
+					alias: 't',
+					description: 'The target site on the destination server'
+				})
 				.example(...transferSitePage.example[0])
 				.example(...transferSitePage.example[1])
+				.example(...transferSitePage.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${transferSitePage.command}\n\n${transferSitePage.usage.long}`);
@@ -6747,6 +6762,12 @@ const argv = yargs.usage(_usage)
 					}
 					if (argv.settingsfiles && argv.action !== 'publish' && argv.action !== 'publish-internal') {
 						throw new Error(os.EOL + '<settingsfiles> is only for action publish');
+					}
+					if (argv.pages && argv.action !== 'publish' && argv.action !== 'publish-internal') {
+						throw new Error(os.EOL + '<pages> is only for action publish');
+					}
+					if (argv.detailpageassets && argv.action !== 'publish' && argv.action !== 'publish-internal') {
+						throw new Error(os.EOL + '<detailpageassets> is only for action publish');
 					}
 					if (argv.settingsfiles) {
 						let files = argv.settingsfiles.split(',');
@@ -6792,6 +6813,19 @@ const argv = yargs.usage(_usage)
 					alias: 'i',
 					description: 'The comma separated list of site settings files'
 				})
+				.option('pages', {
+					alias: 'a',
+					description: 'The comma separated list of page IDs'
+				})
+				.option('expand', {
+					alias: 'b',
+					description: 'Include all the sub pages when publish specific pages'
+				})
+				.option('detailpageassets', {
+					alias: 'l',
+					description: 'The detail page ID and their asset IDs',
+					hidden: true
+				})
 				.option('theme', {
 					alias: 'e',
 					description: 'The new theme'
@@ -6827,6 +6861,8 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[12])
 				.example(...controlSite.example[13])
 				.example(...controlSite.example[14])
+				.example(...controlSite.example[15])
+				.example(...controlSite.example[16])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlSite.command}\n\n${controlSite.usage.long}`);
@@ -8499,7 +8535,7 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${describeWorkflow.command}\n\n${describeWorkflow.usage.long}`);
 		})
-	/** 
+	/**
 	  * 2021-08-20 removed
 	.command([createWordTemplate.command, createWordTemplate.alias], false,
 		(yargs) => {
@@ -9060,6 +9096,10 @@ const argv = yargs.usage(_usage)
 					alias: 'a',
 					description: 'The comma separated list of asset GUIDS'
 				})
+				.option('sourcelanguage', {
+					alias: 'n',
+					description: 'Source language. For use with assets job only.'
+				})
 				.option('languages', {
 					alias: 'l',
 					description: 'The comma separated list of languages used to create the translation job',
@@ -9084,6 +9124,9 @@ const argv = yargs.usage(_usage)
 					if (argv.site && argv.repository) {
 						throw new Error(os.EOL + 'Please specify either site or repository');
 					}
+					if (argv.site && argv.sourcelanguage) {
+						throw new Error(os.EOL + 'sourcelanguage can be specified for assets job only');
+					}
 					if (argv.repository && !argv.collection && !argv.assets && !argv.query) {
 						throw new Error(os.EOL + 'Please specify collection, query or assets');
 					}
@@ -9103,6 +9146,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTranslationJob.example[5])
 				.example(...createTranslationJob.example[6])
 				.example(...createTranslationJob.example[7])
+				.example(...createTranslationJob.example[8])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTranslationJob.command}\n\n${createTranslationJob.usage.long}`);
@@ -10418,7 +10462,7 @@ var _displayCommand = function (cmdName) {
 		if (name.length > 1 && name.indexOf('-') < 0 && name !== '$0') {
 			var value = argv[name];
 			if (/^[A-Za-z0-9]*$/.test(value)) {
-				// do nothing 
+				// do nothing
 			} else {
 				try {
 					value = JSON.stringify(value);
@@ -12260,7 +12304,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--destination', argv.destination,
 		'--pages', argv.pages
 	];
-
+	if (argv.targetsite) {
+		transferSitePageArgs.push(...['--targetsite', argv.targetsite]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, transferSitePageArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -12294,6 +12340,15 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.settingsfiles) {
 		controlSiteArgs.push(...['--settingsfiles', argv.settingsfiles]);
+	}
+	if (argv.pages) {
+		controlSiteArgs.push(...['--pages', argv.pages]);
+	}
+	if (argv.expand) {
+		controlSiteArgs.push(...['--expand', argv.expand]);
+	}
+	if (argv.detailpageassets) {
+		controlSiteArgs.push(...['--detailpageassets', argv.detailpageassets]);
 	}
 	if (argv.theme) {
 		controlSiteArgs.push(...['--theme', argv.theme]);
@@ -13524,7 +13579,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 }
-/** 
+/**
 * 2021-08-20 removedelse if (argv._[0] === createWordTemplate.name || argv._[0] === createWordTemplate.alias) {
 	let createWordTemplateArgs = ['run', '-s', createWordTemplate.name, '--prefix', appRoot,
 		'--',
@@ -13546,7 +13601,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
-} 
+}
 else if (argv._[0] === createContentItem.name || argv._[0] === createContentItem.alias) {
 	let createContentItemArgs = ['run', '-s', createContentItem.name, '--prefix', appRoot,
 		'--',
@@ -13816,6 +13871,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--name', argv.name,
 		'--languages', argv.languages
 	];
+	if (argv.sourcelanguage) {
+		createTranslationJobArgs.push(...['--sourcelanguage', argv.sourcelanguage]);
+	}
 	if (argv.site) {
 		createTranslationJobArgs.push(...['--site', argv.site]);
 	}
@@ -14859,18 +14917,27 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		cwd,
 		stdio: 'inherit'
 	});
+} else {
+	if (process.shim) {
+		window.changeT(window.currentTab, `❌ Instance ${window.currentTab}`)
+	}
 }
 
-var endTime = new Date();
-var timeDiff = endTime - startTime; //in ms
-// strip the ms
-timeDiff /= 1000;
-// get seconds
-var seconds = Math.round(timeDiff);
-console.log('Elapsed time: ' + seconds + 's');
 
-// see if need to show deprecation warning
-_checkVersion();
 
-// console.log(spawnCmd);
-process.exit(spawnCmd ? spawnCmd.status : 0);
+if (!process.shim) {
+	var endTime = new Date();
+	var timeDiff = endTime - startTime; //in ms
+	// strip the ms
+	timeDiff /= 1000;
+	// get seconds
+	var seconds = Math.round(timeDiff);
+	console.log('Elapsed time: ' + seconds + 's');
+
+	// see if need to show deprecation warning
+	_checkVersion();
+
+
+	// console.log(spawnCmd);
+	process.exit(spawnCmd ? spawnCmd.status : 0);
+}

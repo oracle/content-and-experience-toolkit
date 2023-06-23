@@ -14,6 +14,7 @@
  *
  * $Id: base-vm.js 167153 2019-01-25 21:29:15Z muralik $
  */
+// eslint-disable-next-line no-redeclare
 /* global exports */
 (function defineComponentCommon(scope, factory) {
 	// configure to run in various JS environments

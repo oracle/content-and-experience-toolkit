@@ -8,6 +8,7 @@ var path = require('path'),
 	os = require('os'),
 	readline = require('readline'),
 	url = require('url'),
+	contentUtils = require('./content.js').utils,
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	serverUtils = require('../test/server/serverUtils.js');
@@ -97,8 +98,8 @@ var _getSiteInfoFiles = function (server, items, locales) {
 					});
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doGet.then(function (result) {
 			resolve(values);
@@ -193,7 +194,7 @@ var _getDefaultDetailPageId = function (data) {
 
 /**
  * Get an array of promises to get the page data for all site pages
- * 
+ *
  */
 var _getPageData = function (server, data, locale, isMaster) {
 	// console.log(' isMaster: ' + isMaster + ' locale: ' + locale);
@@ -328,8 +329,8 @@ var _readPageFiles = function (server, files) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doReadFile.then(function (result) {
 			if (needNewLine) {
@@ -345,7 +346,7 @@ var _readPageFiles = function (server, files) {
 
 /**
  * Get all content types used on the pages
- * @param {*} pageData 
+ * @param {*} pageData
  */
 var _getPageContentTypes = function (pageData) {
 	var pageContentTypes = [];
@@ -369,7 +370,7 @@ var _getPageContentTypes = function (pageData) {
 
 /**
  * Get content types for the detail page
- * @param {*} pageData 
+ * @param {*} pageData
  */
 var _getDetailPageContentTypes = function (data, pageData) {
 
@@ -405,7 +406,7 @@ var _getDetailPageContentTypes = function (data, pageData) {
 
 /**
  * Get the id of all content item on the pages
- * @param {*} pageData 
+ * @param {*} pageData
  */
 var _getPageContentItemIds = function (pageData) {
 	var pageContentIds = [];
@@ -534,7 +535,7 @@ var _getContentListQueryString = function (type, limit, offset, orderBy, categor
 
 /**
  * set the query string for all content list items on the page
- * @param {*} pageData 
+ * @param {*} pageData
  */
 var _getPageContentListQuery = function (pageData, locale) {
 	var pageContentListQueries = [];
@@ -670,33 +671,62 @@ var _getPageContentPromise = function (server, channelToken, pageContentIds, pag
 var _getTypeItems = function (server, data, channelToken, locale) {
 	return new Promise(function (resolve, reject) {
 		var items = [];
+		var fields = '';
+		var useDelivery = true;
 		var doQuery = data.typesToQuery.reduce(function (typePromise, typeName) {
 			return typePromise.then(function (result) {
 				var q = 'type eq "' + typeName + '"';
 				if (locale) {
 					q = '((' + q + ') and (language eq "' + locale + '"))';
 				}
+
 				return serverRest.queryItems({
 					useDelivery: true,
 					server: server,
 					q: q,
 					channelToken: channelToken,
-					showTotal: false
-				})
-					.then(function (result) {
-						if (result && result.data && result.data.length > 0) {
-							console.info(' - total items of type ' + typeName + ' (' + locale + '): ' + result.data.length);
-							items.push({
-								type: typeName,
-								locale: locale,
-								items: result.data
+					showTotal: false,
+					limit: 1
+				}).then(function (result) {
+					if (result && !result.err && result.limit > 0) {
+						if (result.limit > 500) {
+							// use asset IDs from DB to query items
+							return contentUtils.queryItemsWithIds(server, q, data.assetGUIDs, fields, useDelivery, data.siteChannelToken)
+								.then(function (result) {
+									if (result && result.length > 0) {
+										console.info(' - total items of type ' + typeName + ' (' + locale + '): ' + result.length);
+										items.push({
+											type: typeName,
+											locale: locale,
+											items: result
+										});
+									}
+								});
+						} else {
+							// no need pagination
+							return serverRest.queryItems({
+								useDelivery: true,
+								server: server,
+								q: q,
+								channelToken: channelToken,
+								showTotal: false
+							}).then(function (result) {
+								if (result && result.data && result.data.length > 0) {
+									console.info(' - total items of type ' + typeName + ' (' + locale + '): ' + result.data.length);
+									items.push({
+										type: typeName,
+										locale: locale,
+										items: result.data
+									});
+								}
 							});
 						}
-					});
+					} // query has data
+				});
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doQuery.then(function (result) {
 			resolve(items);
@@ -728,7 +758,7 @@ var _getPage = function (data, pageid) {
 };
 
 /**
- * 
+ *
  * @param {*} pageid <locale>_<page id>
  */
 var _getMasterPageData = function (data, pageid) {
@@ -781,9 +811,9 @@ var _getQueryString = function (querystrings, name) {
 
 /**
  * Generate site map XML file
- * 
- * @param {*} siteInfo 
- * @param {*} pages 
+ *
+ * @param {*} siteInfo
+ * @param {*} pages
  */
 var _generateSiteMapURLs = function (server, languages, excludeLanguages, data, siteUrl, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
 	newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale, defaultLocale, useDefaultSiteUrl) {
@@ -1290,8 +1320,8 @@ var _uploadSiteMapToServer = function (server, seoFolderId, localFiles) {
 					}
 				});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doUpload.then(function (result) {
 			resolve({
@@ -1483,23 +1513,33 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 			})
 			.then(function (result) {
 				//
-				// Get repository 
-				// 
+				// Get repository
+				//
 				if (result.err) {
 					return Promise.reject();
 				}
 
 				console.info(' - query site repository');
 
+				// get all asset IDs in the site channel
+				return serverRest.getAllItemIds({server: server, repositoryId:siteInfo.repositoryId, channelId: siteInfo.channelId, publishedassets: true});
+
+			})
+			.then(function (result) {
+
+				data.assetGUIDs = result && result.ids || [];
+				console.info(' - total published assets: ' + data.assetGUIDs.length);
+
 				return _getSiteStructure(server, data.siteTopItems);
 			})
 			.then(function (result) {
-				// 
+				//
 				// Get site structure
 				//
 				if (result.err) {
 					return Promise.reject();
 				}
+
 				siteStructure = result;
 				data.masterSiteStructure = siteStructure;
 				console.info(' - query site structure');
@@ -1741,8 +1781,8 @@ var _getSiteData = function (server, site, data, locales) {
 					});
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doGet.then(function (result) {
 			resolve(values);
@@ -1795,8 +1835,8 @@ var _getItemMasterIds = function (server, itemGUIDs) {
 				});
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doQueryItems.then(function (result) {
 			if (needNewLine) {
@@ -1826,7 +1866,7 @@ var _setLocalAliases = function (aliases, urls) {
 
 /**
  * Main entry
- * 
+ *
  */
 var _createSiteMap = function (server, serverName, site, siteUrl, format, changefreq,
 	publish, siteMapFile, languages, excludeLanguages, toppagepriority, newlink, noDefaultDetailPageLink,
@@ -1834,7 +1874,7 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 
 	//
 	// get site info and other metadata
-	// 
+	//
 	var masterPages = [];
 	var allPages = [];
 	var allPageFiles = [];
@@ -2268,8 +2308,8 @@ var _calculatePageChangeFraq = function (server, serverName, allPageFiles) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doQueryVersion.then(function (result) {
 			process.stdout.write(os.EOL);

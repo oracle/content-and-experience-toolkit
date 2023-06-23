@@ -35,9 +35,13 @@ var projectDir,
 
 /**
  * Verify the source structure before proceed the command
- * @param {*} done 
+ * @param {*} done
  */
 var verifyRun = function (argv) {
+	// verifyRun for browser
+	if (process.shim) {
+		return true;
+	}
 	projectDir = argv.projectDir;
 
 	buildDir = serverUtils.getBuildFolder(projectDir);
@@ -56,6 +60,8 @@ var verifyRun = function (argv) {
 
 	return true;
 };
+
+
 
 var _getRefTypes = function (server, name, refTypes, queriedNames) {
 	return new Promise(function (resolve, reject) {
@@ -112,8 +118,8 @@ var _getAllTypes = function (server, types) {
 				}
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doQueryType.then(function (result) {
 			resolve(refTypes);
@@ -567,7 +573,7 @@ module.exports.controlRepository = function (argv, done) {
 		}
 
 		var exitCode;
-		// Need to get all fields for updating 
+		// Need to get all fields for updating
 		serverRest.getRepositories({
 			server: server,
 			fields: 'all'
@@ -1004,7 +1010,7 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 
 			});
 		},
-			Promise.resolve({})
+		Promise.resolve({})
 		);
 
 		doUpdateRepos.then(function (result) {
@@ -1758,6 +1764,11 @@ module.exports.describeRepository = function (argv, done) {
 				}
 
 				var format1 = '%-38s  %-s';
+				if (process.shim) {
+					//adding tags
+					channelNames = channelNames.map(c => `[!--dsch--]${c}[/!--dsch--]`)
+					taxNames = taxNames.map(c => `[!--dstx--]${c}[/!--dstx--]`)
+				}
 				console.log('');
 				console.log(sprintf(format1, 'Id', repo.id));
 				console.log(sprintf(format1, 'Name', repo.name));
@@ -2538,8 +2549,8 @@ var _uploadTypeComponents = function (server, allcomps) {
 								});
 						});
 					},
-						// Start with a previousPromise value that is a resolved promise 
-						Promise.resolve({}));
+					// Start with a previousPromise value that is a resolved promise
+					Promise.resolve({}));
 
 					doUploadComp.then(function (result) {
 						resolve({});
@@ -2574,8 +2585,8 @@ var _createContentTypes = function (server, typePaths) {
 				});
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doCreateType.then(function (result) {
 			resolve(results);
@@ -3238,7 +3249,7 @@ var _updateCollection = function (server, repository, collections, channelNames,
 	});
 };
 
-// share / unshare 
+// share / unshare
 var _updateCollectionPermission = function (server, repository, collections, userNames, groupNames, role, action) {
 	return new Promise(function (resolve, reject) {
 		var users = [];
@@ -3437,7 +3448,7 @@ var _updateCollectionPermission = function (server, repository, collections, use
 						}
 					});
 				},
-					Promise.resolve({}));
+				Promise.resolve({}));
 
 				doAction.then(function (result) {
 					resolve({
@@ -4696,7 +4707,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 						}
 
 						if (!foundType && assetPermission !== DELETE_TYPE) {
-							// append 
+							// append
 							contentPrivileges.push({
 								typeId: types[j].id,
 								typeName: types[j].name,
@@ -4855,8 +4866,8 @@ var _setPermissions = function (server, repository, permissions, action) {
 					});
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doSet.then(function (result) {
 			resolve({
@@ -5413,7 +5424,7 @@ module.exports.setEditorialRole = function (argv, done) {
 					}
 
 					if (!foundType && assetPermission !== DELETE_TYPE) {
-						// append 
+						// append
 						contentPrivileges.push({
 							typeId: types[j].id,
 							typeName: types[j].name,
@@ -6433,8 +6444,8 @@ var _createCustomLanguages = function (server, customLanguages) {
 					})
 				});
 			},
-				// Start with a previousPromise value that is a resolved promise
-				Promise.resolve({}));
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
 
 			doCreatelangs.then(function (result) {
 				// console.log(' - total custom languages: ' + total + ' created: ' + createdLangCodeNames.length);
@@ -7046,7 +7057,7 @@ var _validateDigitalAssetNativeFile = function (server, items) {
 					})
 			});
 		},
-			Promise.resolve({})
+		Promise.resolve({})
 		);
 
 		doValidateAsset.then(function (result) {
@@ -7562,7 +7573,7 @@ module.exports.describeAsset = function (argv, done) {
 			.then(function (result) {
 				activities = result && result.items || [];
 
-				// Display 
+				// Display
 				//
 				var format1 = '%-38s  %-s';
 				var format2 = '  %-36s  %-51s  %-32s  %-s';
@@ -7875,8 +7886,8 @@ var _getScheduledJobs = function (server, repositories) {
 
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doGetJobs.then(function (result) {
 			resolve(jobData);
@@ -8246,12 +8257,12 @@ var _renameAssetIds = function (argv, templateName, goodContent) {
 					// done
 				})
 					.catch((error) => {
-						// 
+						//
 					});
 			});
 		},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
 
 		doIdUpdate.then(function (result) {
 			var doZip = goodContent.reduce(function (zipPromise, content) {
@@ -8263,12 +8274,12 @@ var _renameAssetIds = function (argv, templateName, goodContent) {
 						// done
 					})
 						.catch((error) => {
-							// 
+							//
 						});
 				});
 			},
-				// Start with a previousPromise value that is a resolved promise 
-				Promise.resolve({}));
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
 
 			doZip.then(function (result) {
 				return resolve({});
@@ -8289,7 +8300,7 @@ var _updateIdInFiles = function (folderPath, idMap) {
 					var filePath = files[i];
 					if (filePath.endsWith('.json')) {
 						var fileSrc = fs.readFileSync(filePath).toString();
-						// update slug 
+						// update slug
 						try {
 							var fileJson = JSON.parse(fileSrc);
 							if (fileJson && fileJson.id && fileJson.slug) {
@@ -8321,7 +8332,7 @@ var _zipContent = function (contentpath, contentfilename) {
 	return new Promise(function (resolve, reject) {
 		//
 		// create the content zip file
-		// 
+		//
 		gulp.src(contentpath + '/**', {
 			base: contentpath
 		})
@@ -8342,7 +8353,7 @@ var _zipContent = function (contentpath, contentfilename) {
 //////////////////////////////////////////////////////////////////////////
 //    MS word support
 //////////////////////////////////////////////////////////////////////////
-/** 
+/**
  * 2021-08-20 removed
 var MSWord = require('./msword/js/msWord.js');
 var Files = require('./msword/js/files.js');

@@ -828,7 +828,7 @@ JobManager.prototype.compileContentJob = function (jobConfig) {
 
 	return new Promise(function (resolve, reject) {
 		if (['FAILED', 'COMPILED'].indexOf(jobConfig.status) === -1) {
-			// if status is 
+			// if status is
 			self.compileJob(jobConfig, true).then(function (updatedJobConfig) {
 				resolve(updatedJobConfig);
 			}, function (updatedJobConfig) {
@@ -908,7 +908,7 @@ JobManager.prototype.updateSiteMetadata = function (jobConfig) {
 		return Promise.resolve();
 	}
 
-	// get the site metadata 
+	// get the site metadata
 	if (self.getSiteMetadataPromise) {
 		return self.getSiteMetadataPromise.then(function (siteData) {
 			// update compile status property within the site metadata
@@ -950,11 +950,11 @@ JobManager.prototype.updateStatus = function (jobConfig, status, progress) {
 	}
 
 	return self.updateJob(jobConfig, data).then(function (updatedJobConfig) {
-		// attempt to update the server with the updated job config so that the UI can be updated to notify the user.  
+		// attempt to update the server with the updated job config so that the UI can be updated to notify the user.
 		// don't need to wait for this to complete, we're storing the value locally so any errors do not cause an issue
 
 		// Retry, assuming the error is recoverable.
-		// We have yet to find a way to handle irrecoverable error. 
+		// We have yet to find a way to handle irrecoverable error.
 		// We will add the new Promise back when we have a solution on how to handle reject promise.
 
 		return new Promise(function (resolve, reject) {

@@ -11,16 +11,16 @@ var ContentPlaceholder = function (args) {
 	this.contentItem = args.SCSCompileAPI.detailContentItem;
 
 	// set the default to content placeholder default
-	this.defaultContentLayoutCategory = 'Content Placeholder Default'; 
+	this.defaultContentLayoutCategory = 'Content Placeholder Default';
 };
 ContentPlaceholder.prototype = Object.create(ContentItem.prototype);
 
 ContentPlaceholder.prototype.isComponentValid = function (id, contentId) {
 	if (!this.contentItem) {
-		compilationReporter.info({ 
+		compilationReporter.info({
 			message: 'no content item specified for placeholder: ' + id + ' component will render at runtime.'
 		});
-		return false; 
+		return false;
 	} else {
 		return true;
 	}

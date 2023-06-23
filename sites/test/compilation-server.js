@@ -37,9 +37,9 @@ if (jobsDir) {
 
 // Initialize compilation service with a persistence store object.
 var compilationArgs = {
-		ps: new persistenceStore(psArgs),
-		useShellScript: useShellScript
-	};
+	ps: new persistenceStore(psArgs),
+	useShellScript: useShellScript
+};
 
 this.compilation = new compilationService(compilationArgs);
 
@@ -47,63 +47,63 @@ server.set('port', port);
 server.use(bodyParser.json());
 server.use('/', router);
 
-router.get('/compiler/rest/api', (request,response)=>{
+router.get('/compiler/rest/api', (request, response) => {
 	this.compilation.getApiVersions(request, response);
-  });
-  
-  // v1.1 calls
-  router.get('/compiler/rest/api/v1.1/server', (request,response)=>{
+});
+
+// v1.1 calls
+router.get('/compiler/rest/api/v1.1/server', (request, response) => {
 	this.compilation.getServer(request, response);
-  });
-  
-  router.get('/compiler/rest/api/v1.1/job/:id', (request,response)=>{
+});
+
+router.get('/compiler/rest/api/v1.1/job/:id', (request, response) => {
 	this.compilation.getJob(request, response);
-  });
-  
-  router.post('/compiler/rest/api/v1.1/job', (request,response)=>{
+});
+
+router.post('/compiler/rest/api/v1.1/job', (request, response) => {
 	this.compilation.createJob(request, response);
-  });
-  
-  router.post('/compiler/rest/api/v1.1/job/:id/compilesite', (request,response)=>{
+});
+
+router.post('/compiler/rest/api/v1.1/job/:id/compilesite', (request, response) => {
 	this.compilation.submitCompileSite(request, response);
-  });
-  router.post('/compiler/rest/api/v1.1/job/:id/compilecontent', (request,response)=>{
+});
+router.post('/compiler/rest/api/v1.1/job/:id/compilecontent', (request, response) => {
 	this.compilation.submitCompileContent(request, response);
-  });
+});
 
-  router.post('/compiler/rest/api/v1.1/job/:id', (request,response)=>{
+router.post('/compiler/rest/api/v1.1/job/:id', (request, response) => {
 	this.compilation.updateJob(request, response);
-  });
+});
 
-  router.delete('/compiler/rest/api/v1.1/job/:id', (request,response)=>{
+router.delete('/compiler/rest/api/v1.1/job/:id', (request, response) => {
 	this.compilation.deleteJob(request, response);
-  });
+});
 
-	
-  // v1 calls for backwards compatibility
-  router.get('/compiler/rest/api/v1/server', (request,response)=>{
+
+// v1 calls for backwards compatibility
+router.get('/compiler/rest/api/v1/server', (request, response) => {
 	this.compilation.getServer(request, response);
-  });
-  
-  router.get('/compiler/rest/api/v1/job/:id', (request,response)=>{
+});
+
+router.get('/compiler/rest/api/v1/job/:id', (request, response) => {
 	this.compilation.getJob(request, response);
-  });
-  
-  router.post('/compiler/rest/api/v1/job', (request,response)=>{
+});
+
+router.post('/compiler/rest/api/v1/job', (request, response) => {
 	this.compilation.createJob(request, response);
-  });
-  
-  router.post('/compiler/rest/api/v1/job/:id/compilesite', (request,response)=>{
+});
+
+router.post('/compiler/rest/api/v1/job/:id/compilesite', (request, response) => {
 	this.compilation.submitCompileSite(request, response);
-  });
+});
 
-  router.post('/compiler/rest/api/v1/job/:id', (request,response)=>{
+router.post('/compiler/rest/api/v1/job/:id', (request, response) => {
 	this.compilation.updateJob(request, response);
-  });
+});
 
-  router.delete('/compiler/rest/api/v1/job/:id', (request,response)=>{
+router.delete('/compiler/rest/api/v1/job/:id', (request, response) => {
 	this.compilation.deleteJob(request, response);
-  });
+});
 
 // Handle startup errors
 process.on('uncaughtException', function (err) {
@@ -118,24 +118,24 @@ process.on('uncaughtException', function (err) {
 });
 
 var startCompilationService = function() {
-		// Compilation logs directory
-		var compilationLogsDir = process.env.CEC_TOOLKIT_COMPILATION_LOGS_DIR;
+	// Compilation logs directory
+	var compilationLogsDir = process.env.CEC_TOOLKIT_COMPILATION_LOGS_DIR;
 
-		if (compilationLogsDir) {
-			this.compilation.setLogsDir(compilationLogsDir);
-			console.log('Compilation log files will be written to', compilationLogsDir);
+	if (compilationLogsDir) {
+		this.compilation.setLogsDir(compilationLogsDir);
+		console.log('Compilation log files will be written to', compilationLogsDir);
+	}
+
+	if (compileStepTimeoutValue) {
+		if (typeof compileStepTimeoutValue === 'string') {
+			compileStepTimeoutValue = parseInt(compileStepTimeoutValue);
 		}
+		this.compilation.setCompileStepTimeoutValue(compileStepTimeoutValue);
+		console.log('compile-template timeout value is', compileStepTimeoutValue);
+	}
 
-		if (compileStepTimeoutValue) {
-			if (typeof compileStepTimeoutValue === 'string') {
-				compileStepTimeoutValue = parseInt(compileStepTimeoutValue);
-			}
-			this.compilation.setCompileStepTimeoutValue(compileStepTimeoutValue);
-			console.log('compile-template timeout value is', compileStepTimeoutValue);
-		}
-
-		this.compilation.restartJobs();
-	};
+	this.compilation.restartJobs();
+};
 
 // start the server
 

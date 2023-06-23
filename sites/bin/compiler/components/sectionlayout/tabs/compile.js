@@ -49,6 +49,7 @@ SectionLayout.prototype = {
 		var $ = cheerio.load('<div>');
 		var $parentObj = $('<div></div>');
 		var content = '';
+		var i;
 
 		var ciData = this.componentInstanceObject || {};
 		var slData = ciData.data || {};
@@ -98,7 +99,7 @@ SectionLayout.prototype = {
 					$parentObj.append(html);
 				}
 
-				// 
+				//
 				// Add in the tab list
 				//
 				html = '<div id="' + idPrefix + '">';
@@ -119,7 +120,7 @@ SectionLayout.prototype = {
 				/*
 				if (isEditMode) {
 					// Create markup for add tab
-					html += '<li class="'+addTabClass+'"><a href="" id="' + idPrefix + '-add"><span>'+resources['COMP_CONFIG_SECTION_LAYOUT_NEW_TAB_DISPLAY_NAME']+'</span></a></li>';						
+					html += '<li class="'+addTabClass+'"><a href="" id="' + idPrefix + '-add"><span>'+resources['COMP_CONFIG_SECTION_LAYOUT_NEW_TAB_DISPLAY_NAME']+'</span></a></li>';
 				}
 				*/
 				html += '  </ul>';
@@ -138,7 +139,7 @@ SectionLayout.prototype = {
 				}
 
 				html += '</div>';
-				$html = $(html);
+				var $html = $(html);
 
 				// Set the tab labels
 				$html.find('ul li a span').each(function (index) {

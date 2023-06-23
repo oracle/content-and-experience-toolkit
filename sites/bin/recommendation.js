@@ -28,7 +28,7 @@ var buildfolder;
 
 /**
  * Verify the source structure before proceed the command
- * @param {*} done 
+ * @param {*} done
  */
 var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
@@ -330,7 +330,7 @@ var _zipRecommendation = function (srcPath, fileName) {
 	return new Promise(function (resolve, reject) {
 		//
 		// create the content zip file
-		// 
+		//
 		var exportzippath = path.join(srcPath, 'export.zip');
 		gulp.src([srcPath + '/**', '!' + exportzippath])
 			.pipe(zip(fileName))
@@ -852,8 +852,8 @@ var _publishUnpublishRecommendation = function (server, recommendations, channel
 							});
 					});
 				},
-					// Start with a previousPromise value that is a resolved promise 
-					Promise.resolve({}));
+				// Start with a previousPromise value that is a resolved promise
+				Promise.resolve({}));
 
 				doRecommendationAction.then(function (result) {
 					resolve({

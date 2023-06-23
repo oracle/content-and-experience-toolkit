@@ -12,14 +12,16 @@ var projectDir;
 
 /**
  * Verify the source structure before proceed the command
- * @param {*} done 
+ * @param {*} done
  */
 var verifyRun = function (argv) {
+	if (process.shim) {
+		return true;
+	}
 	projectDir = argv.projectDir;
 
 	return true;
 };
-
 module.exports.createGroup = function (argv, done) {
 	'use strict';
 
