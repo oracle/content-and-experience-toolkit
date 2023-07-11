@@ -138,7 +138,7 @@ module.exports.downloadContent = function (argv, done) {
 			done();
 			return;
 		}
-		// console.log(' - total asset GUIDs in file ' + assetsFile + ': ' + assetsInFile.length);
+		console.info(' - total asset GUIDs in file ' + assetsFile + ': ' + assetsInFile.length);
 		assetGUIDS = assetGUIDS.concat(assetsInFile);
 	}
 
@@ -178,17 +178,21 @@ var _downloadContent = function (server, channel, name, publishedassets, approve
 
 		var channelId = '';
 		var channelName = '';
+		var channelRepoId;
 		var repository, collection;
 		var q = '';
 		var guids = [];
 		var exportfilepath;
 		var contentPath;
+		var dbAssetGUIDS = [];
+		var requireItemSearch;
 
 		var channelPromises = [];
 		if (channel) {
 			channelPromises.push(serverRest.getChannelWithName({
 				server: server,
-				name: channel
+				name: channel,
+				fields: 'repositories'
 			}));
 		}
 		Promise.all(channelPromises)
@@ -202,13 +206,14 @@ var _downloadContent = function (server, channel, name, publishedassets, approve
 
 					channelId = results[0].data.id;
 					channelName = results[0].data.name;
+					channelRepoId = results[0].data.repositories && results[0].data.repositories[0] ? results[0].data.repositories[0].id : '';
 
 					if (!channelId) {
 						console.error('ERROR: channel ' + channel + ' does not exist');
 						return Promise.reject();
 					}
 
-					console.info(' - validate channel ' + channelName + ' (id: ' + channelId + ')');
+					console.info(' - validate channel ' + channelName + ' (id: ' + channelId + (channelRepoId ? ' repository: ' + channelRepoId : '') + ')');
 				}
 
 				var repositoryPromises = [];
@@ -222,7 +227,6 @@ var _downloadContent = function (server, channel, name, publishedassets, approve
 				return Promise.all(repositoryPromises);
 			})
 			.then(function (results) {
-				var collectionPromises = [];
 
 				if (repositoryName) {
 					if (!results || !results[0] || results[0].err || !results[0].data) {
@@ -231,14 +235,42 @@ var _downloadContent = function (server, channel, name, publishedassets, approve
 					}
 
 					repository = results[0].data;
+					console.info(' - validate repository (id: ' + repository.id + ')');
+				}
 
-					console.info(' - validate repository');
+				// if repository is specified, query DB to get accurate asset IDs
+				let assetIdsFromDBPromises = [];
+				if (channelRepoId || repository) {
+					assetIdsFromDBPromises.push(serverRest.getAllItemIds({
+						server: server,
+						repositoryId: repository && repository.id || channelRepoId,
+						channelId: channelId,
+						publishedassets: publishedassets
+					}));
+				}
+
+				return Promise.all(assetIdsFromDBPromises);
+
+			})
+			.then(function (results) {
+
+				if (channelRepoId || repository) {
+					// result in format of
+					// [{id: ''}, ..., {id: ''}]
+					dbAssetGUIDS = results && results[0] && results[0].data || [];
+					console.info(' - total assets in repostiory / channel: ' + dbAssetGUIDS.length);
+				}
+
+				// require item search to get items
+				requireItemSearch = collection || query || approvedassets || dbAssetGUIDS.length === 0;
+
+				var collectionPromises = [];
+				if (repository) {
 					collectionPromises.push(serverRest.getCollections({
 						server: server,
 						repositoryId: repository.id
 					}));
 				}
-
 				return Promise.all(collectionPromises);
 
 			})
@@ -265,51 +297,54 @@ var _downloadContent = function (server, channel, name, publishedassets, approve
 					console.info(' - validate collection');
 				}
 
-				if (query || repository || collection || (assetGUIDS && assetGUIDS.length > 0)) {
-					q = '';
-					if (repository) {
-						q = '(repositoryId eq "' + repository.id + '")';
+				q = '';
+				if (repository) {
+					q = '(repositoryId eq "' + repository.id + '")';
+				}
+				if (collection) {
+					if (q) {
+						q = q + ' AND ';
 					}
-					if (collection) {
-						if (q) {
-							q = q + ' AND ';
-						}
-						q = '(collections co "' + collection.id + '")';
+					q = '(collections co "' + collection.id + '")';
+				}
+				if (query) {
+					if (q) {
+						q = q + ' AND ';
 					}
-					if (query) {
-						if (q) {
-							q = q + ' AND ';
-						}
-						q = q + '(' + query + ')';
-					}
-
-					if (publishedassets) {
-						if (q) {
-							q = q + ' AND ';
-						}
-						q = q + 'isPublished eq "true" AND publishedChannels co "' + channelId + '"';
-					} else {
-						if (channelId) {
-							if (q) {
-								q = q + ' AND ';
-							}
-							q = q + '(channels co "' + channelId + '")';
-						}
-					}
-					console.info(' - query: ' + q);
+					q = q + '(' + query + ')';
 				}
 
-				return _queryItems(server, q, assetGUIDS, 'name,typeCategory');
+				if (publishedassets) {
+					if (q) {
+						q = q + ' AND ';
+					}
+					q = q + 'isPublished eq "true" AND publishedChannels co "' + channelId + '"';
+				} else {
+					if (channelId) {
+						if (q) {
+							q = q + ' AND ';
+						}
+						q = q + '(channels co "' + channelId + '")';
+					}
+				}
+
+				if (requireItemSearch) {
+					console.info(' - query: ' + q);
+				}
+				var itemSearchPromises = requireItemSearch ? [_queryItems(server, q, assetGUIDS, 'name,typeCategory')] : [];
+
+				return Promise.all(itemSearchPromises);
 
 			})
-			.then(function (result) {
+			.then(function (results) {
 
 				var guidAndTypes = [];
-				if (query || repository || collection || (assetGUIDS && assetGUIDS.length > 0)) {
-
-					var items = result || [];
+				var items = requireItemSearch ? (results && results[0] || []) : dbAssetGUIDS;
+				if (requireItemSearch) {
 					console.info(' - total items from query: ' + items.length);
+				}
 
+				if (items.length > 0) {
 					if (assetGUIDS && assetGUIDS.length > 0) {
 						var notFoundAssets = [];
 						assetGUIDS.forEach(function (id) {
@@ -346,21 +381,19 @@ var _downloadContent = function (server, channel, name, publishedassets, approve
 							guids.push(items[i].id);
 							guidAndTypes.push({
 								id: items[i].id,
-								typeCategory: items[i].typeCategory
+								typeCategory: items[i].typeCategory || ''
 							});
 						}
 					}
 				} else {
 					guids = assetGUIDS;
 				}
-				if (assetGUIDS && assetGUIDS.length > 0 || q) {
-					if (q) {
-						console.info(' - total items to export: ' + guids.length);
-					}
-					if (guids.length === 0) {
-						console.error('ERROR: no asset to export');
-						return Promise.reject();
-					}
+
+				console.info(' - total items to export: ' + guids.length);
+
+				if (guids.length === 0) {
+					console.error('ERROR: no asset to export');
+					return Promise.reject();
 				}
 
 				var approvedPromises = [];

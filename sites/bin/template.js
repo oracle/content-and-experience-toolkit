@@ -45,6 +45,12 @@ var templateBuildContentDirBase = '',
 	templateBuildContentDirName = '',
 	templateName = '';
 
+// default the mount points
+var baseMountPoint = '/_ocm_publish',
+	themeMountPoint = path.join(baseMountPoint, 'themes'),
+	siteMountPoint = path.join(baseMountPoint, 'sites'),
+	componentMountPoint = path.join(baseMountPoint, 'components');
+
 /**
  * Verify the source structure before proceed the command
  * @param {*} done
@@ -251,7 +257,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 					var showError = true;
 					var showDetail = false;
-					return _downloadResource(server, 'site', site.id, siteName, publishedversion, tempSrcPath, showError, showDetail, excludeFolder);
+					return _downloadSite(server, 'site', site.id, siteName, publishedversion, tempSrcPath, showError, showDetail, excludeFolder);
 
 				})
 				.then(function (result) {
@@ -344,7 +350,6 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 				})
 				.then(function (result) {
-
 					hasAssets = result && result.hasAssets;
 					if (isEnterprise && !hasAssets) {
 						console.info(' - site does not have any asset');
@@ -598,7 +603,88 @@ var _cleanupPublishedTemplate = function (name, tempPath) {
 	});
 };
 
+
+/// copy the theme from the mounted shared filesystem location if available
+var _copyThemeFromFSS = function (themeName, themeSrcPath, excludeFolders, publishedversion) {
+	var mountedThemePath = path.join(themeMountPoint, themeName);
+	if (publishedversion && fs.existsSync(mountedThemePath)) {
+		// copy the theme files
+		try {
+			console.info(' - copying theme files: ' + themeName)
+			fs.cpSync(mountedThemePath, themeSrcPath, { force: true, recursive: true });
+			return true;
+		} catch (err) {
+			console.error(err)
+			return false;
+		}
+	} else {
+		// only link if using the published version of the site
+		return false;
+	}
+};
+
 var _downloadTheme = function (server, themeName, themeId, themeSrcPath, excludeFolders, publishedversion) {
+	// try to copy the theme using the expected OCM mount point
+	if (_copyThemeFromFSS(themeName, themeSrcPath, excludeFolders, publishedversion)) {
+		return serverUtils.getThemeMetadata(server, themeId, themeName).then(function (result) {
+			// get the theme identity in folder info
+			var itemGUID = result && result.metadata && result.metadata.scsItemGUID || themeId;
+			// console.log(' - theme ' + themeName + ' itemGUID: ' + itemGUID + ' id: ' + themeId);
+			// create _folder.json for theme
+			var folderJson = {
+				themeName: themeName,
+				itemGUID: itemGUID
+			};
+			fs.writeFileSync(path.join(themeSrcPath, '_folder.json'), JSON.stringify(folderJson));
+
+			return Promise.resolve(folderJson);
+		});
+	} else {
+		// otherwise download the individual files
+		return _downloadThemeFiles(server, themeName, themeId, themeSrcPath, excludeFolders, publishedversion);
+	}
+};
+
+
+// copy any components from the mounted shared filesystem location if available
+var _copySiteComponentsFromFSS = function (compNames, publishedversion) {
+	if (publishedversion && fs.existsSync(componentMountPoint)) {
+		var missingComps = [];
+
+		// try to link published version of components
+		compNames.forEach((compName) => {
+			// try to copy the component
+			var copied = false;
+
+			// copy across the component
+			var compTargePath = path.join(componentsSrcDir, compName);
+			var mountedComponentPath = path.join(componentMountPoint, compName);
+
+			if (fs.existsSync(mountedComponentPath)) {
+				try {
+					console.info(' - copying component: ' + compName);
+					fs.cpSync(mountedComponentPath, compTargePath, { force: true, recursive: true });
+					copied = true;
+				} catch (err) {
+					console.error(err)
+				}
+			}
+
+			// if couldn't link the component, download it
+			if (!copied) {
+				missingComps.push(compName);
+			}
+		});
+
+		// return list of components still to download
+		return missingComps;
+	} else {
+		// return list of components still to download
+		return compNames;
+	}
+};
+
+var _downloadThemeFiles = function (server, themeName, themeId, themeSrcPath, excludeFolders, publishedversion) {
 	return new Promise(function (resolve, reject) {
 		// download theme
 		var downloadArgv = {
@@ -645,6 +731,18 @@ var _downloadTheme = function (server, themeName, themeId, themeSrcPath, exclude
 };
 
 var _downloadSiteComponents = function (server, compNames, publishedversion) {
+	var total = compNames.length;
+	console.info(' - total number of components: ' + total);
+
+	// try to copy components first
+	var componentsToDownload = _copySiteComponentsFromFSS(compNames, publishedversion);
+
+	// now download any components that weren't linked
+	return _downloadSiteComponentsFiles(server, componentsToDownload, publishedversion);
+};
+
+var _downloadSiteComponentsFiles = function (server, compNames, publishedversion) {
+
 	return new Promise(function (resolve, reject) {
 		var comps = [];
 		var downloadedComps = [];
@@ -953,8 +1051,6 @@ var _queryComponents = function (server, compNames) {
 
 var _downloadComponents = function (comps, server, publishedversion) {
 	return new Promise(function (resolve, reject) {
-		var total = comps.length;
-		console.info(' - total number of components: ' + total);
 		var compData = [];
 
 		var doDownloadComp = comps.reduce(function (compPromise, param) {
@@ -1001,6 +1097,37 @@ var _downloadComponents = function (comps, server, publishedversion) {
 		});
 
 	});
+};
+
+// copy the site from the mounted shared filesystem location if available
+var _copySiteFromFSS = function (siteName, siteSrcPath, publishedversion) {
+	var mountedSitePath = path.join(siteMountPoint, siteName);
+	if (publishedversion && fs.existsSync(mountedSitePath)) {
+		// copy the site files
+		try {
+			console.info(' - copying site files: ' + siteName);
+			fs.cpSync(mountedSitePath, siteSrcPath, { force: true, recursive: true });
+			return true;
+		} catch (err) {
+			console.error(err)
+			return false;
+		}
+	} else {
+		// only copy if using the published version of the site
+		return false;
+	}
+};
+
+// Download the site - use the source folder if it exists, otherwise handle individual files
+var _downloadSite = function (server, type, id, name, publishedversion, targetPath, showError, showDetail, excludeFolder) {
+
+	// try to copy the site
+	if (_copySiteFromFSS(name, targetPath, publishedversion)) {
+		return Promise.resolve({});
+	} else {
+		// if can't copy, then download the site
+		return _downloadResource(server, type, id, name, publishedversion, targetPath, showError, showDetail, excludeFolder);
+	}
 };
 
 //
@@ -1136,6 +1263,15 @@ var _downloadResource = function (server, type, id, name, publishedversion, targ
 	});
 };
 
+// set file mount points for copying files during creating a template
+var _setMountPoints = function (mountPoint) {
+	// ToDo: get final FSS mount point as default
+	baseMountPoint = mountPoint || '/_ocm_publish';
+	themeMountPoint = path.join(baseMountPoint, 'themes');
+	siteMountPoint = path.join(baseMountPoint, 'sites');
+	componentMountPoint = path.join(baseMountPoint, 'components');
+};
+
 module.exports.createTemplate = function (argv, done) {
 	'use strict';
 
@@ -1174,8 +1310,11 @@ module.exports.createTemplate = function (argv, done) {
 		var excludeComponents = typeof argv.excludecomponents === 'string' && argv.excludecomponents.toLowerCase() === 'true';
 		var enterprisetemplate = typeof argv.enterprisetemplate === 'string' && argv.enterprisetemplate.toLowerCase() === 'true';
 		var excludeTheme = false;
-		var excludeType = false;
+		var excludeType = typeof argv.excludetype === 'string' && argv.excludetype.toLowerCase() === 'true';
 		var excludeFolders = argv.excludefolders ? argv.excludefolders.split(',') : [];
+
+		// allow the user to override the location of the source files
+		_setMountPoints(typeof argv.sourcefiles === 'string' && argv.sourcefiles);
 
 		_createLocalTemplateFromSite(argv.name, siteName, server, excludeContent, enterprisetemplate,
 			excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets, excludeFolders, publishedversion)

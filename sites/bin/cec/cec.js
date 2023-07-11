@@ -286,6 +286,16 @@ var getTaxonomyStatus = function () {
 	return names;
 };
 
+var getTaxonomyCategoryStatus = function () {
+	var names = ['promoted', 'draft'];
+	return names;
+};
+
+var getCategoryPropertyNames = function () {
+	var names = ['keywords', 'synonyms', 'relatedCategories', 'customProperties'];
+	return names;
+};
+
 var getTaxonomyActions = function () {
 	const actions = ['promote', 'publish', 'unpublish'];
 	return actions;
@@ -628,6 +638,7 @@ const createTemplate = {
 		['cec create-template Temp1 -s Site1 -p', 'Create template Temp1 based on site Site1 on OCM server and include only the published assets'],
 		['cec create-template Temp1 -s Site1 -n', 'Create template Temp1 based on site Site1 on OCM server and include only the assets added to the site\'s pages'],
 		['cec create-template Temp1 -s Site1 -x', 'Create template Temp1 based on site Site1 on OCM server and exclude the content in the site'],
+		['cec create-template Temp1 -s Site1 -x -t', 'Create template Temp1 based on site Site1 on OCM server and exclude both content and content types in the site'],
 		['cec create-template Temp1 -s Site1 -c', 'Create template Temp1 based on site Site1 on OCM server and exclude the components used in the site'],
 		['cec create-template Temp1 -s Site1 -d site:content', 'Create template Temp1 based on site Site1 on OCM server and exclude the content folder of the site'],
 		['cec create-template Temp1 -s Site1 -r SampleServer1', 'Create template Temp1 based on site Site1 on the registered server SampleServer1'],
@@ -1351,6 +1362,25 @@ const uploadTaxonomy = {
 	]
 };
 
+const transferCategoryProperty = {
+	command: 'transfer-category-property <name>',
+	alias: 'tcp',
+	name: 'transfer-category-property',
+	usage: {
+		'short': 'Transfers category properties from one OCM server to another.',
+		'long': (function () {
+			let desc = 'Transfers category properties of a taxonomy from one OCM server to another. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. ';
+			desc += os.EOL + 'The taxonomy on the two servers should be in sync before use this command. And only the following properties will be updated on the destination server' + os.EOL + os.EOL;
+			desc = getCategoryPropertyNames().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+		})()
+	},
+	example: [
+		['cec transfer-category-property Taxonomy1 -s SampleServer -d SampleServer1', 'The promoted taxonomy categories will be transferred'],
+		['cec transfer-category-property Taxonomy1 -i 6A6DC736572C468B90F2A1C17B7CE5E4 -s SampleServer -d SampleServer']
+	]
+};
+
 const updateTaxonomy = {
 	command: 'update-taxonomy <name>',
 	alias: 'utx',
@@ -1717,7 +1747,7 @@ const controlSite = {
 		['cec control-site publish -s Site1 -i seo,rssFeeds ', 'Only publish Sitemap, Robots and RSS Feed files of site Site1'],
 		['cec control-site publish -s Site1 -a 100,200 ', 'Only publish page 100 and 200 of site Site1'],
 		['cec control-site publish -s Site1 -a 100 -b ', 'Only publish page 100 and its sub pages of site Site1'],
-		// ['cec control-site publish -s Site1 -l 150:GUID1,GUID2 ', 'Only publish assets GUID1 and GUID2 on detail page 150 of site Site1'],
+		['cec control-site publish -s Site1 -l 150:GUID1,GUID2 ', 'Only publish assets GUID1 and GUID2 on detail page 150 of site Site1'],
 		['cec control-site publish -s Site1 -r SampleServer1', 'Publish site Site1 on the registered server SampleServer1'],
 		['cec control-site unpublish -s Site1 -r SampleServer1', 'Unpublish site Site1 on the registered server SampleServer1'],
 		['cec control-site bring-online -s Site1 -r SampleServer1', 'Bring site Site1 online on the registered server SampleServer1'],
@@ -4492,6 +4522,7 @@ _usage = _usage + os.EOL + 'Recommendations' + os.EOL +
 
 _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(downloadTaxonomy) + os.EOL +
+	_getCmdHelp(transferCategoryProperty) + os.EOL +
 	_getCmdHelp(uploadTaxonomy) + os.EOL +
 	_getCmdHelp(controlTaxonomy) + os.EOL +
 	_getCmdHelp(updateTaxonomy) + os.EOL +
@@ -4838,6 +4869,10 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'Exclude content'
 				})
+				.option('excludetype', {
+					alias: 't',
+					description: 'Exclude content types'
+				})
 				.option('excludecomponents', {
 					alias: 'c',
 					description: 'Exclude components'
@@ -4853,6 +4888,11 @@ const argv = yargs.usage(_usage)
 				.option('server', {
 					alias: 'r',
 					description: 'The registered OCM server'
+				})
+				.option('sourcefiles', {
+					alias: 'l',
+					description: 'Attempt to download files from this source file location',
+					hidden: true
 				})
 				.check((argv) => {
 					if (argv.from && !getTemplateSources().includes(argv.from)) {
@@ -4874,6 +4914,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplate.example[8])
 				.example(...createTemplate.example[9])
 				.example(...createTemplate.example[10])
+				.example(...createTemplate.example[11])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTemplate.command}\n\n${createTemplate.usage.long}`);
@@ -6024,6 +6065,31 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${uploadTaxonomy.command}\n\n${uploadTaxonomy.usage.long}`);
 		})
+	.command([transferCategoryProperty.command, transferCategoryProperty.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server the category properties are from',
+				demandOption: true
+			})
+				.option('destination', {
+					alias: 'd',
+					description: 'The registered OCM server to transfer the category properties',
+					demandOption: true
+				})
+				.option('id', {
+					alias: 'i',
+					description: 'Taxonomy Id'
+				})
+				.check((argv) => {
+					return true;
+				})
+				.example(...transferCategoryProperty.example[0])
+				.example(...transferCategoryProperty.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${transferCategoryProperty.command}\n\n${transferCategoryProperty.usage.long}`);
+		})
 	.command([controlTaxonomy.command, controlTaxonomy.alias], false,
 		(yargs) => {
 			yargs
@@ -6760,6 +6826,18 @@ const argv = yargs.usage(_usage)
 					if (argv.settingsfiles && typeof argv.settingsfiles === 'boolean') {
 						throw new Error(os.EOL + 'Please specify valid site settings files');
 					}
+					if (argv.pages && typeof argv.pages === 'boolean') {
+						throw new Error(os.EOL + 'Please specify valid site pages');
+					}
+					if (argv.detailpageassets && typeof argv.detailpageassets === 'boolean') {
+						throw new Error(os.EOL + 'Please specify valid detail page and assets');
+					}
+					if (argv.detailpageassets) {
+						let parts = argv.detailpageassets.toString().split(':');
+						if (parts.length !== 2) {
+							throw new Error(os.EOL + 'Please specify valid detail page and assets in format of <pageid>:<GUID1>,<GUID2>');
+						}
+					}
 					if (argv.settingsfiles && argv.action !== 'publish' && argv.action !== 'publish-internal') {
 						throw new Error(os.EOL + '<settingsfiles> is only for action publish');
 					}
@@ -6768,6 +6846,9 @@ const argv = yargs.usage(_usage)
 					}
 					if (argv.detailpageassets && argv.action !== 'publish' && argv.action !== 'publish-internal') {
 						throw new Error(os.EOL + '<detailpageassets> is only for action publish');
+					}
+					if (argv.staticincremental && !argv.staticonly) {
+						throw new Error(os.EOL + '<staticincremental> is only available if <staticonly> also specified');
 					}
 					if (argv.settingsfiles) {
 						let files = argv.settingsfiles.split(',');
@@ -6797,6 +6878,10 @@ const argv = yargs.usage(_usage)
 					alias: 't',
 					description: 'Only publish site static files'
 				})
+				.option('staticincremental', {
+					alias: 'm',
+					description: 'Add to the already published static files'
+				})
 				.option('compileonly', {
 					alias: 'p',
 					description: 'Only compile and publish the static files without publishing the site'
@@ -6823,8 +6908,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('detailpageassets', {
 					alias: 'l',
-					description: 'The detail page ID and their asset IDs',
-					hidden: true
+					description: 'The detail page ID and their asset IDs'
 				})
 				.option('theme', {
 					alias: 'e',
@@ -6844,7 +6928,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered OCM server'
+					description: 'The registered OCM server'
 				})
 				.example(...controlSite.example[0])
 				.example(...controlSite.example[1])
@@ -6863,6 +6947,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[14])
 				.example(...controlSite.example[15])
 				.example(...controlSite.example[16])
+				.example(...controlSite.example[17])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlSite.command}\n\n${controlSite.usage.long}`);
@@ -10449,11 +10534,12 @@ if (fs.existsSync(path.join(appRoot, 'package.json'))) {
 
 // Display command and its params
 // console.log(argv);
-var _displayCommand = function (cmdName) {
+var _displayCommand = function (cmdName, obscureParams) {
 	var cmdStr = 'cec ' + (cmdName || argv._[0]);
 	var paramStr = '';
 	var requiredParamStr = '';
 	var found0 = false;
+	var toObscure = obscureParams || [];
 	Object.keys(argv).forEach(function (name) {
 		if (name === '$0') {
 			found0 = true;
@@ -10469,6 +10555,9 @@ var _displayCommand = function (cmdName) {
 				} catch (e) {
 					// ignore
 				}
+			}
+			if (toObscure.includes(name)) {
+				value = 'xxxxxx';
 			}
 			if (!found0) {
 				paramStr = paramStr + ' ' + '--' + name + ' ' + value;
@@ -10781,6 +10870,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.excludecontent) {
 		createTemplateArgs.push(...['--excludecontent', argv.excludecontent]);
 	}
+	if (argv.excludetype) {
+		createTemplateArgs.push(...['--excludetype', argv.excludetype]);
+	}
 	if (argv.excludecomponents) {
 		createTemplateArgs.push(...['--excludecomponents', argv.excludecomponents]);
 	}
@@ -10792,6 +10884,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createTemplateArgs.push(...['--server', argv.server]);
+	}
+	if (argv.sourcefiles) {
+		createTemplateArgs.push(...['--sourcefiles', argv.sourcefiles]);
 	}
 	createTemplateArgs.push(...['--name', argv.name]);
 	spawnCmd = childProcess.spawnSync(npmCmd, createTemplateArgs, {
@@ -11634,6 +11729,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === transferCategoryProperty.name || argv._[0] === transferCategoryProperty.alias) {
+	_displayCommand(transferCategoryProperty.name);
+	let transferCategoryPropertiesArgs = ['run', '-s', transferCategoryProperty.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--server', argv.server,
+		'--destination', argv.destination
+	];
+	if (argv.id) {
+		transferCategoryPropertiesArgs.push(...['--id', argv.id]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, transferCategoryPropertiesArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === controlTaxonomy.name || argv._[0] === controlTaxonomy.alias) {
 	_displayCommand(controlTaxonomy.name);
 	let controlTaxonomyArgs = ['run', '-s', controlTaxonomy.name, '--prefix', appRoot,
@@ -12328,6 +12440,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.staticonly) {
 		controlSiteArgs.push(...['--staticonly', argv.staticonly]);
+	}
+	if (argv.staticincremental) {
+		controlSiteArgs.push(...['--staticincremental', argv.staticincremental]);
 	}
 	if (argv.compileonly) {
 		controlSiteArgs.push(...['--compileonly', argv.compileonly]);
@@ -14534,7 +14649,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 
 } else if (argv._[0] === registerServer.name || argv._[0] === registerServer.alias) {
-	_displayCommand(registerServer.name);
+	_displayCommand(registerServer.name, ['password']);
 	let registerServerArgs = ['run', '-s', registerServer.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -14935,8 +15050,10 @@ if (!process.shim) {
 	console.log('Elapsed time: ' + seconds + 's');
 
 	// see if need to show deprecation warning
-	_checkVersion();
-
+	let runCheckVersion = process.env.CEC_LCM_DOCKER === undefined || process.env.CEC_LCM_DOCKER !== 'true';
+	if (runCheckVersion) {
+		_checkVersion();
+	}
 
 	// console.log(spawnCmd);
 	process.exit(spawnCmd ? spawnCmd.status : 0);

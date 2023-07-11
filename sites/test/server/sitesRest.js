@@ -52,7 +52,7 @@ var _getResources = function (server, type, expand, offset) {
 				var items = data && data.items || [];
 				resolve(data);
 			} else {
-				console.error('ERROR: failed to get ' + type + ' : ' + (response ? (response.statusMessage + ' ' + response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get ' + type + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: (response ? (response.statusMessage || response.statusCode) : 'err')
 				});
@@ -1234,7 +1234,7 @@ module.exports.publishComponent = function (args) {
 	}
 };
 
-var _publishResourceAsync = function (server, type, id, name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles) {
+var _publishResourceAsync = function (server, type, id, name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles, staticincremental) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
@@ -1268,6 +1268,10 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 			}
 			if (staticOnly) {
 				body.onlyStaticFiles = true;
+
+				if (staticincremental || process.env.CEC_TOOLKIT_INCREMENTAL_COMPILE_FILE) {
+					body.selectiveStaticPublish = true;
+				}
 			}
 			if (compileOnly) {
 				body.onlyStaticFiles = true;
@@ -1381,7 +1385,7 @@ module.exports.publishTheme = function (args) {
 module.exports.publishSite = function (args) {
 	var server = args.server;
 	return _publishResourceAsync(server, 'sites', args.id, args.name,
-		args.usedContentOnly, args.compileSite, args.staticOnly, args.compileOnly, args.fullpublish, args.deletestaticfiles
+		args.usedContentOnly, args.compileSite, args.staticOnly, args.compileOnly, args.fullpublish, args.deletestaticfiles, args.staticincremental
 	);
 };
 
@@ -2617,7 +2621,6 @@ var _getBackgroundJobStatus = function (server, url) {
 		request.get(options, function (error, response, body) {
 
 			if (error) {
-				console.info('_getBackgroundJobStatus error fetching from options.url ' + options.url);
 				console.error('ERROR: failed to get status from ' + endpoint + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
@@ -2636,7 +2639,6 @@ var _getBackgroundJobStatus = function (server, url) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.info('_getBackgroundJobStatus  error in response fetching from options.url ' + options.url);
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.error('ERROR: failed to get status from ' + endpoint + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({

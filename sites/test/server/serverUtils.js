@@ -407,18 +407,25 @@ var _getRequestAuth = function (server) {
  * Return the Authorization for request headers
  * @param server the object obtained from API getConfiguredServer()
  */
-module.exports.getRequestAuthorization = function (server) {
-	return _getRequestAuthorization(server);
+module.exports.getRequestAuthorization = function (server, showError) {
+	return _getRequestAuthorization(server, showError);
 };
-var _getRequestAuthorization = function (server) {
+var _getRequestAuthorization = function (server, showError) {
 	var auth;
 
 	if (server.env === 'content_sdk') {
 		// for ContentSDK server, the oauthtoken contains the authorization value
 		auth = server.oauthtoken;
+	} else if (server.env === 'dev_ec' || (server.env === 'pod_pw' && !server.oauthtoken)) {
+		// for pw envs, use basic auth if no oauthtoken saved yet
+		auth = 'Basic ' + _btoa(server.username + ':' + server.password);
 	} else {
-		// create the authorization
-		auth = server.env === 'dev_ec' || !server.oauthtoken ? ('Basic ' + _btoa(server.username + ':' + server.password)) : ((server.tokentype || 'Bearer') + ' ' + server.oauthtoken);
+		// POD, use OAUTH token
+		let showMsg = showError === undefined ? true : showError
+		if (!server.oauthtoken && showMsg) {
+			console.error('ERROR: the OAuth token is no longer available');
+		}
+		auth = server.oauthtoken ? ((server.tokentype || 'Bearer') + ' ' + server.oauthtoken) : 'Bearer anonymous';
 	}
 
 	return auth;
@@ -1596,7 +1603,7 @@ module.exports.getCaasCSRFToken = function (server) {
 			if (response && response.statusCode === 200) {
 				return resolve(data);
 			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.error('ERROR: failed to get CSRF token ' + msg);
 				return resolve({
 					err: 'err'
@@ -2367,9 +2374,6 @@ var _loginToDevServer = function (server) {
 module.exports.loginToDevServer = _loginToDevServer;
 
 var _loginToPODServer = function (server) {
-	if (server.sso) {
-		return _loginToSSOServer(server);
-	}
 
 	if (server.useSecurityTokenAPI) {
 		return new Promise(function (resolve, reject) {
@@ -2897,7 +2901,7 @@ module.exports.loginToServer = function (server) {
 			} else {
 				return resolve({
 					status: result.status,
-					statusMessage: 'ERROR: failed to connect to the server'
+					statusMessage: result.statusMessage || 'ERROR: failed to connect to the server'
 				});
 			}
 		});
@@ -2912,6 +2916,10 @@ var _loginToServer = function (server) {
 
 	var env = server.env || 'pod_ec';
 
+	var browserEnv = process.env.CEC_LCM_DOCKER;
+	var noBrowser = browserEnv && browserEnv.toLowerCase() === 'true';
+	var noBrowserMsg = 'No OAuth token is available';
+
 	if (env === 'dev_pod') {
 		process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 	}
@@ -2923,17 +2931,25 @@ var _loginToServer = function (server) {
 	} else if (server.oauthtoken) {
 		// console.log(server);
 		// verify the token
-		return _getConnection(server)
+		// return _getConnection(server)
+		return _getUser(server)
 			.then(function (result) {
-				var userId = result && result.user && result.user.id;
+				var userId = result && result.userId;
 				if (!userId) {
 					server.login = false;
 					server.oauthtoken = '';
 					// remove the expired/invalid token
 					_clearOAuthToken(server);
 
-					// open browser to obtain the token again
-					return _loginToServer(server);
+					if (noBrowser) {
+						return Promise.resolve({
+							status: false,
+							statusMessage: noBrowserMsg
+						});
+					} else {
+						// open browser to obtain the token again
+						return _loginToServer(server);
+					}
 				} else {
 					return Promise.resolve({
 						status: userId ? true : false
@@ -2943,7 +2959,7 @@ var _loginToServer = function (server) {
 
 	} else if (env === 'dev_osso') {
 
-		return _loginToSSOServer(server);
+		return noBrowser ? Promise.resolve({status: false, statusMessage: noBrowserMsg}) : _loginToPODServer(server);
 
 	} else if (env === 'dev_ec') {
 
@@ -2951,15 +2967,15 @@ var _loginToServer = function (server) {
 
 	} else if (env === 'dev_pod') {
 
-		return _loginToPODServer(server);
+		return noBrowser ? Promise.resolve({status: false, statusMessage: noBrowserMsg}) : _loginToPODServer(server);
 
 	} else if (env === 'pod_ic') {
 
-		return _loginToICServer(server);
+		return noBrowser ? Promise.resolve({status: false, statusMessage: noBrowserMsg}) : _loginToICServer(server);
 
 	} else {
 		// default
-		return _loginToPODServer(server);
+		return noBrowser ? Promise.resolve({status: false, statusMessage: noBrowserMsg}) : _loginToPODServer(server);
 	}
 };
 
@@ -2996,6 +3012,48 @@ var _getConnection = function (server) {
 				console.error('ERROR: failed to connect : ' + msg);
 				return resolve({
 					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+var _getUser = function (server) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/integration?IdcService=GET_USER_INFO&IsJson=1';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to validate user');
+				console.error(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				// invalid
+			}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0' || !data.LocalData.dUser || data.LocalData.dUser === 'anonymous') {
+				var msg = data && data.LocalData && data.LocalData.StatusMessage ? data.LocalData.StatusMessage : (response.statusCode + ' ' +  response.statusMessage);
+				console.error('ERROR: failed to validate user : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			} else {
+				return resolve({
+					userId: data.LocalData.dUser
 				});
 			}
 		});
@@ -3147,7 +3205,8 @@ module.exports.getBackgroundServiceJobs = function (server, type) {
 			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.error('ERROR: Failed to get background jobs' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
+				var msg = data && data.LocalData && data.LocalData.StatusMessage ? data.LocalData.StatusMessage : (response.statusMessage + ' ' + response.statusCode);
+				console.error('ERROR: Failed to get background jobs ' + msg);
 				return resolve({
 					err: 'err'
 				});

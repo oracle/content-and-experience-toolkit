@@ -1272,12 +1272,14 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 						var totalJobs = 0;
 						for (var i = 0; i < results.length; i++) {
 							var jobs = results[i];
-							jobs.forEach(function (job) {
-								console.log(sprintf(jobFormat, job.JobID, job.JobType, job.JobAction, job.JobStatus,
-									job.JobPercentage, (job.JobCreatorFullName || job.JobCreatorLoginName),
-									job.JobCreateDate, job.JobMessage));
-								totalJobs += 1;
-							});
+							if (jobs && !jobs.err) {
+								jobs.forEach(function (job) {
+									console.log(sprintf(jobFormat, job.JobID, job.JobType, job.JobAction, job.JobStatus,
+										job.JobPercentage, (job.JobCreatorFullName || job.JobCreatorLoginName),
+										job.JobCreateDate, job.JobMessage));
+									totalJobs += 1;
+								});
+							}
 						}
 						if (totalJobs > 0) {
 							console.log('Total: ' + totalJobs);

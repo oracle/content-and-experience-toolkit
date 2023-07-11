@@ -49,9 +49,15 @@ var logResponseBody = function (request, response, body) {
 	}
 }
 
+var _getAppKey = function () {
+	let key = process.env.CEC_LCM_COMPILE_APP_KEY || CEC_OCM_APP_KEY;
+	// console.log(key);
+	return key;
+};
+
 var _get = function (options, callback) {
 	if (options.headers) {
-		options.headers['X-Oracle-Ocm-App-Key'] = CEC_OCM_APP_KEY;
+		options.headers['X-Oracle-Ocm-App-Key'] = _getAppKey();
 	}
 	logRequest(options);
 	var url = options.url;
@@ -59,7 +65,6 @@ var _get = function (options, callback) {
 		.then(function (response) {
 			logResponseHeaders(options, response);
 			const responseData = process.shim ? response.text() : response.buffer();
-
 			return responseData.then(function (data) {
 				logResponseBody(options, response, data);
 				var err = response.error;
@@ -80,7 +85,7 @@ var _get = function (options, callback) {
 
 var _getStream = function (options, callback) {
 	if (options.headers) {
-		options.headers['X-Oracle-Ocm-App-Key'] = CEC_OCM_APP_KEY;
+		options.headers['X-Oracle-Ocm-App-Key'] = _getAppKey();
 	}
 	var url = options.url;
 	return fetch(url, options)
@@ -102,7 +107,7 @@ var _getStream = function (options, callback) {
 
 var _post = function (options, callback) {
 	if (options.headers) {
-		options.headers['X-Oracle-Ocm-App-Key'] = CEC_OCM_APP_KEY;
+		options.headers['X-Oracle-Ocm-App-Key'] = _getAppKey();
 	}
 	logRequest(options);
 	var url = options.url;

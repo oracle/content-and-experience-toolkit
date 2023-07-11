@@ -4773,6 +4773,7 @@ module.exports.controlSite = function (argv, done) {
 		var usedContentOnly = typeof argv.usedcontentonly === 'string' && argv.usedcontentonly.toLowerCase() === 'true';
 		var compileSite = typeof argv.compilesite === 'string' && argv.compilesite.toLowerCase() === 'true';
 		var staticOnly = typeof argv.staticonly === 'string' && argv.staticonly.toLowerCase() === 'true';
+		var staticincremental = typeof argv.staticincremental === 'string' && argv.staticincremental.toLowerCase() === 'true';
 		var compileOnly = typeof argv.compileonly === 'string' && argv.compileonly.toLowerCase() === 'true';
 		var fullpublish = typeof argv.fullpublish === 'string' && argv.fullpublish.toLowerCase() === 'true';
 		var deletestaticfiles = typeof argv.deletestaticfiles === 'string' && argv.deletestaticfiles.toLowerCase() === 'true';
@@ -4794,7 +4795,7 @@ module.exports.controlSite = function (argv, done) {
 			}
 
 			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, theme,
-				metadataName, metadataValue, expireDate, deletestaticfiles, settingsFiles, pages, expand, detailPageAssets)
+				metadataName, metadataValue, expireDate, deletestaticfiles, settingsFiles, pages, expand, detailPageAssets, staticincremental)
 				.then(function (result) {
 					if (result.err) {
 						done(result.exitCode);
@@ -4845,7 +4846,7 @@ var _getPagesFromStructure = function (server, siteId) {
  * @param {*} done
  */
 var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, newTheme,
-	metadataName, metadataValue, expireDate, deletestaticfiles, settingsFiles, pages, includeSubPages, detailPageAssets) {
+	metadataName, metadataValue, expireDate, deletestaticfiles, settingsFiles, pages, includeSubPages, detailPageAssets, staticincremental) {
 
 	return new Promise(function (resolve, reject) {
 		var exitCode;
@@ -4856,6 +4857,8 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 		var themeName;
 		var validPageIds = [];
 		var allPageIds = [];
+		var goodDetailPageAssets;
+		var goodAssetIds = [];
 		Promise.all(goverancePromises)
 			.then(function (results) {
 				if (action === 'expire') {
@@ -4868,7 +4871,8 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 
 				return sitesRest.getSite({
 					server: server,
-					name: siteName
+					name: siteName,
+					expand: 'channel,repository'
 				})
 			})
 			.then(function (result) {
@@ -4912,13 +4916,6 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 					return Promise.reject();
 				}
 
-				// user publish-internal for incremental publish until support available in REST API
-				var incrementalPublish = !!(process.env.CEC_TOOLKIT_INCREMENTAL_COMPILE_FILE);
-				if ((action === 'publish') && incrementalPublish) {
-					console.log(' - incremental publish, using publish-internal');
-					action = 'publish-internal';
-				}
-
 				var pagesPromises = [];
 				if (pages || detailPageAssets) {
 					pagesPromises.push(_getPagesFromStructure(server, site.id));
@@ -4933,7 +4930,7 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 					if (!results || !results[0] || results[0].err) {
 						return Promise.reject();
 					}
-					var structurePages = results[0].pages;
+					let structurePages = results[0].pages;
 					// console.log(structurePages);
 					if (pages) {
 						var pageIds = typeof pages === 'number' ? [pages.toString()] : pages.split(',');
@@ -4953,10 +4950,6 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 						});
 					}
 
-					if (pages && validPageIds.length === 0) {
-						return Promise.reject();
-					}
-
 					validPageIds.forEach(function (parentId) {
 						if (!allPageIds.includes(parentId)) {
 							allPageIds.push(parentId);
@@ -4973,13 +4966,91 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 						}
 					});
 					console.info(' - pages: ' + allPageIds);
+
+				}
+
+				let validateAssetsPromises = [];
+				if (detailPageAssets) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+					let structurePages = results[0].pages;
+
+					// the param value: <detailpageid>:<asset id>,...,<asset id>
+					let parts = detailPageAssets.split(':');
+					let detailPageId = parts[0];
+					let assetIds = parts[1].split(',');
+					// validate the detail page
+					let detailPage = undefined
+					for (let i = 0; i < structurePages.length; i++) {
+						if (detailPageId === structurePages[i].id.toString()) {
+							detailPage = structurePages[i];
+							break;
+						}
+					}
+					if (!detailPage) {
+						console.error('ERROR: page ' + detailPageId + ' does not exist');
+						return Promise.reject();
+					}
+					if (!detailPage.isDetailPage) {
+						console.error('ERROR: page ' + detailPageId + ' is not a detail page');
+						return Promise.reject();
+					}
+					console.info(' - validate detail page (Id: ' + detailPage.id + ' Name: ' + detailPage.name + ')');
+
+					// validate assets
+					let q = '';
+					if (site.repository && site.repository.id) {
+						q = '(repositoryId eq "' + site.repository.id + '")';
+					}
+					if (site.channel && site.channel.id) {
+						if (q) {
+							q = q + ' AND ';
+						}
+						q = q + '(channels co "' + site.channel.id + '")';
+					}
+
+					validateAssetsPromises.push(contentUtils.queryItemsWithIds(server, q, assetIds));
+				}
+
+				return Promise.all(validateAssetsPromises);
+
+			})
+			.then(function (results) {
+				if (detailPageAssets) {
+					let items = results && results[0] || [];
+					let parts = detailPageAssets.split(':');
+					let detailPageId = parts[0];
+					let assetIds = parts[1].split(',');
+					assetIds.forEach(function (id) {
+						let found = false;
+						for (let i = 0; i < items.length; i++) {
+							if (id === items[i].id) {
+								found = true;
+								goodAssetIds.push(id);
+								break;
+							}
+						}
+						if (!found) {
+							console.error('ERROR: asset ' + id + ' is not in site channel');
+						}
+					});
+
+					goodDetailPageAssets = detailPageId + ':' + goodAssetIds.join(',');
+				}
+
+				// process will continue if one of the three option is valid
+				if (!settingsFiles && (pages || detailPageAssets)) {
+					if ((!pages || validPageIds.length === 0) && (!detailPageAssets || goodAssetIds.length === 0)) {
+						return Promise.reject();
+					}
 				}
 
 				var actionPromise;
 				if (action === 'publish') {
 					if (settingsFiles || pages || detailPageAssets) {
-						let usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles;
-						actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles, settingsFiles, allPageIds)
+						let usedContentOnly, compileSite, staticOnly, staticincremental, compileOnly, fullpublish, deletestaticfiles;
+						actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles, settingsFiles, allPageIds, goodDetailPageAssets, staticincremental)
 					} else {
 						actionPromise = sitesRest.publishSite({
 							server: server,
@@ -4987,6 +5058,7 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 							usedContentOnly: usedContentOnly,
 							compileSite: compileSite,
 							staticOnly: staticOnly,
+							staticincremental: staticincremental,
 							compileOnly: compileOnly,
 							fullpublish: fullpublish,
 							deletestaticfiles: deletestaticfiles
@@ -4994,7 +5066,7 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 					}
 				} else if (action === 'publish-internal') {
 					console.log(' - publish site using Idc service');
-					actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles, settingsFiles, allPageIds);
+					actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles, settingsFiles, allPageIds, goodDetailPageAssets, staticincremental);
 
 				} else if (action === 'unpublish') {
 					actionPromise = sitesRest.unpublishSite({
@@ -5056,10 +5128,16 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 				} else if (action === 'expire') {
 					console.log(' - site expires at ' + result.expiresAt);
 				} else if (action === 'publish' || action === 'publish-internal') {
-					if (settingsFiles) {
-						console.log(' - site settings files ' + settingsFiles + ' published');
-					} else if (pages) {
-						console.log(' - site page ' + allPageIds + ' published');
+					if (settingsFiles || pages || detailPageAssets) {
+						if (settingsFiles) {
+							console.log(' - site settings files ' + settingsFiles + ' published');
+						}
+						if (allPageIds.length > 0) {
+							console.log(' - site page ' + allPageIds + ' published');
+						}
+						if (goodAssetIds.length > 0) {
+							console.log(' - detail page assets ' + goodDetailPageAssets + ' published');
+						}
 					} else {
 						console.log(' - ' + action + ' ' + siteName + ' finished');
 					}
@@ -5124,7 +5202,7 @@ var _setSiteMetadata = function (server, siteId, siteName, metadataName, metadat
 /**
  * Publish a site using IdcService (compile site workaround)
  */
-var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles, settingsFiles, pageIds) {
+var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles, settingsFiles, pageIds, detailPageAssets, staticincremental) {
 	return new Promise(function (resolve, reject) {
 
 		serverUtils.getIdcToken(server)
@@ -5157,7 +5235,7 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 				if (staticOnly) {
 					body.LocalData.doStaticFilePublishOnly = true;
 
-					if (process.env.CEC_TOOLKIT_INCREMENTAL_COMPILE_FILE) {
+					if (staticincremental || process.env.CEC_TOOLKIT_INCREMENTAL_COMPILE_FILE) {
 						body.LocalData.selectiveStaticPublish = true;
 					}
 				}
@@ -5173,10 +5251,21 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 				if (settingsFiles) {
 					body.LocalData.siteSettings = settingsFiles;
 				}
-				if (pageIds) {
+				if (pageIds && pageIds.length > 0) {
 					body.LocalData.pages = pageIds.join(',');
 				}
-
+				if (detailPageAssets) {
+					let parts = detailPageAssets.split(':');
+					let detailPageId = parts[0];
+					let assetIds = parts[1].split(',');
+					body.LocalData.assets = parts[1];
+					body.LocalData.pageDetails = JSON.stringify({
+						detailPages: [{
+							pageId: detailPageId,
+							assets: assetIds
+						}]
+					});
+				}
 				var postData = {
 					method: 'POST',
 					url: url,
@@ -5234,12 +5323,9 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 							});
 							jobPromise.then(function (data) {
 								// console.log(data);
-								if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+								if (!data || data.error || data.err || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
 									clearInterval(inter);
-									if (needNewLine) {
-										process.stdout.write(os.EOL);
-									}
-									var msg = data && data.message;
+									var msg = data && data.message || data && data.err;
 									if (data && data.error) {
 										msg = msg + ' ' + (data.error.detail || data.error.title);
 									}
@@ -8007,6 +8093,7 @@ module.exports.describeSite = function (argv, done) {
 						}
 					});
 
+					componentsUsedPageIds.sort((a, b) => a - b);
 					for (let i = 0; i < componentsUsedPageIds.length; i++) {
 						let comps = [];
 						componentsUsed.forEach(function (comp) {
@@ -8014,6 +8101,7 @@ module.exports.describeSite = function (argv, done) {
 								comps.push(comp.scsComponentName);
 							}
 						});
+						comps.sort();
 						console.log(sprintf(format2, componentsUsedPageIds[i], comps.join(', ')));
 					}
 				}
@@ -8028,6 +8116,7 @@ module.exports.describeSite = function (argv, done) {
 						}
 					});
 
+					assetsUsedPageIds.sort((a, b) => a - b);
 					for (let i = 0; i < assetsUsedPageIds.length; i++) {
 						let items = [];
 						contentItemsUsed.forEach(function (item) {
@@ -8035,6 +8124,7 @@ module.exports.describeSite = function (argv, done) {
 								items.push(item.scsContentItemID);
 							}
 						});
+						items.sort();
 						console.log(sprintf(format2, assetsUsedPageIds[i], items.join(', ')));
 					}
 				}
@@ -8048,7 +8138,7 @@ module.exports.describeSite = function (argv, done) {
 							typesUsedPageIds.push(type.scsPageID);
 						}
 					});
-
+					typesUsedPageIds.sort((a, b) => a - b);
 					for (let i = 0; i < typesUsedPageIds.length; i++) {
 						let types = [];
 						contentTypesUsed.forEach(function (type) {
@@ -8056,6 +8146,7 @@ module.exports.describeSite = function (argv, done) {
 								types.push(type.scsTypeName);
 							}
 						});
+						types.sort();
 						console.log(sprintf(format2, typesUsedPageIds[i], types.join(', ')));
 					}
 				}

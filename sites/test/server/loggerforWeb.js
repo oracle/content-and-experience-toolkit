@@ -32,8 +32,7 @@ let tagsReplacer = line => {
 		while (match != null) {
 			let args = []
 			args.push(TagType[tag])
-			// fix for having space within name
-			args.push(`"${match[1].trim()}"`)
+			args.push(`${match[1].trim()}`)
 			// replacing macros with an anchor that calls `handleCreateNewTabWithCommand` with the appropriate describe command, once clicked this function will send a message to inform the parent window about the occured event, check powershell.html.
 			line = line.replaceAll(match[0], `<a href="javascript:void(0)" onclick="javascript:(function() { handleCreateNewTabWithCommand(decodeURIComponent('${encodeURIComponent(`describe-${args.join(" ")}`)}')); })();">${match[1]}</a>`);
 			match = line.match(regxp)

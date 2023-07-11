@@ -1321,6 +1321,18 @@ gulp.task('upload-taxonomy', function (done) {
 });
 
 /**
+ * transfer-category-property
+ */
+gulp.task('transfer-category-property', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	taxonomylib.transferCategoryProperty(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * control taxonomy on server
  */
 gulp.task('control-taxonomy', function (done) {
@@ -2893,7 +2905,7 @@ gulp.task('check-version', function (done) {
 		method: 'GET',
 		url: url,
 		headers: {
-			Authorization: serverUtils.getRequestAuthorization(server)
+			Authorization: serverUtils.getRequestAuthorization(server, false)
 		}
 	};
 	// console.log(options);

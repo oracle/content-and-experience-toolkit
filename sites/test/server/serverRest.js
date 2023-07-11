@@ -4514,10 +4514,11 @@ var _getTaxonomies = function (server, fields, offset) {
 			} catch (e) {
 				data = body;
 			}
+
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.error('ERROR: failed to get taxonomies : ' + msg);
 				return resolve({
 					err: 'err'
@@ -4854,6 +4855,25 @@ module.exports.getCategories = function (args) {
 	});
 };
 
+/**
+ * Get all category properties of a taxonomy on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {object} args.taxonomyId the taxonomy Id
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getCategoryProperties = function (args) {
+	return new Promise(function (resolve, reject) {
+		_getAllResources(args.server, '/content/management/api/v1.1/taxonomies/' + args.taxonomyId + '/categoryProperties',
+			'categoryProperties')
+			.then(function (result) {
+				resolve({
+					taxonomyId: args.taxonomyId,
+					categoryProperties: result
+				});
+			});
+	});
+};
 
 var _getResourcePermissions = function (server, id, type, repositoryId) {
 	return new Promise(function (resolve, reject) {
@@ -8673,7 +8693,7 @@ var _executeGet = function (server, endpoint, noMsg, headers) {
 				var data;
 				try {
 					data = JSON.parse(body);
-					console.error(data);
+					console.error(JSON.stringify(data));
 				} catch (e) {
 					// in case result is not json
 				}
