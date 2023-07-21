@@ -66,7 +66,7 @@ function logger(m) {
 	if (!shellContainer) {
 		return;
 	}
-	shellContainer.innerHTML += output;
+	shellContainer.innerHTML += output.replace(/^[\s\n]+/g, "")
 }
 
 module.exports.console = {

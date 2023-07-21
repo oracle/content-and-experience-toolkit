@@ -703,6 +703,71 @@ var _querySiteTotalItems = function (server, sites) {
 	});
 };
 
+var _querySiteItemsFromOtherRepos = function (server, sites) {
+	return new Promise(function (resolve, reject) {
+		var total = sites.length;
+		var groups = [];
+		var limit = 20;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+
+		var totalItems = [];
+		var doGetItems = groups.reduce(function (itemPromise, param) {
+			return itemPromise.then(function (result) {
+				var itemPromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					let site = sites[i];
+					if (site.isEnterprise && site.channel && site.channel.id && site.repository && site.repository.id) {
+						var q = 'repositoryId ne "' + site.repository.id + '" AND channels co "' + site.channel.id + '"';
+						itemPromises.push(serverRest.queryItems({
+							server: server,
+							q: q,
+							limit: 1,
+							showTotal: false
+						}));
+					}
+				}
+
+				return Promise.all(itemPromises).then(function (results) {
+					results.forEach(function (result) {
+						if (result.query) {
+							totalItems.push({
+								query: result.query,
+								otherItems: result.limit || 0
+							});
+						}
+					});
+				});
+
+			});
+		},
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
+
+		doGetItems.then(function (result) {
+			resolve(totalItems);
+		});
+
+	});
+};
+
+
 var _listServerResourcesRest = function (server, serverName, argv, done) {
 
 	var types = argv.types ? argv.types.split(',') : [];
@@ -736,6 +801,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 	var format3 = '  %-36s  %-36s  %-s';
 
 	var sites = [];
+	var siteTotalItems = [];
+	var siteItemsFromOtherRepos = [];
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -1022,7 +1089,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 
 				promises = listSites ? [sitesRest.getSites({
 					server: server,
-					expand: 'channel'
+					expand: 'channel,repository'
 				})] : [];
 				return Promise.all(promises);
 			})
@@ -1035,18 +1102,28 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 				return Promise.all(promises);
 			})
 			.then(function (results) {
+
+				if (listSites) {
+					siteTotalItems = results && results[0] || [];
+				}
+				// query items from other repositories
+				promises = listSites ? [_querySiteItemsFromOtherRepos(server, sites)] : [];
+
+				return Promise.all(promises);
+			})
+			.then(function (results) {
 				//
 				// list sites
 				//
 				if (listSites) {
-					var siteTotalItems = results && results[0] || [];
-					var siteFormat = '  %-36s  %-36s  %-10s  %-10s  %-6s  %-6s  %-s';
+					siteItemsFromOtherRepos = results && results[0] || [];
+					var siteFormat = '  %-36s  %-36s  %-10s  %-10s  %-6s  %-6s  %-12s  %-s';
 					console.log('Sites:');
 					if (process.shim) {
-						siteFormat = '  %-59s  %-56s  %-16s  %-10s  %-6s  %-s %-s';
-						console.log(sprintf('  %-38s  %-36s  %-14s  %-10s  %-6s  %-s', 'Name', 'Theme', 'Type', 'Published', 'Online', 'Secure', 'Total Items'));
+						siteFormat = '  %-59s  %-56s  %-16s  %-10s  %-6s  %-s %-s %-s';
+						console.log(sprintf('  %-38s  %-36s  %-14s  %-10s  %-6s  %-s', 'Name', 'Theme', 'Type', 'Published', 'Online', 'Secure', 'Total Items', 'Items from other repos'));
 					} else {
-						console.log(sprintf(siteFormat, 'Name', 'Theme', 'Type', 'Published', 'Online', 'Secure', 'Total Items'));
+						console.log(sprintf(siteFormat, 'Name', 'Theme', 'Type', 'Published', 'Online', 'Secure', 'Total Items', 'Items from other repos'));
 
 					}
 					for (var i = 0; i < sites.length; i++) {
@@ -1056,10 +1133,16 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 						var online = site.runtimeStatus === 'online' ? '  √' : '';
 						var secure = site.security && site.security.access && !site.security.access.includes('everyone') ? '  √' : '';
 						var totalItems = 0;
+						var otherItems = 0;
 						if (site.isEnterprise && site.channel && site.channel.id) {
 							for (let j = 0; j < siteTotalItems.length; j++) {
 								if (siteTotalItems[j].query.indexOf(site.channel.id) > 0) {
 									totalItems = siteTotalItems[j].totalItems;
+								}
+							}
+							for (let j = 0; j < siteItemsFromOtherRepos.length; j++) {
+								if (siteItemsFromOtherRepos[j].query && siteItemsFromOtherRepos[j].query.indexOf(site.channel.id) > 0) {
+									otherItems = siteItemsFromOtherRepos[j].otherItems;
 								}
 							}
 						}
@@ -1067,7 +1150,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 							site.name = `[!--dss--]${site.name}[/!--dss--]`
 							site.themeName = `[!--dsth--]${site.themeName}[/!--dsth--]`
 						}
-						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online, secure, totalItems));
+						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online, secure, totalItems, otherItems));
 					}
 					if (sites.length > 0) {
 						console.log('Total: ' + sites.length);
@@ -1125,7 +1208,6 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					console.log(sprintf(format2, 'Name', 'Published'));
 					for (var i = 0; i < themes.length; i++) {
 						var status = themes[i].publishStatus === 'published' ? '   √' : '';
-						themes[i].name = process.shim ? `[!--dsth--]${themes[i].name}[/!--dsth--]` : themes[i].name;
 						let frmt = format2;
 						if (process.shim) {
 							themes[i].name = `[!--dsth--]${themes[i].name}[/!--dsth--]`;

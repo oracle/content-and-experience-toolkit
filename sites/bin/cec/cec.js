@@ -1427,7 +1427,7 @@ const describeTaxonomy = {
 	usage: {
 		'short': 'Lists the properties of a taxonomy on OCM server.',
 		'long': (function () {
-			let desc = 'Lists the properties of a taxonomy on OCM server. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Lists the properties of a taxonomy on OCM server. Specify the taxonomy with -t <taxonomy>. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1435,6 +1435,24 @@ const describeTaxonomy = {
 		['cec describe-taxonomy Taxonomy1 -s SampleServer1'],
 		['cec describe-taxonomy Taxonomy1 -i 6A6DC736572C468B90F2A1C17B7CE5E4 -s SampleServer1'],
 		['cec describe-taxonomy Taxonomy1 -f ~/Docs/Taxonomy1.json -s SampleServer1']
+	]
+};
+
+const describeCategory = {
+	command: 'describe-category <apiname>',
+	alias: 'dsct',
+	name: 'describe-category',
+	usage: {
+		'short': 'Lists the properties of a taxonomy\'s category on OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of a taxonomy\'s category on OCM server.  Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-category ta1-c -t Taxonomy1 -s SampleServer1'],
+		['cec describe-category ta1-c -t Taxonomy1 -i 6A6DC736572C468B90F2A1C17B7CE5E4 -s SampleServer1'],
+		['cec describe-category ta1-c -t Taxonomy1 -f ~/Docs/Taxonomy1.json -s SampleServer1']
 	]
 };
 
@@ -1955,8 +1973,8 @@ const setSiteSecurity = {
 		['cec set-site-security Site1 -s no -r SampleServer1', 'make the site publicly available to anyone on server SampleServer1'],
 		['cec set-site-security Site1 -s yes', 'Require everyone to sign in to access this site and any authenticated user can access'],
 		['cec set-site-security Site1 -s yes -a "Visitors,Service users"', 'Require everyone to sign in to access this site and all service visitors and users can access'],
-		['cec set-site-security Site1 -s yes -a "Specific users" -u user1,user2', 'Require everyone to sign in to access this site and only user1 and user2 can access'],
-		['cec set-site-security Site1 -s yes -d user1', 'Remove user1\'s access from the site']
+		['cec set-site-security Site1 -s yes -a "Specific users" -u user1,user2, -g group1,group2', 'Require everyone to sign in to access this site and only user1, user2, group1 and group2 can access'],
+		['cec set-site-security Site1 -s yes -d user1 -o group1', 'Remove the access of user1 and group1 from the site']
 	]
 };
 
@@ -4527,6 +4545,7 @@ _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(controlTaxonomy) + os.EOL +
 	_getCmdHelp(updateTaxonomy) + os.EOL +
 	_getCmdHelp(describeTaxonomy) + os.EOL +
+	_getCmdHelp(describeCategory) + os.EOL +
 	_getCmdHelp(shareTaxonomy) + os.EOL +
 	_getCmdHelp(unshareTaxonomy) + os.EOL;
 
@@ -6185,6 +6204,32 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${describeTaxonomy.command}\n\n${describeTaxonomy.usage.long}`);
 		})
+	.command([describeCategory.command, describeCategory.alias], false,
+		(yargs) => {
+			yargs.option('taxonomy', {
+				alias: 't',
+				description: 'Taxonomy name',
+				demandOption: true
+			})
+				.option('id', {
+					alias: 'i',
+					description: 'Taxonomy Id'
+				})
+				.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...describeCategory.example[0])
+				.example(...describeCategory.example[1])
+				.example(...describeCategory.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeCategory.command}\n\n${describeCategory.usage.long}`);
+		})
 	.command([shareTaxonomy.command, shareTaxonomy.alias], false,
 		(yargs) => {
 			yargs.option('users', {
@@ -7101,13 +7146,21 @@ const argv = yargs.usage(_usage)
 					alias: 'u',
 					description: 'The comma separated list of users to access the site'
 				})
+				.option('addgroups', {
+					alias: 'g',
+					description: 'The comma separated list of groups to access the site'
+				})
 				.option('deleteusers', {
 					alias: 'd',
 					description: 'The comma separated list of users to remove access from the site'
 				})
+				.option('deletegroups', {
+					alias: 'o',
+					description: 'The comma separated list of groups to remove access from the site'
+				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered OCM server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.signin && !getSiteSignIn().includes(argv.signin)) {
@@ -11815,6 +11868,28 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === describeCategory.name || argv._[0] === describeCategory.alias) {
+	_displayCommand(describeCategory.name);
+	let describeCategoryArgs = ['run', '-s', describeCategory.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--apiname', argv.apiname,
+		'--taxonomy', argv.taxonomy
+	];
+	if (argv.id) {
+		describeCategoryArgs.push(...['--id', argv.id]);
+	}
+	if (argv.file) {
+		describeCategoryArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeCategoryArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeCategoryArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === shareTaxonomy.name || argv._[0] === shareTaxonomy.alias) {
 	_displayCommand(shareTaxonomy.name);
 	let shareTaxonomyArgs = ['run', '-s', shareTaxonomy.name, '--prefix', appRoot,
@@ -12618,8 +12693,14 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.addusers) {
 		setSiteSecurityArgs.push(...['--addusers', argv.addusers]);
 	}
+	if (argv.addgroups) {
+		setSiteSecurityArgs.push(...['--addgroups', argv.addgroups]);
+	}
 	if (argv.deleteusers) {
 		setSiteSecurityArgs.push(...['--deleteusers', argv.deleteusers]);
+	}
+	if (argv.deletegroups) {
+		setSiteSecurityArgs.push(...['--deletegroups', argv.deletegroups]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		setSiteSecurityArgs.push(...['--server', argv.server]);

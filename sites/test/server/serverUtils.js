@@ -2040,7 +2040,8 @@ module.exports.getOAuthTokenFromIDCS = function (server) {
 	return _getOAuthTokenFromIDCS(server);
 };
 
-var _getOAuthTokenFromIDCS = function (server) {
+var _getOAuthTokenFromIDCS = function (server, showMsg) {
+	var output = showMsg === undefined ? true : showMsg;
 	var tokenPromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.error('ERROR: no server is configured');
@@ -2123,7 +2124,9 @@ var _getOAuthTokenFromIDCS = function (server) {
 				server.oauthtoken = token;
 				server.login = true;
 				server.tokentype = data.token_type;
-				console.info(' - connect to remote server: ' + server.url);
+				if (output) {
+					console.info(' - connect to remote server: ' + server.url);
+				}
 				return resolve({
 					status: true,
 					oauthtoken: token
@@ -2278,7 +2281,8 @@ var _getThemeComponents = function (themeName) {
 };
 
 
-var _loginToDevServer = function (server) {
+var _loginToDevServer = function (server, showMsg) {
+	var output = showMsg === undefined ? true : showMsg;
 	var loginPromise = new Promise(function (resolve, reject) {
 		// open user session
 
@@ -2317,7 +2321,9 @@ var _loginToDevServer = function (server) {
 				});
 			} else {
 				if (!loginReported) {
-					console.info(' - Logged in to remote server: ' + server.url);
+					if (output) {
+						console.info(' - Logged in to remote server: ' + server.url);
+					}
 					loginReported = true;
 				}
 				server.login = true;
@@ -2326,48 +2332,6 @@ var _loginToDevServer = function (server) {
 				});
 			}
 		});
-		/*
-		request.post(server.url + '/cs/login/j_security_check', {
-			form: {
-				j_character_encoding: 'UTF-8',
-				j_username: server.username,
-				j_password: server.password
-			}
-		}, function (err, resp, body) {
-			if (err) {
-				console.log(' - Failed to login to ' + server.url);
-				return resolve({
-					'status': false
-				});
-			}
-			// we expect a 303 response
-			if (resp && resp.statusCode === 303) {
-				var location = server.url + '/adfAuthentication?login=true';
-
-				request.get(location, function (err, response, body) {
-					if (err) {
-						console.log(' - failed to login to ' + server.url);
-						return resolve({
-							'status': false
-						});
-					}
-
-					if (!loginReported) {
-						console.log(' - Logged in to remote server: ' + server.url);
-						loginReported = true;
-					}
-					server.login = true;
-					return resolve({
-						'status': true
-					});
-				});
-			} else {
-				return resolve({
-					'status': false
-				});
-			}
-		});
-		*/
 	});
 	return loginPromise;
 };
@@ -2866,9 +2830,9 @@ var _getServerVersion = function (server) {
 
 module.exports.loginToICServer = _loginToICServer;
 
-module.exports.loginToServer = function (server) {
+module.exports.loginToServer = function (server, noMsg) {
 	return new Promise(function (resolve, reject) {
-		_loginToServer(server).then(function (result) {
+		_loginToServer(server, noMsg).then(function (result) {
 			if (result.status) {
 				return resolve(result);
 				/* Do not check version for now
@@ -2907,7 +2871,7 @@ module.exports.loginToServer = function (server) {
 		});
 	});
 };
-var _loginToServer = function (server) {
+var _loginToServer = function (server, showMsg) {
 	if (server.login) {
 		return Promise.resolve({
 			status: true
@@ -2926,7 +2890,7 @@ var _loginToServer = function (server) {
 
 	if (env === 'pod_ec' && server.idcs_url && server.client_id && server.client_secret && server.scope) {
 
-		return _getOAuthTokenFromIDCS(server);
+		return _getOAuthTokenFromIDCS(server, showMsg);
 
 	} else if (server.oauthtoken) {
 		// console.log(server);
@@ -2963,7 +2927,7 @@ var _loginToServer = function (server) {
 
 	} else if (env === 'dev_ec') {
 
-		return _loginToDevServer(server);
+		return _loginToDevServer(server, showMsg);
 
 	} else if (env === 'dev_pod') {
 

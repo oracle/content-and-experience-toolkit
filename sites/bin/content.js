@@ -1968,6 +1968,8 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 			var hasPublishedItems = false;
 			var toReviewItemIds = [];
 			var toProcessReviewItemIds = [];
+			var q = '';
+			var queryTotal;
 
 			var repositoryPromises = [];
 			if (repositoryName) {
@@ -2057,7 +2059,6 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					// get items in the channel or collection
 					//
 					// query items
-					var q = '';
 					if (action === 'add') {
 						if (repository) {
 							q = '(repositoryId eq "' + repository.id + '")';
@@ -2098,12 +2099,26 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						console.info(' - q: ' + q);
 					}
 
-					var queryPromise = assetGUIDS.length > 0 ?
+					return serverRest.queryItems({
+						server: server,
+						q: q,
+						fields: 'name,status,isPublished,publishedChannels,languageIsMaster,translatable',
+						limit: 1,
+						showTotal: false
+					});
+
+				})
+				.then(function (result) {
+					queryTotal = result.limit;
+					console.info(' - total items from query: ' + queryTotal);
+
+					var queryPromise = queryTotal > 500 && assetGUIDS.length > 0 ?
 						_queryItemsWithIds(server, q, assetGUIDS, 'name,status,isPublished,publishedChannels,languageIsMaster,translatable') :
 						serverRest.queryItems({
 							server: server,
 							q: q,
-							fields: 'name,status,isPublished,publishedChannels,languageIsMaster,translatable'
+							fields: 'name,status,isPublished,publishedChannels,languageIsMaster,translatable',
+							showTotal: false
 						});
 
 
@@ -2114,7 +2129,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						return Promise.reject();
 					}
 
-					var items = assetGUIDS.length > 0 ? (result || []) : (result.data || []);
+					var items = queryTotal > 500 && assetGUIDS.length > 0 ? (result || []) : (result.data || []);
 					if (items.length === 0) {
 						if (showDetail) {
 							if (action === 'set-translated') {
@@ -2365,7 +2380,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 									if (repositoryName) {
 										cmd += ' -r "' + repositoryName + '"';
 									}
-									cmd += ' -c ' + channelName;
+									cmd += ' -c "' + channelName + '"';
 									if (serverName) {
 										cmd += ' -s ' + serverName;
 									}

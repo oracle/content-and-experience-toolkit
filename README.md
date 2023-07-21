@@ -15,6 +15,20 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.7.2
+
+**Added**
+- `cec describe-category` - Lists the properties of a taxonomy's category on OCM server
+
+**Updated**
+- `cec set-site-security` - Now supports groups when setting access to a site
+- `cec describe-taxonomy` - Now includes custom property types
+- `cec describe-site` - Now includes the number of items from other repositories
+
+**Fixed**
+- `cec transfer-category-property` - Now handles custom property type display name changed after creation on the source server
+
+
 # New in Release 23.7.1
 
 **Added**

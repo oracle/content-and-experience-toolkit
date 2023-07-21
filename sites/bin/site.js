@@ -55,17 +55,6 @@ var verifyRun = function (argv) {
 	return true;
 };
 
-
-
-
-var localServer;
-var _cmdEnd = function (done, success) {
-	done(success);
-	if (localServer) {
-		localServer.close();
-	}
-};
-
 var _executeGetExportService = function (args) {
 	var server = args.server,
 		url = args.endpoint,
@@ -320,14 +309,14 @@ module.exports.createSite = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
-		_cmdEnd(done);
+		done();
 		return;
 	}
 
 	var serverName = argv.server;
 	var server = serverUtils.verifyServer(serverName, projectDir);
 	if (!server || !server.valid) {
-		_cmdEnd(done);
+		done();
 		return;
 	}
 
@@ -2410,7 +2399,7 @@ module.exports.transferSite = function (argv, done) {
 						_transferStandardSite(argv, server, destServer, site, excludecomponents, excludetheme, suppressgovernance, publishedversion, includestaticfiles)
 							.then(function (result) {
 								var success = result && !result.err;
-								_cmdEnd(done, success);
+								done(success);
 								return;
 							});
 
@@ -2420,7 +2409,7 @@ module.exports.transferSite = function (argv, done) {
 
 						if (!site.channel || !site.channel.localizationPolicy) {
 							console.error('ERROR: failed to get site channel ' + (site.channel ? JSON.stringify(site.channel) : ''));
-							_cmdEnd(done);
+							done();
 							return;
 						}
 
@@ -3010,7 +2999,7 @@ module.exports.transferSite = function (argv, done) {
 												var newPolicy = result;
 												console.info(' - update site localization policy ' + newPolicy.name);
 											}
-											_cmdEnd(done, actionSuccess);
+											done(actionSuccess);
 										});
 									});
 
@@ -3101,17 +3090,17 @@ module.exports.transferSite = function (argv, done) {
 													}
 													var newPolicy = result;
 													console.info(' - update site localization policy ' + newPolicy.name);
-													_cmdEnd(done, success);
+													done(success);
 												})
 												.catch((error) => {
 													if (error) {
 														console.error(error);
 													}
-													_cmdEnd(done);
+													done();
 												});
 
 										} else {
-											_cmdEnd(done);
+											done();
 										}
 									});
 								}
@@ -3121,7 +3110,7 @@ module.exports.transferSite = function (argv, done) {
 								if (error) {
 									console.error(error);
 								}
-								_cmdEnd(done);
+								done();
 							});
 					} // enterprise site
 
@@ -3130,14 +3119,14 @@ module.exports.transferSite = function (argv, done) {
 					if (error) {
 						console.error(error);
 					}
-					_cmdEnd(done);
+					done();
 				}); // get site
 		}) // login
 		.catch((error) => {
 			if (error) {
 				console.error(error);
 			}
-			_cmdEnd(done);
+			done();
 		});
 };
 
@@ -4751,7 +4740,7 @@ module.exports.controlSite = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
-		_cmdEnd(done);
+		done();
 		return;
 	}
 
@@ -4760,7 +4749,7 @@ module.exports.controlSite = function (argv, done) {
 		var serverName = argv.server;
 		var server = serverUtils.verifyServer(serverName, projectDir);
 		if (!server || !server.valid) {
-			_cmdEnd(done);
+			done();
 			return;
 		}
 
@@ -5369,7 +5358,7 @@ module.exports.shareSite = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
-		_cmdEnd(done);
+		done();
 		return;
 	}
 
@@ -5377,7 +5366,7 @@ module.exports.shareSite = function (argv, done) {
 		var serverName = argv.server;
 		var server = serverUtils.verifyServer(serverName, projectDir);
 		if (!server || !server.valid) {
-			_cmdEnd(done);
+			done();
 			return;
 		}
 
@@ -5547,14 +5536,14 @@ module.exports.shareSite = function (argv, done) {
 							console.error('ERROR: ' + results[i].title);
 						}
 					}
-					_cmdEnd(done, shared);
+					done(shared);
 				})
 				.catch((error) => {
-					_cmdEnd(done);
+					done();
 				});
 		}); // login
 	} catch (e) {
-		_cmdEnd(done);
+		done();
 	}
 };
 
@@ -5566,7 +5555,7 @@ module.exports.unshareSite = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
-		_cmdEnd(done);
+		done();
 		return;
 	}
 
@@ -5574,7 +5563,7 @@ module.exports.unshareSite = function (argv, done) {
 		var serverName = argv.server;
 		var server = serverUtils.verifyServer(serverName, projectDir);
 		if (!server || !server.valid) {
-			_cmdEnd(done);
+			done();
 			return;
 		}
 
@@ -5745,14 +5734,14 @@ module.exports.unshareSite = function (argv, done) {
 							console.error('ERROR: ' + results[i].title);
 						}
 					}
-					_cmdEnd(done, unshared);
+					done(unshared);
 				})
 				.catch((error) => {
-					_cmdEnd(done);
+					done();
 				});
 		}); // login
 	} catch (e) {
-		_cmdEnd(done);
+		done();
 	}
 };
 
@@ -7817,6 +7806,7 @@ module.exports.describeSite = function (argv, done) {
 		var componentsUsed, contentItemsUsed, contentTypesUsed;
 		var totalItems = 0;
 		var totalMasterItems = 0;
+		var otherItems = [];
 		var pageTranslations = 0;
 		var format1 = '%-38s  %-s';
 
@@ -7839,7 +7829,7 @@ module.exports.describeSite = function (argv, done) {
 				// console.log(site);
 
 				// find master items in the site channel
-				var itemPromises = [];
+				let itemPromises = [];
 				if (site.isEnterprise && site.channel && site.channel.id) {
 					var q = 'channels co "' + site.channel.id + '" AND languageIsMaster eq "true"';
 					itemPromises.push(serverRest.queryItems({
@@ -7860,7 +7850,7 @@ module.exports.describeSite = function (argv, done) {
 				}
 
 				// find items in the site channel
-				var itemPromises = [];
+				let itemPromises = [];
 				if (site.isEnterprise && site.channel && site.channel.id) {
 					var q = 'channels co "' + site.channel.id + '"';
 					itemPromises.push(serverRest.queryItems({
@@ -7880,8 +7870,29 @@ module.exports.describeSite = function (argv, done) {
 					totalItems = results && results[0] && results[0].limit;
 				}
 
-				// get site metadata
+				// find items from other repositories
+				let itemPromises = [];
+				if (site.isEnterprise && site.channel && site.channel.id && site.repository && site.repository.id) {
+					var q = 'repositoryId ne "' + site.repository.id + '" AND channels co "' + site.channel.id + '"';
+					itemPromises.push(serverRest.queryItems({
+						server: server,
+						q: q,
+						limit: 1,
+						showTotal: false
+					}));
+				}
 
+				return Promise.all(itemPromises);
+
+			})
+			.then(function (results) {
+
+				if (site.isEnterprise) {
+					// console.log(results[0]);
+					otherItems = results && results[0] && results[0].limit;
+				}
+
+				// get site metadata
 				return serverUtils.getSiteMetadata(server, site.id, site.name);
 
 			})
@@ -8061,6 +8072,7 @@ module.exports.describeSite = function (argv, done) {
 				if (site.isEnterprise) {
 					console.log(sprintf(format1, 'Total master items', totalMasterItems));
 					console.log(sprintf(format1, 'Total items', totalItems));
+					console.log(sprintf(format1, 'Total items from other repositories', otherItems));
 				}
 
 				if (siteMetadata) {
@@ -8564,14 +8576,14 @@ module.exports.setSiteSecurity = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
-		_cmdEnd(done);
+		done();
 		return;
 	}
 
 	var serverName = argv.server;
 	var server = serverUtils.verifyServer(serverName, projectDir);
 	if (!server || !server.valid) {
-		_cmdEnd(done);
+		done();
 		return;
 	}
 
@@ -8581,6 +8593,8 @@ module.exports.setSiteSecurity = function (argv, done) {
 	var access = argv.access;
 	var addUserNames = argv.addusers ? argv.addusers.split(',') : [];
 	var deleteUserNames = argv.deleteusers ? argv.deleteusers.split(',') : [];
+	var addGroupNames = argv.addgroups ? argv.addgroups.split(',') : [];
+	var deleteGroupNames = argv.deletegroups ? argv.deletegroups.split(',') : [];
 
 	if (signin === 'no') {
 		if (access) {
@@ -8593,11 +8607,21 @@ module.exports.setSiteSecurity = function (argv, done) {
 			console.log(' - ignore argument <deleteusers>');
 		}
 	} else {
-		for (var i = 0; i < deleteUserNames.length; i++) {
-			for (var j = 0; j < addUserNames.length; j++) {
+		for (let i = 0; i < deleteUserNames.length; i++) {
+			for (let j = 0; j < addUserNames.length; j++) {
 				if (deleteUserNames[i].toLowerCase() === addUserNames[j].toLowerCase()) {
 					console.error('ERROR: user ' + deleteUserNames[i] + ' in both <addusers> and <deleteusers>');
-					_cmdEnd(done);
+					done();
+					return;
+				}
+			}
+		}
+
+		for (let i = 0; i < deleteGroupNames.length; i++) {
+			for (let j = 0; j < addGroupNames.length; j++) {
+				if (deleteGroupNames[i].toLowerCase() === addGroupNames[j].toLowerCase()) {
+					console.error('ERROR: group ' + deleteGroupNames[i] + ' in both <addgroups> and <deletegroups>');
+					done();
 					return;
 				}
 			}
@@ -8605,11 +8629,11 @@ module.exports.setSiteSecurity = function (argv, done) {
 	}
 
 
-	_setSiteSecurityREST(server, name, signin, access, addUserNames, deleteUserNames, done);
+	_setSiteSecurityREST(server, name, signin, access, addUserNames, deleteUserNames, addGroupNames, deleteGroupNames, done);
 
 };
 
-var _setSiteSecurityREST = function (server, name, signin, access, addUserNames, deleteUserNames, done) {
+var _setSiteSecurityREST = function (server, name, signin, access, addUserNames, deleteUserNames, addGroupNames, deleteGroupNames, done) {
 	try {
 
 		var exitCode;
@@ -8625,7 +8649,10 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 			var siteSecurity;
 			var siteMembers = [];
 			var users = [];
+			var groups = [];
 			var accessValues = [];
+			var userErr = false;
+			var groupErr = false;
 
 			sitesRest.getSite({
 				server: server,
@@ -8691,12 +8718,11 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 							}
 
 							console.info(' - verify users');
-							var err = false;
 							// verify users
 							for (var k = 0; k < addUserNames.length; k++) {
 								var found = false;
 								for (let i = 0; i < allUsers.length; i++) {
-									if (allUsers[i].loginName.toLowerCase() === addUserNames[k].toLowerCase()) {
+									if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === addUserNames[k].toLowerCase()) {
 										if (!siteMembers.includes(allUsers[i].loginName)) {
 											var user = allUsers[i];
 											user['action'] = 'add';
@@ -8709,9 +8735,10 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 										break;
 									}
 								}
+
 								if (!found) {
 									console.error('ERROR: user ' + addUserNames[k] + ' does not exist');
-									err = true;
+									userErr = true;
 								}
 							}
 							for (let k = 0; k < deleteUserNames.length; k++) {
@@ -8732,14 +8759,87 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 								}
 								if (!found) {
 									console.error('ERROR: user ' + deleteUserNames[k] + ' does not exist');
-									err = true;
+									userErr = true;
+								}
+							}
+						}
+					}
+
+					var groupPromises = [];
+					if (signin === 'yes') {
+						// console.log(' - add groups: ' + addGroupNames);
+						// console.log(' - delete groups: ' + deleteGroupNames);
+						for (let i = 0; i < addGroupNames.length; i++) {
+							groupPromises.push(serverRest.getGroup({
+								server: server,
+								name: addGroupNames[i]
+							}));
+						}
+						for (let i = 0; i < deleteGroupNames.length; i++) {
+							groupPromises.push(serverRest.getGroup({
+								server: server,
+								name: deleteGroupNames[i]
+							}));
+						}
+					}
+					return Promise.all(groupPromises);
+
+				})
+				.then(function (results) {
+
+					if (signin === 'yes' && (addGroupNames.length > 0 || deleteGroupNames.length > 0)) {
+						var allGroups = results || [];
+						// console.log(allGroups);
+						console.info(' - verify groups');
+						// verify users
+						for (let k = 0; k < addGroupNames.length; k++) {
+							var found = false;
+							for (let i = 0; i < allGroups.length; i++) {
+								if (allGroups[i].name && allGroups[i].name.toLowerCase() === addGroupNames[k].toLowerCase()) {
+									if (!siteMembers.includes(allGroups[i].name)) {
+										let group = allGroups[i];
+										group['action'] = 'add';
+										groups.push(allGroups[i]);
+									}
+									found = true;
+									break;
+								}
+								if (found) {
+									break;
+								}
+							}
+							if (!found) {
+								console.error('ERROR: group ' + addGroupNames[k] + ' does not exist');
+								groupErr = true;
+							}
+						}
+
+						for (let k = 0; k < deleteGroupNames.length; k++) {
+							let found = false;
+							for (let i = 0; i < allGroups.length; i++) {
+								if (allGroups[i].name && allGroups[i].name.toLowerCase() === deleteGroupNames[k].toLowerCase()) {
+									if (siteMembers.includes(allGroups[i].name)) {
+										let group = allGroups[i];
+										group.action = 'delete';
+										groups.push(allGroups[i]);
+									}
+									found = true;
+									break;
+								}
+								if (found) {
+									break;
 								}
 							}
 
-							if (err && users.length === 0) {
-								return Promise.reject();
+							if (!found) {
+								console.error('ERROR: group' + deleteGroupNames[k] + ' does not exist');
+								groupErr = true;
 							}
 						}
+					}
+
+					if (userErr && users.length === 0 && groupErr && groups.length === 0) {
+						return Promise.reject();
 					}
 
 					if (!access || access.includes('Cloud users')) {
@@ -8774,13 +8874,23 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 
 					var removeAccessPromises = [];
 					if (accessValues.includes('named')) {
-						for (var i = 0; i < users.length; i++) {
+						for (let i = 0; i < users.length; i++) {
 							if (users[i].action === 'delete') {
 								removeAccessPromises.push(sitesRest.removeSiteAccess({
 									server: server,
 									id: siteId,
 									name: name,
 									member: 'user:' + users[i].loginName
+								}));
+							}
+						}
+						for (let i = 0; i < groups.length; i++) {
+							if (groups[i].action === 'delete') {
+								removeAccessPromises.push(sitesRest.removeSiteAccess({
+									server: server,
+									id: siteId,
+									name: name,
+									member: 'group:' + groups[i].name
 								}));
 							}
 						}
@@ -8791,13 +8901,23 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 
 					var grantAccessPromises = [];
 					if (accessValues.includes('named')) {
-						for (var i = 0; i < users.length; i++) {
+						for (let i = 0; i < users.length; i++) {
 							if (users[i].action === 'add') {
 								grantAccessPromises.push(sitesRest.grantSiteAccess({
 									server: server,
 									id: siteId,
 									name: name,
 									member: 'user:' + users[i].loginName
+								}));
+							}
+						}
+						for (let i = 0; i < groups.length; i++) {
+							if (groups[i].action === 'add') {
+								grantAccessPromises.push(sitesRest.grantSiteAccess({
+									server: server,
+									id: siteId,
+									name: name,
+									member: 'group:' + groups[i].name
 								}));
 							}
 						}
@@ -9869,13 +9989,13 @@ module.exports.migrateSite = function (argv, done) {
 				});
 			})
 			.then(function (result) {
-				_cmdEnd(done, true);
+				done(true);
 			})
 			.catch((error) => {
 				if (error) {
 					console.error(error);
 				}
-				_cmdEnd(done);
+				done();
 			});
 	});
 };
@@ -10115,10 +10235,10 @@ module.exports.compileSite = function (argv, done) {
 		// we start from CREATE_TEMPLATE for compiling the site
 		return jm.updateStatus(config, "CREATE_TEMPLATE").then(function (updatedConfig) {
 			return jm.compileJob(updatedConfig).then(function (result) {
-				_cmdEnd(done, true);
+				done(true);
 			});
 		});
 	}).catch(function (e) {
-		_cmdEnd(done);
+		done();
 	});
 };

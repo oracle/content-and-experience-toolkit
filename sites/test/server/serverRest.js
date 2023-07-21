@@ -4808,15 +4808,18 @@ module.exports.getCategories = function (args) {
 	return new Promise(function (resolve, reject) {
 		// Currently this API returns duplicate entries when pagination
 		// So use limit 10000 for now
-		var q;
+		var query = args.q || '';
 		if (args.status) {
-			q = 'status eq "' + args.status + '"';
+			if (query) {
+				query = query + ' AND ';
+			}
+			query = query + 'status eq "' + args.status + '"';
 		}
 
 		var url = '/content/management/api/v1.1/taxonomies/' + args.taxonomyId + '/categories';
 		url = url + '?limit=10000';
-		if (q) {
-			url = url + '&q=' + q;
+		if (query) {
+			url = url + '&q=' + query;
 		}
 		if (args.fields) {
 			url = url + '&fields=' + args.fields;
@@ -9055,6 +9058,7 @@ module.exports.executePut = function (args) {
 module.exports.executePatch = function (args) {
 	return new Promise(function (resolve, reject) {
 		var showDetail = args.noMsg ? false : true;
+		var responseStatus = args.responseStatus ? true : false;
 		var endpoint = args.endpoint;
 		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
 
@@ -9102,6 +9106,7 @@ module.exports.executePatch = function (args) {
 						});
 					}
 					var data;
+
 					try {
 						data = JSON.parse(body);
 					} catch (e) {
@@ -9115,8 +9120,15 @@ module.exports.executePatch = function (args) {
 						}
 					}
 
-					return resolve(data);
-
+					if (responseStatus) {
+						return resolve({
+							data: data,
+							statusCode: response.statusCode,
+							statusMessage: response.statusMessage
+						});
+					} else {
+						return resolve(data);
+					}
 				});
 			});
 	});

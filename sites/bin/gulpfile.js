@@ -1369,6 +1369,18 @@ gulp.task('describe-taxonomy', function (done) {
 });
 
 /**
+ * describe taxonomy's category on server
+ */
+gulp.task('describe-category', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	taxonomylib.describeCategory(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * share taxonomy on server
  */
 gulp.task('share-taxonomy', function (done) {
@@ -2900,80 +2912,89 @@ gulp.task('check-version', function (done) {
 		return;
 	}
 
-	var url = server.url + '/osn/social/api/v1/connections';
-	var options = {
-		method: 'GET',
-		url: url,
-		headers: {
-			Authorization: serverUtils.getRequestAuthorization(server, false)
-		}
-	};
-	// console.log(options);
+	var showMsg = false;
+	serverUtils.loginToServer(server, showMsg)
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + server.url);
+				done();
+				return;
+			}
+			var url = server.url + '/system/api/v1/release/version';
+			var options = {
+				method: 'GET',
+				url: url,
+				headers: {
+					Authorization: serverUtils.getRequestAuthorization(server)
+				}
+			};
+			// console.log(options);
 
-	var request = require('../test/server/requestUtils.js').request;
-	request.get(options, function (error, response, body) {
-		if (error || !response || response.statusCode !== 200) {
-			// console.log('ERROR: failed to query  version: ' + (response && response.statusMessage));
-			done();
-			return;
-		}
+			var request = require('../test/server/requestUtils.js').request;
+			request.get(options, function (error, response, body) {
+				if (error || !response || response.statusCode !== 200) {
+					// console.log('ERROR: failed to query version: ' + (response && response.statusMessage));
+					done();
+					return;
+				}
 
-		var data;
-		try {
-			data = JSON.parse(body);
-		} catch (e) {
-			data = body;
-		}
-		// console.log(data);
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (e) {
+					data = body;
+				}
+				// console.log(data);
 
-		var cecVersion, cecVersion2;
-		var arr;
+				var cecVersion, cecVersion2;
+				var arr;
 
-		cecVersion = data && data.version;
-		if (!cecVersion) {
-			// console.log('ERROR: no value returned for CEC version');
-			done();
-			return;
-		}
-		arr = cecVersion.split('.');
-		cecVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
+				cecVersion = data && data.release && data.release.version;
+				if (!cecVersion) {
+					// console.log('ERROR: no value returned for CEC version');
+					done();
+					return;
+				}
+				arr = cecVersion.split('.');
+				cecVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
 
-		// console.log(' CEC server: ' + server.url + '  version: ' + cecVersion + ' version2: ' + cecVersion2);
+				// console.log(' CEC server: ' + server.url + '  version: ' + cecVersion + ' version2: ' + cecVersion2);
 
-		// get the toolkit version
-		var packagejsonpath = path.join(cecDir, 'package.json');
-		var toolkitVersion;
-		if (fs.existsSync(packagejsonpath)) {
-			var str = fs.readFileSync(packagejsonpath);
-			var packagejson = JSON.parse(str);
-			toolkitVersion = packagejson && packagejson.version;
-		}
+				// get the toolkit version
+				var packagejsonpath = path.join(cecDir, 'package.json');
+				var toolkitVersion;
+				if (fs.existsSync(packagejsonpath)) {
+					var str = fs.readFileSync(packagejsonpath);
+					var packagejson = JSON.parse(str);
+					toolkitVersion = packagejson && packagejson.version;
+				}
 
-		if (!toolkitVersion) {
-			//console.log('ERROR: version found in ' + packagejsonpath);
-			done();
-			return;
-		}
-		arr = toolkitVersion.split('.');
-		var toolkitVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
-		// console.log(' toolkit version ' + packagejsonpath + ' version: ' + toolkitVersion + ' version2: ' + toolkitVersion2);
+				if (!toolkitVersion) {
+					//console.log('ERROR: version found in ' + packagejsonpath);
+					done();
+					return;
+				}
+				arr = toolkitVersion.split('.');
+				var toolkitVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
+				// console.log(' toolkit version ' + packagejsonpath + ' version: ' + toolkitVersion + ' version2: ' + toolkitVersion2);
 
-		if (cecVersion2 && toolkitVersion2 && semver.valid(semver.coerce(cecVersion2)) && semver.gt(semver.coerce(cecVersion2), semver.coerce(toolkitVersion2))) {
-			var format = '%-1s %-50s  %-s';
-			var sep = '*';
-			console.log('');
-			console.log('*******************************************************');
-			console.log(sprintf(format, sep, 'A newer version of Sites Toolkit CLI is available.', sep));
-			console.log(sprintf(format, sep, 'You are using ' + toolkitVersion + '. The latest is ' + cecVersion + '.', sep));
-			console.log(sprintf(format, sep, 'Your current version will be deprecated soon.', sep));
-			console.log('*******************************************************');
+				if (cecVersion2 && toolkitVersion2 && semver.valid(semver.coerce(cecVersion2)) && semver.gt(semver.coerce(cecVersion2), semver.coerce(toolkitVersion2))) {
+					var format = '%-1s %-50s  %-s';
+					var sep = '*';
+					console.log('');
+					console.log('*******************************************************');
+					console.log(sprintf(format, sep, 'A newer version of Sites Toolkit CLI is available.', sep));
+					console.log(sprintf(format, sep, 'You are using ' + toolkitVersion + '. The latest is ' + cecVersion + '.', sep));
+					console.log(sprintf(format, sep, 'Your current version will be deprecated soon.', sep));
+					console.log('*******************************************************');
 
-			// create the message file
-			fs.writeFileSync(msgFile, 'CEC version: ' + cecVersion + ', toolkit version: ' + toolkitVersion + ', need upgrade.');
-		}
+					// create the message file
+					fs.writeFileSync(msgFile, 'CEC version: ' + cecVersion + ', toolkit version: ' + toolkitVersion + ', need upgrade.');
+				}
 
-		done();
-	});
+				done();
+			});
+		});
 });
 
 /**

@@ -555,6 +555,9 @@ var _createTaxonomyCategoryPropertyTypes = function (server, taxonomy, types) {
 			var doCreateTypes = types.reduce(function (typePromise, type) {
 				return typePromise.then(function (result) {
 					var createUrl = '/content/management/api/v1.1/taxonomies/' + taxonomy.id + '/categoryProperties';
+					var displayName = type.displayName;
+					// server API generates apiName based on displayName
+					type.displayName = type.apiName;
 					return serverRest.executePost({
 						server: server,
 						endpoint: createUrl,
@@ -565,9 +568,31 @@ var _createTaxonomyCategoryPropertyTypes = function (server, taxonomy, types) {
 						if (result && result.id) {
 							createdTypes.push(result);
 							console.info(' - created custom property type ' + result.displayName + ' (' + result.apiName + ')');
+							if (result.displayName !== displayName) {
+								// update the newly created property type with its original display name
+								let url = '/content/management/api/v1.1/taxonomies/' + taxonomy.id + '/categoryProperties/' + result.id;
+								let newType = {
+									displayName: displayName
+								}
+								return serverRest.executePatch({
+									server: server,
+									endpoint: url,
+									body: newType,
+									noMsg: true
+								}).then(function (result) {
+									if (result && result.updatedBy && result.updatedDate) {
+										console.info(' - updated custom property type display name to ' + displayName);
+									} else {
+										if (result) {
+											console.error(JSON.stringify(result, null, 4));
+										}
+									}
+								})
+							}
 						} else {
 							if (result) {
-								console.error(result);
+								console.error('ERROR: failed to create custom property type ' + type.displayName + ' (' + type.apiName + ')');
+								console.error(JSON.stringify(result, null));
 							}
 						}
 					})
@@ -604,14 +629,15 @@ var _updateTaxonomyCategoryPropertyTypes = function (server, taxonomy, types) {
 						server: server,
 						endpoint: url,
 						body: type,
+						responseStatus: true,
 						noMsg: true
 					}).then(function (result) {
-						if (result && result.updatedBy && result.updatedDate) {
+						if (result && result.statusCode < 400) {
 							console.info(' - updated custom property type ' + displayName + ' (' + apiName + ')');
 							updatedTypes.push(result);
 						} else {
 							if (result) {
-								console.error(result);
+								console.error(JSON.stringify(result, null, 4));
 							}
 						}
 					})
@@ -1041,6 +1067,13 @@ module.exports.transferCategoryProperty = function (argv, done) {
 		})
 		.then(function (result) {
 
+			if (result && result.status >= 400) {
+				// failed to create draft
+				console.error('ERROR: failed to create draft on the destination server');
+				console.error(JSON.stringify(result, null, 4));
+				return Promise.reject();
+			}
+
 			// create new custom property types on the destination server
 			return _createTaxonomyCategoryPropertyTypes(destServer, destTaxonomy, categoryPropertyTypesToCreate);
 		})
@@ -1055,6 +1088,7 @@ module.exports.transferCategoryProperty = function (argv, done) {
 
 		})
 		.then(function (result) {
+
 			if (categoryPropertyTypesToUpdate.length > 0 && result.length !== categoryPropertyTypesToUpdate.length) {
 				return Promise.reject();
 			}
@@ -1415,6 +1449,43 @@ module.exports.updateTaxonomy = function (argv, done) {
 	});
 };
 
+var _updateAssets = function () {
+
+	console.log(projectDir);
+	var contentPath = path.join(projectDir, 'src', 'content');
+	var folders = fs.readdirSync(contentPath);
+	var total = 0;
+	folders.forEach(function (batchName) {
+		var assetFolder = path.join(contentPath, batchName, 'contentexport', 'ContentItems', 'IR-ProductCategoryPage-v1');
+		if (fs.existsSync(assetFolder)) {
+			var files = fs.readdirSync(assetFolder);
+			if (files && files.length > 0) {
+				let batchTotal = 0;
+				files.forEach(function (file) {
+					let filePath = path.join(assetFolder, file);
+					let str = fs.readFileSync(filePath);
+					let asset;
+					try {
+						asset = JSON.parse(str);
+						if (asset && asset.fields && asset.fields.related_items_background_image_position && asset.fields.related_items_background_image_position.length > 0) {
+							total += 1;
+							batchTotal += 1;
+							asset.fields.related_items_background_image_position = null;
+							fs.writeFileSync(filePath, JSON.stringify(asset));
+						}
+					} catch (e) {
+						console.log('ERROR: ' + file);
+					}
+				});
+				if (batchTotal > 0) {
+					console.log('batch: ' + batchName + ' total IR-ProductCategoryPage-v1: ' + files.length + ' related_items_background_image_position is array: ' + batchTotal);
+				}
+			}
+		}
+	});
+	console.log('Total: ' + total);
+};
+
 module.exports.describeTaxonomy = function (argv, done) {
 	'use strict';
 
@@ -1575,6 +1646,29 @@ module.exports.describeTaxonomy = function (argv, done) {
 				console.log(sprintf(format1, 'Managers', taxManagers));
 				console.log(sprintf(format1, 'Editors', taxEditors));
 
+				return serverRest.getCategoryProperties({server: server, taxonomyId: tax.id});
+
+			})
+			.then(function (result) {
+
+				let categoryProperties = result && result.categoryProperties || [];
+				let customCatProperties = [];
+				categoryProperties.forEach(function (cat) {
+					if (!cat.isSystemManaged) {
+						customCatProperties.push(cat);
+					}
+				});
+
+				console.log('');
+				console.log('Custom Property Types:');
+				let typeFormat = '   %-34s   %-34s  %-12s  %-s';
+				if (customCatProperties.length > 0) {
+					console.log(sprintf(typeFormat, 'Name', 'apiName', 'Value Count', 'Publishable'));
+				}
+				customCatProperties.forEach(function (cat) {
+					console.log(sprintf(typeFormat, cat.displayName, cat.apiName, (cat.valueCount === 'single' ? 'Single' : 'Multiple'), (cat.isPublishable ? '    √' : '')));
+				});
+				console.log('');
 
 				return serverRest.getCategories({
 					server: server,
@@ -1643,6 +1737,224 @@ var _displayCategories = function (parentId, categories, ident, duplicatedAPINam
 	}
 
 };
+
+module.exports.describeCategory = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var output = argv.file;
+
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var apiName = argv.apiname;
+	var taxName = argv.taxonomy;
+	var id = argv.id;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var tax;
+		var promotedVersion;
+		var publishedVersion;
+		var categoryProperties;
+
+		serverRest.getTaxonomiesWithName({
+			server: server,
+			name: taxName,
+			fields: 'availableStates,publishedChannels'
+		})
+			.then(function (result) {
+				if (!result || result.err || result.length === 0) {
+					console.error('ERROR: taxonomy ' + taxName + ' does not exist');
+					return Promise.reject();
+				}
+
+				var taxonomies = result || [];
+				var nameMatched = [];
+				var idMatched;
+				for (var i = 0; i < taxonomies.length; i++) {
+					if (taxName && taxonomies[i].name === taxName) {
+						nameMatched.push(taxonomies[i]);
+					}
+					if (id && taxonomies[i].id === id) {
+						idMatched = taxonomies[i];
+					}
+				}
+
+				if (!idMatched && nameMatched.length === 0) {
+					console.error('ERROR: taxonomy ' + taxName + ' does not exist');
+					return Promise.reject();
+				}
+				if (!idMatched && nameMatched.length > 1) {
+					console.error('There are ' + nameMatched.length + ' taxonomies with name ' + taxName + ':');
+					var format = '   %-32s  %-12s  %-24s  %-12s %-s';
+					console.log(sprintf(format, 'Id', 'Abbreviation', 'Creation Date', 'Publishable', 'Status'));
+					nameMatched.forEach(function (tax) {
+						var availableStates = tax.availableStates;
+						var status = [];
+						for (var i = 0; i < availableStates.length; i++) {
+							status.push(availableStates[i].status + (availableStates[i].published ? '(published)' : ''));
+						}
+						console.log(sprintf(format, tax.id, tax.shortName, tax.createdDate && tax.createdDate.value,
+							(tax.isPublishable ? '    √' : ''), status.join(', ')));
+					});
+					console.log('Please try again with the taxonomy Id');
+					return Promise.reject();
+				}
+
+				tax = idMatched || nameMatched[0];
+
+				if (tax.availableStates && tax.availableStates.length > 0) {
+					tax.availableStates.forEach(function (state) {
+						if (state.status === 'promoted') {
+							promotedVersion = state.version;
+							if (state.published && !publishedVersion) {
+								publishedVersion = promotedVersion;
+							}
+						} else if (state.status === 'published') {
+							publishedVersion = state.version;
+						}
+					});
+				}
+				console.info(' - verify taxonomy ' + tax.name + ' (Id: ' + tax.id + ')');
+
+				return serverRest.getCategoryProperties({server: server, taxonomyId: tax.id});
+
+			})
+			.then(function (result) {
+				categoryProperties = result && result.categoryProperties || [];
+
+				return serverRest.getCategories({
+					server: server,
+					taxonomyId: tax.id,
+					taxonomyName: tax.name,
+					status: promotedVersion ? 'promoted' : 'draft',
+					q: 'apiName eq "' + apiName + '"'});
+
+			})
+			.then(function (result) {
+
+				var categories = result && result.categories || [];
+				if (categories.length === 0) {
+					console.error('ERROR: category ' + apiName + ' is not found');
+					return Promise.reject();
+				}
+
+				// query category data
+				var url = '/content/management/api/v1.1/taxonomies/' + tax.id + '/categories/' + categories[0].id;
+				url = url + '?fields=idPath,namePath,keywords,synonyms,relatedCategories,customProperties';
+				url = url + '&q=(status eq "' +  (promotedVersion ? 'promoted' : 'draft') + '")';
+
+				return serverRest.executeGet({
+					server: server,
+					endpoint: url,
+					noMsg: true
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				var cat;
+				try {
+					cat = JSON.parse(result);
+				} catch (e) {
+					cat = result;
+				}
+
+				if (!cat || !cat.id) {
+					console.error('ERROR: category ' + apiName + ' is not found');
+					return Promise.reject();
+				}
+
+				if (output) {
+					let data = {
+						taxonomy: tax,
+						category: cat
+					}
+					fs.writeFileSync(output, JSON.stringify(data, null, 4));
+					console.log(' - taxonomy category properties saved to ' + output);
+				}
+
+				var namePath = cat.namePath;
+				if (namePath.startsWith('/')) {
+					namePath = namePath.substring(1);
+				}
+				// console.log(cat);
+				console.log('');
+				var format1 = '%-38s  %-s';
+				console.log(sprintf(format1, 'Id', cat.id));
+				console.log(sprintf(format1, 'Name', cat.name));
+				console.log(sprintf(format1, 'Description', cat.description));
+				console.log(sprintf(format1, 'Taxonomy path', namePath.split('/').join(' / ')));
+				console.log(sprintf(format1, 'API name', cat.apiName));
+				console.log(sprintf(format1, 'Keywords', cat.keywords));
+				console.log(sprintf(format1, 'Synonyms', cat.synonyms));
+				console.log(sprintf(format1, 'Related categories', cat.relatedCategories));
+				// console.log(categoryProperties);
+				if (cat.customProperties) {
+					categoryProperties.forEach(function (catType) {
+						if (!catType.isSystemManaged) {
+							let typeName = catType.apiName;
+							let values = [];
+							if (cat.customProperties[typeName] && cat.customProperties[typeName].values) {
+								cat.customProperties[typeName].values.forEach(function (obj) {
+									if (obj.value) {
+										values.push(obj.value);
+									}
+								});
+							}
+							console.log(sprintf(format1, typeName, values.join(', ')));
+						}
+					});
+				}
+				console.log('');
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
 
 var _addTaxonomyPermission = function (server, csrfToken, taxonomy, grantee, type, role) {
 	return new Promise(function (resolve, reject) {

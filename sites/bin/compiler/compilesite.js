@@ -1503,7 +1503,7 @@ var compiler = {
 					var serverURL,
 						authorization = '';
 
-					if (server && server.username && server.password) {
+					if (server && ((server.username && server.password) || server.oauthtoken)) {
 						// use the configured server
 						serverURL = server.url;
 

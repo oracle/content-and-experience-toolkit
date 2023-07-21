@@ -1390,6 +1390,10 @@
 					'properties': [
 						'visible',
 						'visibleOnMobile',
+						'contentId',
+						'contentIds',
+						'contentViewing',
+						'contentViewings',
 						'backgroundAttachment',
 						'backgroundColor',
 						'backgroundImage',
@@ -1440,6 +1444,10 @@
 						'visible': true
 					},
 					'properties': [
+						'contentId',
+						'contentIds',
+						'contentViewing',
+						'contentViewings',
 						'backgroundAttachment',
 						'backgroundColor',
 						'backgroundImage',

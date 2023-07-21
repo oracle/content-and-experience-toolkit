@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "23.7.1",
+	"version": "23.7.2",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -65,6 +65,7 @@
 		"update-taxonomy": "gulp -LL --gulpfile bin/gulpfile.js update-taxonomy ",
 		"control-taxonomy": "gulp -LL --gulpfile bin/gulpfile.js control-taxonomy ",
 		"describe-taxonomy": "gulp -LL --gulpfile bin/gulpfile.js describe-taxonomy ",
+		"describe-category": "gulp -LL --gulpfile bin/gulpfile.js describe-category ",
 		"share-taxonomy": "gulp -LL --gulpfile bin/gulpfile.js share-taxonomy ",
 		"unshare-taxonomy": "gulp -LL --gulpfile bin/gulpfile.js unshare-taxonomy ",
 		"create-template": "gulp -LL --gulpfile bin/gulpfile.js create-template ",
@@ -250,9 +251,10 @@
 		"node-fetch": "2.6.11",
 		"puppeteer": "15.3.1",
 		"request": "2.88.0",
-		"semver": "7.3.8",
+		"semver": "7.5.4",
 		"simplebar": "5.3.6",
 		"sprintf-js": "1.1.2",
+		"tough-cookie": "4.1.3",
 		"uglify-js": "3.17.4",
 		"underscore": "1.13.6",
 		"yargs": "17.7.1"
