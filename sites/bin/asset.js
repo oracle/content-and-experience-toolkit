@@ -3340,6 +3340,7 @@ var _updateCollectionPermission = function (server, repository, collections, use
 							server: server,
 							id: collection.id,
 							repositoryId: repository.id,
+							viewAllCollectionsEnabled: repository.viewAllCollectionsEnabled,
 							type: 'collection'
 						}));
 				});

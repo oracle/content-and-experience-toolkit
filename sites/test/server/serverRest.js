@@ -4878,12 +4878,12 @@ module.exports.getCategoryProperties = function (args) {
 	});
 };
 
-var _getResourcePermissions = function (server, id, type, repositoryId) {
+var _getResourcePermissions = function (server, id, type, repositoryId, viewAllCollectionsEnabled=false) {
 	return new Promise(function (resolve, reject) {
 		var resourceType = type === 'repository' ? 'repositories' : (type + 's');
 		var url;
 		if (type === 'collection') {
-			url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections/' + id + '/permissions';
+			url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections/' + id + '/permissions?isCollectionOnly=' + !viewAllCollectionsEnabled;
 		} else {
 			url = server.url + '/content/management/api/v1.1/' + resourceType + '/' + id + '/permissions';
 		}
@@ -4938,7 +4938,7 @@ var _getResourcePermissions = function (server, id, type, repositoryId) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getResourcePermissions = function (args) {
-	return _getResourcePermissions(args.server, args.id, args.type, args.repositoryId);
+	return _getResourcePermissions(args.server, args.id, args.type, args.repositoryId, args.viewAllCollectionsEnabled);
 };
 
 
