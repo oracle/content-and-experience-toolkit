@@ -226,7 +226,7 @@ var getResourceRoles = function () {
 };
 
 var getCollectionRoles = function () {
-	const roles = ['manager', 'contributor'];
+	const roles = ['manager', 'contributor', 'viewer'];
 	return roles;
 };
 
