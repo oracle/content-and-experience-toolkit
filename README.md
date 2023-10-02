@@ -15,6 +15,27 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.9.2
+
+**Added**
+- `cec describe-local-content` - Can now list the content of local resources
+
+**Updated**
+- `cec control-content` - Added new action `archive`
+- `cec list-assets` - Added new options `search` and `searchoperator`, supports property references, referencedBy and referencedBySites
+- `cec index-site` - Now includes page keywords when indexing
+- `cec transfer-content` - Added option to use a query
+- `cec transfer-site-content` - Added option to use a query
+- `cec execute-get` - Allow to output the result
+- `cec list-folder` - Added name filter option
+- `cec download-folder` - Added file batch size option
+- `cec set-site-security` - Allow change who can access a secured published/online site
+
+- update local server - Now supports upload component from component UI
+- update sync-server - Now supports events `CONTENTITEM_CATEGORIZED`, `CONTENTITEM_DECATEGORIZED`, `DIGITALASSET_CATEGORIZED` and `DIGITALASSET_DECATEGORIZED`
+
+
+
 # New in Release 23.7.2
 
 **Added**

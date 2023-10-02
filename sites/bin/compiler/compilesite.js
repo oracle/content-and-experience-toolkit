@@ -23,7 +23,6 @@ var fs = require('fs'),
 	path = require('path'),
 	url = require('url'),
 	merge = require('deepmerge'),
-	request = require('request'),
 	SCSComponentAPI = require('./api/CompileComponentAPI'),
 	serverUtils = require('../../test/server/serverUtils'),
 	documentUtils = require('../document').utils,
@@ -3448,6 +3447,7 @@ function writeCommonSiteInfo(context) {
 
 // this registers the template to use when running content queries with the local server
 var registerTemplateWithServer = function () {
+
 	if (server && server.username && server.password) {
 		// for remote server, nothing to do
 		return Promise.resolve();
@@ -3472,7 +3472,9 @@ var registerTemplateWithServer = function () {
 			var options = {
 				url: getLocalTemplateURL
 			};
-			request(options, function (error, response, body) {
+
+			var request = require('../../test/server/requestUtils.js').request;
+			request.get(options, function (error, response, body) {
 				// this is just to wait for the template name to inserted into the server context via the URL, no need to check response
 				resolve();
 			});

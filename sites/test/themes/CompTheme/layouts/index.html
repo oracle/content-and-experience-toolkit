@@ -30,6 +30,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 	<link rel=”preload” as="script" href="/_sitescloud/renderer/require.js">
 	<link rel=”preload” as="script" href="/_sitescloud/renderer/app/apps/js/knockout.min.js">
 	<link rel=”preload” as="script" href="[!--$SCS_RENDERER_PATH--]/renderer.js">
+	<script type="text/javascript" src="../../../sitescloud/renderer/app/apps/js/jquery.min.js"></script>
 	<!-- This contains the main script for configuring JET within the page -->
 	<script type="text/javascript" src="/_themes/[!--$SCS_THEME_NAME--]/assets/js/main.js"></script>
 	<link href="https://static.oracle.com/cdn/jet/12.1.0/default/css/redwood/oj-redwood-min.css" rel="stylesheet">
@@ -47,13 +48,25 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
         <div class="brand">
             <img id="logo" data-bind="click: mainPage" class="brand-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIgAAAARCAMAAAAxDRTrAAAApVBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABU/knhAAAANnRSTlMAzCJq/RDdtKWH+ebvBp9xUdGYd2YbA/JZPjct4djISyUT9urCvZKDMY1DCwKqfl5GGLhjHa4JOWDOAAACmElEQVRIx4WV2XqCMBBGg+JSkEWoiCLiDnW3y//+j9YBIkmT+nFuJBMNZ5LJyEqc2F0aDfvAj6qwb8gsf+Izk7huF748PmfB3hD4LDeMLtNY5QPpXQGb5Ncj42QLKKQzRnShsHyIBX0Am5UYF2PIjB02BN5UjZ5rQcIqWDc8PHU9ExpW/J8IjKhZ0QaxZ00yFmTMOftPZJLiDx/0Ei/0eGrkMXqbrTqc1fGwIZN5JbLvNMw/TOCLcQ7AlMY3PkzKnwT3ZpFv9p+IYwDYxUmzpkNuoTerJk82MJ4o59in2LkUGcjhg9iCOUl0XWC7rsc7wE6U9HWREDA99oIuMJqowcQCMk1kBvTrp8gAluf1CAj4THkYbSKRXR7GKz6BXI+6gKuJZEDKywowiyoJc8b36oe1ipDupvdShCznetQHDFXE2QPD6ul7Chz4xqQOPdDMrV3kHbD6f/iMxKwJfOsic2BRixTvnOsYQF1XP4Dde5ZKSJ80dWwXCaFgyj/aAokukgHjWsS5QOA2LSRmFQGw6VS1GreK6O3AlWdpDU8X+QAu/GjOB3Cs/FzdswXwyb+33tJz5eO2i9yB6aMn4Sj7ZWsVNJkCt6ZGQhMw3fx90khuVoNRjVXtjk+Wq1aR01QkrbOm2cFJiS2BhSOK9WbR+HmABWldqwvOoUSiVGlGughPwcrkgHZyabwWgcfXAjB9JkTYnWxHVFnSTXmDIGB3k3y6kxaRXrlwUEQvTALoUM6yCCtswPp6eh+VRKiZeXohDqHQPyVbyKhV4U2hsOXvFH2kk4ISrKtnyGSicfVf69uQod7vQuFOHWgHCe2uPfKlWMa0dyF5ChFRN7iUl3n0YH+Y1c3k5O1sE5yyvyV9yHD/7NLfgCP3y1/ilaUbUwNDfAAAAABJRU5ErkJggg==" alt="undefined logo">
             <span id="brandText">Content Management</span>
+			<span id="serverinfo" class="server">_devcs_server_info</span>
         </div>
         <div class="breadcrumb">
             <div>
 				<a href="/public">Developer</a>&nbsp;&gt;&nbsp;<a href="/public/components.html">Components</a>&nbsp;&gt;&nbsp;_devcs_component_name
 			</div>
+			<button id="uploadcomp" onclick="uploadComponent(this)">Upload to Server</button>
         </div>
     </div>
+
+	<div id="uploadcompdialog" role="dialog" class="uploaddialog" style="position: absolute;height: 70%;width: 50%;top: 100px;z-index: 111;">
+		<div class="uploadcontainer">
+			<button id="closebutton" onclick="closeDialog(this)">Close</button>
+		</div>
+		<div id="cmdoutput" class="output">
+		</div>
+	</div>
+
+	<div class="upload-overlay" id="uploadoverlay" style="z-index: 110;"></div>
 
 	<div class="toolbox branded">
 		<div class="toolbar">
@@ -75,7 +88,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				_devcs_theme_designs
 			</div>
 
-			<div class="class="themedesign"">
+			<div class="themedesign">
 				<span>Theme Resources</span>
 				_devcs_theme_resources
 			</div>
@@ -578,6 +591,14 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			
 		};
 
+		// Upload component button
+		var uploadComponentButton = document.getElementById("uploadcomp");
+		var hasValidServer = "_devcs_server_valid";
+		if (hasValidServer === "true") {
+			uploadComponentButton.disabled = false;
+		} else {
+			uploadComponentButton.disabled = true;
+		}
 		//
 		// setting pane setup
 		//
@@ -620,6 +641,45 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				window.sessionStorage.setItem("settingsPaneStatus", "close");
   			}
 		};
+
+		var uploadComponent = function (event) {
+			var compName = '_devcs_component_name';
+			var overlay = document.getElementById("uploadoverlay");
+			overlay.style.display = 'block';
+			var dialog = document.getElementById("uploadcompdialog");
+			dialog.style.display = "block";
+			
+			var msg = '   Uploading component ' + compName + ' to the server ...';
+			$('#cmdoutput').empty();
+			$('#cmdoutput').append(
+					$('<pre>').text(msg)
+			);
+			$('#cmdoutput').show();
+			
+			$.ajax({
+                'type': 'POST',
+                'url': '/uploadcomponent/' + compName,
+                'success': function (data) {
+					$('#cmdoutput').empty();
+					$('#cmdoutput').append(
+						$('<pre>').text(data)
+					);
+					$('#cmdoutput').show();
+					
+                },
+                'error': function (xhr, status, err) {
+                    console.log('Failed to upload component ' + compName + ' status=' + status + ' err=' + err);
+                }
+            });
+			
+		};
+
+		var closeDialog = function (event) {
+			var  dialog = document.getElementById("uploadcompdialog");
+			dialog.style.display = "none";
+			var overlay = document.getElementById("uploadoverlay");
+			overlay.style.display = 'none';
+		}
 
 	</script>
 	<script data-main="/_sitescloud/renderer/renderer.js" src="/libs/requirejs/require.js"></script>

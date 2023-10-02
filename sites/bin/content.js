@@ -261,9 +261,6 @@ var _downloadContent = function (server, channel, name, publishedassets, approve
 					console.info(' - total assets in repostiory / channel: ' + dbAssetGUIDS.length);
 				}
 
-				// require item search to get items
-				requireItemSearch = collection || query || approvedassets || dbAssetGUIDS.length === 0;
-
 				var collectionPromises = [];
 				if (repository) {
 					collectionPromises.push(serverRest.getCollections({
@@ -294,8 +291,11 @@ var _downloadContent = function (server, channel, name, publishedassets, approve
 						return Promise.reject();
 					}
 
-					console.info(' - validate collection');
+					console.info(' - validate collection (Id: ' + collection.id + ')');
 				}
+
+				// require item search to get items
+				requireItemSearch = collection || query || approvedassets || dbAssetGUIDS.length === 0;
 
 				q = '';
 				if (repository) {
@@ -305,7 +305,7 @@ var _downloadContent = function (server, channel, name, publishedassets, approve
 					if (q) {
 						q = q + ' AND ';
 					}
-					q = '(collections co "' + collection.id + '")';
+					q = q + '(collections co "' + collection.id + '")';
 				}
 				if (query) {
 					if (q) {
@@ -2099,6 +2099,12 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						console.info(' - q: ' + q);
 					}
 
+					if (!q && assetGUIDS.length === 0) {
+						// nothing to do
+						console.error('ERROR: no item specified');
+						return Promise.reject();
+					}
+
 					return serverRest.queryItems({
 						server: server,
 						q: q,
@@ -2110,9 +2116,11 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 				})
 				.then(function (result) {
 					queryTotal = result.limit;
-					console.info(' - total items from query: ' + queryTotal);
+					if (q) {
+						console.info(' - total items from query: ' + queryTotal);
+					}
 
-					var queryPromise = queryTotal > 500 && assetGUIDS.length > 0 ?
+					var queryPromise = assetGUIDS.length > 0 ?
 						_queryItemsWithIds(server, q, assetGUIDS, 'name,status,isPublished,publishedChannels,languageIsMaster,translatable') :
 						serverRest.queryItems({
 							server: server,
@@ -2129,7 +2137,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						return Promise.reject();
 					}
 
-					var items = queryTotal > 500 && assetGUIDS.length > 0 ? (result || []) : (result.data || []);
+					var items = assetGUIDS.length > 0 ? (result || []) : (result.data || []);
 					if (items.length === 0) {
 						if (showDetail) {
 							if (action === 'set-translated') {
@@ -2326,7 +2334,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 									at: {
 										date: year + "-" + month + "-" + date,
 										time: hours + ":" + minutes + ":" + seconds,
-										zone: timezone
+										timezone: timezone
 									}
 								}
 							});
@@ -2503,6 +2511,30 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 							}
 						});
 
+					} else if (action === 'archive') {
+						let async = 'true';
+						opPromise = serverRest.archiveItems({server: server, itemIds: itemIds, async: async });
+						opPromise.then(function (result) {
+							if (!result || result.err) {
+								return cmdEnd(done);
+							} else {
+								let failedItems = result.body && result.body.failedItems || [];
+								if (failedItems.length > 0) {
+									if (itemIds.length - failedItems.length > 0) {
+										console.log(' - ' + (itemIds.length - failedItems.length) + ' items archived');
+									}
+									console.log(' - the following items not archived (' + failedItems.length + '):');
+									let format = '   %-36s    %-s';
+									failedItems.forEach(function (item) {
+										console.log(sprintf(format, item.id, item.message));
+									});
+									return cmdSuccess(done, true);
+								} else {
+									console.log(' - ' + itemIds.length + ' items archived');
+									return cmdSuccess(done, true);
+								}
+							}
+						});
 					} else {
 						console.error('ERROR: action ' + action + ' not supported');
 						return cmdEnd(done);
@@ -4262,6 +4294,8 @@ module.exports.transferSiteContent = function (argv, done) {
 	var uploadContentFilePath = path.join(projectDir, uploadContentFileName);
 	var publishContentFilePath = path.join(projectDir, publishContentFileName);
 
+	var query = argv.query;
+
 	serverUtils.loginToServer(server)
 		.then(function (result) {
 			if (!result.status) {
@@ -4409,7 +4443,7 @@ module.exports.transferSiteContent = function (argv, done) {
 			}
 
 			// query all items in the site channel
-			return _getAllItems(server, site.repository, site.channel, publishedassets);
+			return query ? _queryTransferItems(server, site.repository, site.channel, publishedassets, query) : _getAllItems(server, site.repository, site.channel, publishedassets);
 
 		})
 		.then(function (result) {
@@ -4478,7 +4512,8 @@ module.exports.transferSiteContent = function (argv, done) {
 			var assetsFile;
 			for (i = 0; i < groups.length; i++) {
 				ids = groups[i];
-				groupName = siteName2 + '_content_batch_' + i.toString();
+				var idx = serverUtils.lpad((i + 1).toString(), '0', 3);
+				groupName = siteName2 + '_content_batch_' + idx;
 
 				// save ids to file
 				assetsFile = path.join(distFolder, groupName + '_assets');
@@ -4661,6 +4696,8 @@ module.exports.transferContent = function (argv, done) {
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
 	var reuseContent = typeof argv.reuse === 'string' && argv.reuse.toLowerCase() === 'true';
 
+	var query = argv.query;
+
 	var repositoryName = argv.repository;
 	var channelName = argv.channel;
 
@@ -4751,7 +4788,7 @@ module.exports.transferContent = function (argv, done) {
 				console.info(' - verify channel on source server');
 			}
 
-			return _getAllItems(server, srcRepo, srcChannel, publishedassets);
+			return query ? _queryTransferItems(server, srcRepo, srcChannel, publishedassets, query) : _getAllItems(server, srcRepo, srcChannel, publishedassets);
 
 		})
 		.then(function (result) {
@@ -5004,6 +5041,57 @@ var _getMasterItems = function (server, items) {
 	});
 };
 
+var _queryTransferItems = function (server, repository, channel, publishedassets, query) {
+	return new Promise(function (resolve, reject) {
+
+		var q = '(repositoryId eq "' + repository.id + '")';
+		if (channel && channel.id) {
+			q = q + ' AND (channels co "' + channel.id + '")';
+		}
+		if (publishedassets) {
+			q = q + ' AND (isPublished eq "true")';
+		}
+		if (query) {
+			q = q + ' AND (' + query + ')';
+		}
+		console.info(' - query: ' + q);
+
+		var totalItems;
+		serverRest.queryItems({
+			server: server,
+			q: q,
+			limit: 1,
+			showTotal: false
+		})
+			.then(function (result) {
+				totalItems = result.limit;
+				console.info(' - total items: ' + totalItems);
+
+				// get all master items
+				q = q + ' AND (languageIsMaster eq "true")';
+
+				return serverRest.queryItems({
+					server: server,
+					q: q,
+					showTotal: false
+				});
+			})
+			.then(function (result) {
+				var masterItems = result.data || [];
+				if (totalItems !== masterItems.length) {
+					console.info(' - total master items: ' + masterItems.length);
+				}
+
+				return resolve(masterItems);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				return resolve([]);
+			});
+	});
+};
 
 module.exports.uploadCompiledContent = function (argv, done) {
 	'use strict';
@@ -6293,7 +6381,6 @@ module.exports.syncApproveItem = function (argv, done) {
 				return Promise.reject();
 			}
 
-			// delete
 			serverRest.approveItems({
 				server: destServer,
 				itemIds: [id]
@@ -6312,6 +6399,114 @@ module.exports.syncApproveItem = function (argv, done) {
 					}
 					done();
 				});
+		})
+		.catch((error) => {
+			if (error) {
+				console.error(error);
+			}
+			done();
+		});
+};
+
+var _doItemCategorization = function (server, operation, taxonomyId, categoryIds, itemId, itemName) {
+	// console.setLevel('debug');
+	return new Promise(function (resolve, reject) {
+		var q = 'id eq "' + itemId + '"';
+		var categories = [];
+		categoryIds.forEach(function (id) {
+			categories.push({id: id});
+		});
+		var operations = {};
+		operations[operation] = {
+			categories: categories,
+			taxonomyId: {id: taxonomyId}
+		};
+
+		var url = '/content/management/api/v1.1/bulkItemsOperations';
+		var body = {
+			q: q,
+			operations: operations
+		};
+		serverRest.executePost({
+			server: server,
+			endpoint: url,
+			body: body,
+			noMsg: true,
+			responseStatus: true
+		}).then(function (data) {
+			return resolve(data);
+		});
+	});
+};
+
+module.exports.syncCategorizeItem = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var srcServer = argv.server;
+	console.info(' - source server: ' + srcServer.url);
+
+	var destServer = argv.destination;
+	console.info(' - destination server: ' + destServer.url);
+
+	var id = argv.id;
+	var name = argv.name;
+	var taxonomyId = argv.taxonomyId;
+	var categoryIds = argv.categoryIds;
+	var action = argv.action;
+
+	serverUtils.loginToServer(srcServer)
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + srcServer.url);
+				return Promise.reject();
+			}
+
+			return serverUtils.loginToServer(destServer);
+		})
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + destServer.url);
+				return Promise.reject();
+			}
+
+			let operation = action === 'CONTENTITEM_CATEGORIZED' || action === 'DIGITALASSET_CATEGORIZED' ? 'addCategories' :
+				(action === 'CONTENTITEM_DECATEGORIZED' || action === 'DIGITALASSET_DECATEGORIZED' ? 'removeCategories' : '');
+
+			if (!operation) {
+				console.error('ERROR: invalid action ' + action);
+				return Promise.reject();
+			}
+
+			console.info(' - taxonomy: ' + taxonomyId);
+			console.info(' - categories: ' + categoryIds);
+			console.info(' - item ' + id + ' ' + name);
+			return _doItemCategorization(destServer, operation, taxonomyId, categoryIds, id, name);
+		})
+		.then(function (result) {
+			if (!result || result.status) {
+				if (action === 'CONTENTITEM_CATEGORIZED' || action === 'DIGITALASSET_CATEGORIZED') {
+					console.error('ERROR: failed to add categories to the item');
+				} else {
+					console.error('ERROR: failed to remove categories from the item');
+				}
+				if (result) {
+					console.error(JSON.stringify(result, null, 4));
+				}
+				return Promise.reject();
+
+			} else {
+				if (action === 'CONTENTITEM_CATEGORIZED' || action === 'DIGITALASSET_CATEGORIZED') {
+					console.log(' - categories added to the item');
+				} else {
+					console.log(' - categories removed from the item');
+				}
+				done(true);
+			}
 		})
 		.catch((error) => {
 			if (error) {

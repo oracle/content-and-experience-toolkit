@@ -21,7 +21,8 @@ var gulp = require('gulp'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	fileUtils = require('../test/server/fileUtils.js'),
-	serverUtils = require('../test/server/serverUtils.js');
+	serverUtils = require('../test/server/serverUtils.js'),
+	formatter = require('./formatter.js');
 
 var console = require('../test/server/logger.js').console;
 
@@ -8087,6 +8088,7 @@ module.exports.describeSite = function (argv, done) {
 				if (siteInfo && siteInfo.JobID) {
 					// console.log(siteInfo);
 					console.log(sprintf(format1, 'Job action', siteInfo.JobAction));
+					siteInfo.JobID = formatter.bgjobFormat(siteInfo.JobID);
 					console.log(sprintf(format1, 'Job ID', siteInfo.JobID));
 					console.log(sprintf(format1, 'Job status', siteInfo.JobStatus));
 					console.log(sprintf(format1, 'Job percentage', siteInfo.JobPercentage));
@@ -8647,6 +8649,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 
 			var siteId;
 			var siteSecurity;
+			var siteSecured;
 			var siteMembers = [];
 			var users = [];
 			var groups = [];
@@ -8667,18 +8670,27 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 					var site = result;
 					siteId = site.id;
 					var siteOnline = site.runtimeStatus === 'online' ? true : false;
+					var sitePublished = site.publishStatus === 'published' ? true : false;
 					siteSecurity = site.security && site.security.access || [];
-					var siteSecured = siteSecurity.includes('everyone') ? false : true;
-					console.info(' - get site: runtimeStatus: ' + site.runtimeStatus + ' securityStatus: ' + (siteSecured ? 'secured' : 'public'));
+					siteSecured = siteSecurity.includes('everyone') ? false : true;
+					console.info(' - get site: publishStatus: ' + site.publishStatus + ' runtimeStatus: ' + site.runtimeStatus + ' securityStatus: ' + (siteSecured ? 'secured' : 'public'));
 
 					if (signin === 'no' && !siteSecured) {
 						console.log(' - site is already publicly available to anyone');
 						exitCode = 2;
 						return Promise.reject();
 					}
-					if (siteOnline) {
-						console.error('ERROR: site is currently online. In order to change the security setting you must first bring this site offline.');
-						return Promise.reject();
+
+					// Cannot change from secure to public or public to secure when the site is published or online
+					if (signin === 'no' && siteSecured || signin === 'yes' && !siteSecured) {
+						if (siteOnline) {
+							console.error('ERROR: site is currently online. In order to change the sign in requirement you must first take this site offline.');
+							return Promise.reject();
+						}
+						if (sitePublished) {
+							console.error('ERROR: site is currently published. In order to change the sign in requirement you must first unpublish this site.');
+							return Promise.reject();
+						}
 					}
 
 					if (site.access && site.access.items && site.access.items.length > 0) {
@@ -8842,20 +8854,29 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 						return Promise.reject();
 					}
 
-					if (!access || access.includes('Cloud users')) {
-						accessValues.push('cloud');
-						accessValues.push('visitors');
-						accessValues.push('service');
-						accessValues.push('named');
+					if (signin === 'no') {
+						accessValues.push('everyone');
 					} else {
-						if (access.includes('Visitors')) {
-							accessValues.push('visitors');
-						}
-						if (access.includes('Service users')) {
-							accessValues.push('service');
-						}
-						if (access.includes('Specific users')) {
-							accessValues.push('named');
+						if (!access && siteSecured) {
+							// use the existing access settings
+							accessValues = siteSecurity;
+						} else {
+							if (!access || access.includes('Cloud users')) {
+								accessValues.push('cloud');
+								accessValues.push('visitors');
+								accessValues.push('service');
+								accessValues.push('named');
+							} else {
+								if (access.includes('Visitors')) {
+									accessValues.push('visitors');
+								}
+								if (access.includes('Service users')) {
+									accessValues.push('service');
+								}
+								if (access.includes('Specific users')) {
+									accessValues.push('named');
+								}
+							}
 						}
 					}
 
@@ -8945,6 +8966,8 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 					}
 
 					var site = result;
+					let siteSecurity = site.security && site.security.access || [];
+					let signin = siteSecurity.includes('everyone') ? 'no' : 'yes';
 					console.log(' - site security settings updated:');
 					var format = '   %-50s %-s';
 					console.log(sprintf(format, 'Site', name));

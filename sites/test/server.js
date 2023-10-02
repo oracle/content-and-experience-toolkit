@@ -14,7 +14,7 @@ var express = require('express'),
 	path = require('path'),
 	url = require('url'),
 	request = require('request'),
-	puppeteer = require('puppeteer'),
+	componentlib = require('../bin/component.js').utils,
 	documentsRouter = require('./server/documentsRouter.js'),
 	contentRouter = require('./server/contentRouter.js'),
 	appsRouter = require('./server/appsRouter.js'),
@@ -148,6 +148,7 @@ app.use('/renderer/app/sdk/css/app-settings.css', appsRouter);
 app.use('/renderer/app/sdk', express.static(testDir + '/sitescloud/renderer/app/sdk'));
 app.use('/renderer/app/apps', appsRouter);
 app.use('/renderer/app/js', appsRouter);
+app.use('/renderer/app/dist', appsRouter);
 
 // All proxy requests are handled by proxyRouter
 app.use('/pxysvc', proxyRouter);
@@ -293,6 +294,61 @@ app.get('/getcontenttypes*', function (req, res) {
 		res.write(JSON.stringify(typeNames));
 		res.end();
 	}
+
+});
+
+// upload a component to server
+app.post('/uploadcomponent*', function (req, res) {
+	"use strict";
+
+	if (!server || !server.valid) {
+		console.error('uploadcomponent: no valid OCM server');
+		res.writeHead(404, {});
+		res.end();
+		return;
+	}
+	var compName = req.path.replace('/uploadcomponent', '');
+
+	if (!compName || compName.indexOf('/') < 0) {
+		// no component name specified
+		console.error('uploadcomponent: invalid component name: ' + compName);
+		res.writeHead(404, {});
+		res.end();
+		return;
+	}
+	compName = compName.substring(1);
+
+	console.log('Uploading component ' + compName + ' to server');
+
+	var logFile = path.join(projectDir, 'upload-component.log');
+	var uploadCompLog = fs.createWriteStream(logFile);
+	var defaultLog = process.stdout.write;
+	process.stdout.write = process.stderr.write = uploadCompLog.write.bind(uploadCompLog);
+
+	var uploadArgv = {
+		projectDir: projectDir,
+		component: compName
+	};
+	componentlib.deployComponents(server, uploadArgv).then(function (result) {
+
+		uploadCompLog.end(function () {
+			process.stdout.write = defaultLog;
+			var log = '';
+			var allFileContents = fs.readFileSync(logFile).toString();
+			allFileContents.split(/\r?\n/).forEach(function (line) {
+				if (line && !line.startsWith('Content ') && !line.startsWith('Document ') && !line.match(/\*\*\* Content: /) &&
+					line.indexOf('server channel token: ') < 0) {
+					log += line + os.EOL;
+				}
+			});
+
+			res.writeHead(201, {});
+			res.write(log);
+			res.end();
+			return;
+
+		});
+	})
 
 });
 
@@ -488,33 +544,12 @@ app.get('/isAuthenticated', function (req, res) {
 		res.end();
 		return;
 	}
-	var location = app.locals.serverURL + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-	var options = {
-		isJson: true,
-		timeout: 600000
-	};
 
-	if (app.locals.server.env !== 'dev_ec') {
-		options['auth'] = {
-			bearer: app.locals.server.oauthtoken
+	serverUtils.getIdcToken(app.locals.server).then(function (result) {
+		var data = {
+			isAuthenticated: result && result.idcToken ? true : false
 		};
-	}
-
-	request(location, options, function (err, response, body) {
-		var authenticated = false,
-			user = '';
-		if (response && response.statusCode === 200) {
-			var data = JSON.parse(body);
-			user = data && data.LocalData && data.LocalData.dUser && data.LocalData.dUser;
-			authenticated = user && user !== 'anonymous';
-		} else {
-			console.error('status=' + JSON.stringify(response) + ' err=' + err);
-		}
-		// console.log(' - user: ' + user + ' authenticated: ' + authenticated);
-		var result = {
-			isAuthenticated: authenticated
-		};
-		res.write(JSON.stringify(result));
+		res.write(JSON.stringify(data));
 		res.end();
 	});
 });
@@ -527,18 +562,17 @@ app.get('/getvbcsconnection', function (req, res) {
 		res.end();
 		return;
 	}
-	var location = app.locals.serverURL + '/documents/web?IdcService=AF_GET_APP_INFO_SIMPLE&dAppName=VBCS';
+	var location = app.locals.serverURL + '/documents/integration?IdcService=AF_GET_APP_INFO_SIMPLE&dAppName=VBCS&IsJson=1';
 	console.info('Remote traffic: ' + location);
 	var options = {
-		isJson: true,
-		timeout: 1000
+		url: location,
+		headers: {
+			Authorization: serverUtils.getRequestAuthorization(server)
+		}
 	};
-	if (app.locals.server.env !== 'dev_ec') {
-		options['auth'] = {
-			bearer: app.locals.server.oauthtoken
-		};
-	}
-	request(location, options, function (err, response, body) {
+
+	var request = require('./server/requestUtils.js').request;
+	request.get(options, function (err, response, body) {
 		var vbcsconn = '';
 		if (response && response.statusCode === 200) {
 			var data = JSON.parse(body);
@@ -689,360 +723,4 @@ function authenticateUser(env, params) {
 			params.onsuccess.apply();
 		}
 	});
-	/*
-	if (app.locals.server.env === 'dev_osso' && app.locals.server.oauthtoken) {
-		console.info('The OAuth token exists');
-		params.onsuccess.apply();
-	} else {
-		var authFn = {
-			pod: authenticateUserOnPod,
-			dev: authenticateUserOnDevInstance,
-			dev_ec: authenticateUserOnDevECInstance,
-			dev_osso: authenticateUserOnOSSO,
-			pod_ec: authenticateUserOnPodEC
-		};
-
-		if (authFn[env]) {
-			authFn[env].call(null, params);
-		} else {
-			console.error('Unknown env type: ' + env);
-		}
-	}
-	*/
-}
-
-
-function authenticateUserOnDevInstance(params) {
-	// open user session
-	request.post(app.locals.serverURL + '/cs/login/j_security_check', {
-		form: {
-			j_character_encoding: 'UTF-8',
-			j_username: params.username,
-			j_password: params.password
-		}
-	}, function (err, resp, body) {
-
-		if (err) {
-			params.onfailure.call(null, err, resp);
-			return;
-		}
-
-		// we expect a 302 response
-		if (resp && resp.statusCode === 302) {
-			var location = app.locals.serverURL + '/adfAuthentication?login=true';
-
-			request.get(location, function (err, response, body) {
-				if (err) {
-					params.onfailure.call(null, err);
-					return;
-				}
-
-				console.info('Logged in to remote server: ' + app.locals.serverURL);
-				params.onsuccess.apply();
-			});
-		} else {
-			params.onfailure.call(null, resp);
-		}
-	});
-}
-
-function authenticateUserOnDevECInstance(params) {
-	// open user session
-	request.post(app.locals.serverURL + '/cs/login/j_security_check', {
-		form: {
-			j_character_encoding: 'UTF-8',
-			j_username: params.username,
-			j_password: params.password
-		}
-	}, function (err, resp, body) {
-
-		if (err) {
-			params.onfailure.call(null, err, resp);
-			return;
-		}
-
-		// we expect a 303 response
-		if (resp && resp.statusCode === 303) {
-			var location = app.locals.serverURL + '/adfAuthentication?login=true';
-
-			request.get(location, function (err, response, body) {
-				if (err) {
-					params.onfailure.call(null, err);
-					return;
-				}
-
-				console.info('Logged in to remote server: ' + app.locals.serverURL);
-				params.onsuccess.apply();
-			});
-		} else {
-			params.onfailure.call(null, resp);
-		}
-	});
-}
-
-function authenticateUserOnPod(params) {
-	function getFormData(resp) {
-		var body = resp.body,
-			regexp = /input type="hidden" name="(\w*)" value="([!-~]*)"/gi,
-			match,
-			formData = {
-				username: params.username,
-				password: params.password,
-				userid: params.username,
-				cloud: 'null',
-				buttonAction: 'local'
-			};
-
-		while ((match = regexp.exec(body)) !== null) {
-			if (match.length !== 3) {
-				console.warn('ignored invalid match for regexp:', match);
-				continue;
-			}
-
-			formData[match[1]] = match[2];
-		}
-
-		return formData;
-	}
-
-	// open user session
-	request.get(app.locals.serverURL + '/sites', function (err, resp, body) {
-		if (err) {
-			console.error('Unable to connect to server ' + app.locals.serverURL + '\nconnection failed with error:' + err.code);
-			process.exit(-1);
-		}
-
-		// get form data for cloud login
-		// we need the current response to extract a bunch of form data
-		var formData = getFormData(resp);
-
-		// get OAM server URL
-		var OAM_Server_URL = 'https://' + resp.request.host + ':' + resp.request.port + '/oam/server/auth_cred_submit';
-
-		// post form data
-		request.post(OAM_Server_URL, {
-			form: formData
-		}, function (err, resp, body) {
-			// expecting 302
-			if (resp.statusCode === 302) {
-				// TODO this might not be necessary
-				request.get(resp.headers.location, function (err, resp, body) {
-					if (err) {
-						params.onfailure.apply(null, err);
-						return;
-					}
-
-					console.info('Logged in to remote server: ' + app.locals.serverURL);
-					params.onsuccess.apply();
-				});
-			} else {
-				params.onfailure.apply(null, resp);
-			}
-		});
-	});
-}
-
-function authenticateUserOnPodEC(params) {
-	var url = app.locals.serverURL + '/documents',
-		usernameid = '#idcs-signin-basic-signin-form-username',
-		passwordid = '#idcs-signin-basic-signin-form-password',
-		submitid = '#idcs-signin-basic-signin-form-submit',
-		username = app.locals.server.username,
-		password = app.locals.server.password;
-	/* jshint ignore:start */
-	async function loginServer() {
-		try {
-			const browser = await puppeteer.launch({
-				ignoreHTTPSErrors: true,
-				headless: false
-			});
-			const page = await browser.newPage();
-			await page.setViewport({
-				width: 960,
-				height: 768
-			});
-
-			try {
-				await page.goto(url, {
-					timeout: 50000
-				});
-			} catch (err) {
-				console.error('Could not connect to the server, check if the server is up');
-				params.onfailure.apply(null, null);
-			}
-
-			await page.waitForSelector(usernameid);
-			console.info('Enter username ' + username);
-			await page.type(usernameid, username);
-
-			await page.waitForSelector(passwordid);
-			console.info('Enter password');
-			await page.type(passwordid, password);
-
-			var button = await page.waitForSelector(submitid);
-			console.info('Click Login');
-			await button.click();
-
-			try {
-				await page.waitForSelector('#content-wrapper', {
-					timeout: 8000
-				});
-			} catch (err) {
-				// will continue, in headleass mode, after login redirect does not occur
-			}
-
-			var tokenurl = app.locals.serverURL + '/documents/web?IdcService=GET_OAUTH_TOKEN';
-			console.info('Go to ' + tokenurl);
-			await page.goto(tokenurl);
-			try {
-				await page.waitForSelector('pre', {
-					timeout: 120000
-				});
-			} catch (err) {
-				console.error('Failed to connect to the server to get the OAuth token the first time');
-
-				await page.goto(tokenurl);
-				try {
-					await page.waitForSelector('pre'); // smaller timeout
-				} catch (err) {
-					console.error('Failed to connect to the server to get the OAuth token the second time');
-
-					await browser.close();
-					params.onfailure.apply(null, null);
-				}
-			}
-
-			//await page.screenshot({path: '/tmp/puppeteer.png'});
-
-			const result = await page.evaluate(() => document.querySelector('pre').textContent);
-			var token = '';
-			var status = '';
-			if (result) {
-				var localdata = JSON.parse(result);
-				token = localdata && localdata.LocalData && localdata.LocalData.tokenValue;
-				status = localdata && localdata.LocalData && localdata.LocalData.StatusCode;
-			}
-			// console.log(token);
-
-			await browser.close();
-
-			if (status && status === '0' && token) {
-				app.locals.server.oauthtoken = token;
-				console.info('The OAuth token recieved');
-				params.onsuccess.apply();
-			} else {
-				console.error('Failed to get the OAuth token: status=' + status + ' token=' + token);
-				params.onfailure.apply(null, null);
-			}
-
-		} catch (err) {
-			console.error('ERROR!', err);
-			params.onfailure.apply(null, null);
-		}
-	}
-	loginServer();
-	/* jshint ignore:end */
-}
-
-function authenticateUserOnOSSO(params) {
-	var url = app.locals.serverURL + '/documents',
-		usernameid = '#sso_username',
-		passwordid = '#ssopassword',
-		submitid = '[value~=Sign]',
-		username = app.locals.server.username,
-		password = app.locals.server.password;
-
-	/* jshint ignore:start */
-	async function loginServer() {
-		try {
-			const browser = await puppeteer.launch({
-				ignoreHTTPSErrors: true,
-				headless: false
-			});
-			const page = await browser.newPage();
-			await page.setViewport({
-				width: 960,
-				height: 768
-			});
-
-			try {
-				await page.goto(url, {
-					timeout: 50000
-				});
-			} catch (err) {
-				console.error('Could not connect to the server, check if the server is up');
-				params.onfailure.apply(null, null);
-			}
-
-			await page.waitForSelector(usernameid);
-			console.info('Enter username ' + username);
-			await page.type(usernameid, username);
-
-			await page.waitForSelector(passwordid);
-			console.info('Enter password');
-			await page.type(passwordid, password);
-
-			var button = await page.waitForSelector(submitid);
-			console.info('Click Login');
-			await button.click();
-
-			try {
-				await page.waitForSelector('#content-wrapper', {
-					timeout: 8000
-				});
-			} catch (err) {
-				// will continue, in headleass mode, after login redirect does not occur
-			}
-
-			var tokenurl = app.locals.serverURL + '/documents/web?IdcService=GET_OAUTH_TOKEN';
-			console.info('Go to ' + tokenurl);
-			await page.goto(tokenurl);
-			try {
-				await page.waitForSelector('pre', {
-					timeout: 120000
-				});
-			} catch (err) {
-				console.error('Failed to connect to the server to get the OAuth token the first time');
-
-				await page.goto(tokenurl);
-				try {
-					await page.waitForSelector('pre'); // smaller timeout
-				} catch (err) {
-					console.error('Failed to connect to the server to get the OAuth token the second time');
-
-					await browser.close();
-					params.onfailure.apply(null, null);
-				}
-			}
-
-			//await page.screenshot({path: '/tmp/puppeteer.png'});
-
-			const result = await page.evaluate(() => document.querySelector('pre').textContent);
-			var token = '';
-			var status = '';
-			if (result) {
-				var localdata = JSON.parse(result);
-				token = localdata && localdata.LocalData && localdata.LocalData.tokenValue;
-				status = localdata && localdata.LocalData && localdata.LocalData.StatusCode;
-			}
-			// console.log(token);
-
-			await browser.close();
-
-			if (status && status === '0' && token) {
-				app.locals.server.oauthtoken = token;
-				console.info('The OAuth token recieved');
-				params.onsuccess.apply();
-			} else {
-				console.error('Failed to get the OAuth token: status=' + status + ' token=' + token);
-				params.onfailure.apply(null, null);
-			}
-
-		} catch (err) {
-			console.error('ERROR!', err);
-			params.onfailure.apply(null, null);
-		}
-	}
-	loginServer();
-	/* jshint ignore:end */
 }

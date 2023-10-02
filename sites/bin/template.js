@@ -1288,8 +1288,9 @@ module.exports.createTemplate = function (argv, done) {
 		done();
 		return;
 	} else {
-		if (fs.existsSync(path.join(templatesSrcDir, tempName))) {
-			console.error('ERROR: A template with the name ' + tempName + ' already exists. Please specify a different name.');
+		let tempPath = path.join(templatesSrcDir, tempName);
+		if (fs.existsSync(tempPath)) {
+			console.error('ERROR: A template with the name ' + tempName + ' already exists at ' + tempPath + '. Please specify a different name.');
 			done();
 			return;
 		}
@@ -3568,7 +3569,7 @@ var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpub
 				name: name
 			}).then(function (result) {
 				if (!result.err) {
-					console.error('ERROR: template ' + name + ' already exists');
+					console.error('ERROR: template ' + name + ' already exists on server ' + server.url);
 					return Promise.reject();
 				}
 

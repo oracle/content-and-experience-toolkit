@@ -55,6 +55,10 @@ var verifyRun = function (argv) {
 	return true;
 };
 
+if (process.shim) {
+	verifyRun = (argv) => true;
+}
+
 /**
  * Global variables
  */
@@ -2105,7 +2109,8 @@ module.exports.listTranslationJobs = function (argv, done) {
 		return;
 	}
 
-	if (argv.server) {
+
+	if (argv.server || process.shim) {
 		_listServerTranslationJobs(argv, done);
 		return;
 	}

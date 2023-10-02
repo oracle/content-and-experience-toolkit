@@ -56,9 +56,11 @@ router.get('/*', (req, res) => {
 		location = app.locals.serverURL + requestUrl;
 
 		if (app.locals.server.env === 'dev_ec') {
-			location = location.replace('/web?', '/integration?');
-			if (location.indexOf('IsJson=1') < 0) {
-				location = location + '&IsJson=1';
+			if (location.indexOf('/web?') > 0) {
+				location = location.replace('/web?', '/integration?');
+				if (location.indexOf('IsJson=1') < 0) {
+					location = location + '&IsJson=1';
+				}
 			}
 		}
 

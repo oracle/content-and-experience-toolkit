@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -13,7 +13,6 @@ var express = require('express'),
 	https = require('https'),
 	os = require('os'),
 	path = require('path'),
-	request = require('request'),
 	contentLib = require('../bin/content.js'),
 	siteLib = require('../bin/site.js'),
 	serverUtils = require('./server/serverUtils.js');
@@ -68,12 +67,6 @@ var updateItemOnly = process.env.CEC_TOOLKIT_SYNC_UPDATEITEMONLY;
 var daysToKeepProcessedEvents = Number(process.env.CEC_TOOLKIT_SYNC_DAYS);
 
 app.use(express.json());
-
-// enable cookies
-request = request.defaults({
-	jar: true,
-	proxy: null
-});
 
 var eventsFilePath = path.join(projectDir, 'events.json');
 var hasUnprocessedEvent = false;
@@ -192,11 +185,15 @@ app.post('/*', function (req, res) {
 		action === 'CONTENTITEM_DELETED' ||
 		action === 'CONTENTITEM_APPROVED' ||
 		action === 'CONTENTITEM_TRANSLATIONADDED' ||
+		action === 'CONTENTITEM_CATEGORIZED' ||
+		action === 'CONTENTITEM_DECATEGORIZED' ||
 		action === 'DIGITALASSET_CREATED' ||
 		action === 'DIGITALASSET_UPDATED' ||
 		action === 'DIGITALASSET_DELETED' ||
 		action === 'DIGITALASSET_APPROVED' ||
 		action === 'DIGITALASSET_TRANSLATIONADDED' ||
+		action === 'DIGITALASSET_CATEGORIZED' ||
+		action === 'DIGITALASSET_DECATEGORIZED' ||
 		action === 'CHANNEL_ASSETPUBLISHED' ||
 		action === 'CHANNEL_ASSETUNPUBLISHED' ||
 		action === 'SITE_STATUSUPDATED' ||
@@ -431,6 +428,30 @@ var _processEvent = function () {
 			};
 
 			contentLib.syncApproveItem(args, function (success) {
+				timeUsed = serverUtils.timeUsed(startTime, new Date());
+				console.log('*** action finished status: ' + (success ? 'successful' : 'failed') + ' [' + timeUsed + ']');
+				console.log(' ');
+				_updateEvent(event.__id, success, timeUsed);
+			});
+
+		}  else if (action === 'CONTENTITEM_CATEGORIZED' || action === 'CONTENTITEM_DECATEGORIZED' ||
+			action === 'DIGITALASSET_CATEGORIZED' || action === 'DIGITALASSET_DECATEGORIZED') {
+
+			var taxonomyId = event.entity.taxonomyGUID;
+			var categoryIds = event.entity.categoryIds;
+
+			args = {
+				projectDir: projectDir,
+				server: srcServer,
+				destination: destServer,
+				action: action,
+				id: objectId,
+				name: objectName,
+				taxonomyId: taxonomyId,
+				categoryIds: categoryIds
+			};
+
+			contentLib.syncCategorizeItem(args, function (success) {
 				timeUsed = serverUtils.timeUsed(startTime, new Date());
 				console.log('*** action finished status: ' + (success ? 'successful' : 'failed') + ' [' + timeUsed + ']');
 				console.log(' ');

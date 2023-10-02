@@ -100,8 +100,9 @@ module.exports.createContentLayout = function (argv, done) {
 		done();
 		return;
 	} else {
-		if (fs.existsSync(componentsSrcDir + '/' + layoutname)) {
-			console.error('ERROR: A component with the name ' + layoutname + ' already exists. Please specify a different name.');
+		let compPath = path.join(componentsSrcDir + '/' + layoutname);
+		if (fs.existsSync(compPath)) {
+			console.error('ERROR: A component with the name ' + layoutname + ' already exists at ' + compPath + '. Please specify a different name.');
 			done();
 			return;
 		}

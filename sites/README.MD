@@ -19,7 +19,7 @@ https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-oracle-con
 
 ## Setup
 
-* Make sure `node` and `npm` are in your `PATH`.  Use NodeJS version 14+.
+* Make sure `node` and `npm` are in your `PATH`.  Use NodeJS version 16.18.1+.
 * Download the Content Toolkit - e.g. from GitHub - [link](https://github.com/oracle/content-and-experience-toolkit/archive/master.zip)
 * Install the dependencies
 

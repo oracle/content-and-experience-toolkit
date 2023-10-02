@@ -116,8 +116,9 @@ module.exports.createComponent = function (argv, done) {
 		done();
 		return;
 	} else {
-		if (fs.existsSync(componentsSrcDir + '/' + compName)) {
-			console.error('ERROR: A component with the name ' + compName + ' already exists. Please specify a different name.');
+		let compPath = path.join(componentsSrcDir, compName);
+		if (fs.existsSync(compPath)) {
+			console.error('ERROR: A component with the name ' + compName + ' already exists at ' + compPath + '. Please specify a different name.');
 			done();
 			return;
 		}
@@ -535,8 +536,6 @@ module.exports.deployComponent = function (argv, done) {
 		return;
 	}
 
-	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
-
 	var folder = argv.folder && argv.folder.toString();
 	if (folder === '/') {
 		folder = '';
@@ -565,62 +564,72 @@ module.exports.deployComponent = function (argv, done) {
 	// Remove invalid component
 	argv.component = allComps.join();
 
-	var exportTask = _exportComponent(argv);
-	exportTask.then(function (result) {
-		if (result.err) {
+	_deployComponents(server, argv, folder).then(function (result) {
+		if (!result || result.err) {
 			done();
-			return;
+		} else {
+			done(true);
 		}
+	});
 
-		var loginPromise = serverUtils.loginToServer(server);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.error(result.statusMessage);
-				done();
-				return;
+};
+
+var _deployComponents = function (server, argv, folder) {
+
+	return new Promise(function (resolve, reject) {
+		var exportTask = _exportComponent(argv);
+		exportTask.then(function (result) {
+			if (result.err) {
+				return resolve(result);
 			}
 
-			var folderPromises = [];
-			if (folder) {
-				folderPromises.push(serverRest.findFolderHierarchy({
-					server: server,
-					parentID: 'self',
-					folderPath: folder
-				}));
-			}
-			Promise.all(folderPromises).then(function (results) {
-				if (folder && (!results || results.length === 0 || !results[0] || !results[0].id)) {
-					done();
-					return;
+			var loginPromise = serverUtils.loginToServer(server);
+			loginPromise.then(function (result) {
+				if (!result.status) {
+					console.error(result.statusMessage);
+					return resolve({err: 'err'});
 				}
 
-				var folderId = folder ? results[0].id : 'self';
-
-				var comps = [];
-				for (var i = 0; i < allComps.length; i++) {
-					var name = allComps[i];
-					var zipfile = path.join(projectDir, "dist", name) + ".zip";
-					if (fs.existsSync(zipfile)) {
-						comps.push({
-							name: name,
-							zipfile: zipfile
-						});
+				var folderPromises = [];
+				if (folder) {
+					folderPromises.push(serverRest.findFolderHierarchy({
+						server: server,
+						parentID: 'self',
+						folderPath: folder
+					}));
+				}
+				Promise.all(folderPromises).then(function (results) {
+					if (folder && (!results || results.length === 0 || !results[0] || !results[0].id)) {
+						return resolve({err: 'err'});
 					}
-				}
 
-				_uploadComponents(server, folder, folderId, comps, publish)
-					.then(function (result) {
-						if (result.err) {
-							done();
-						} else {
-							done(true);
+					var folderId = folder ? results[0].id : 'self';
+
+					var comps = [];
+					var allComps = argv.component.split(',');
+					for (var i = 0; i < allComps.length; i++) {
+						var name = allComps[i];
+						var zipfile = path.join(projectDir, "dist", name) + ".zip";
+						if (fs.existsSync(zipfile)) {
+							comps.push({
+								name: name,
+								zipfile: zipfile
+							});
 						}
-					});
-			});
+					}
 
-		}); // login
+					var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
+					_uploadComponents(server, folder, folderId, comps, publish)
+						.then(function (result) {
+							return resolve(result);
+						});
+				});
 
-	}); // export
+			}); // login
+
+		}); // export
+
+	});
 };
 
 var _uploadComponents = function (server, folder, folderId, comps, publish, noMsg, noDocMsg) {
@@ -2025,6 +2034,7 @@ module.exports.describeComponent = function (argv, done) {
 // export non "command line" utility functions
 module.exports.utils = {
 	downloadComponents: _downloadComponentsREST,
+	deployComponents: _deployComponents,
 	uploadComponent: _deployOneComponentREST,
 	uploadComponents: _uploadComponents,
 	exportComponents: _exportComponent

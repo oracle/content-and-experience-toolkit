@@ -11,7 +11,6 @@ var express = require('express'),
 	app = express(),
 	fs = require('fs'),
 	path = require('path'),
-	request = require('request'),
 	siteLib = require('../bin/site.js'),
 	serverUtils = require('./server/serverUtils.js');
 
@@ -59,12 +58,6 @@ for (var i = 0; i < typeNames.length; i++) {
 // console.log(typeDetailPages);
 
 app.use(express.json());
-
-// enable cookies
-request = request.defaults({
-	jar: true,
-	proxy: null
-});
 
 var eventsFilePath = path.join(projectDir, 'events.json');
 var hasUnprocessedEvent = false;

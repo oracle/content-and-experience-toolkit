@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
-var request = require('request'),
-	os = require('os'),
+var os = require('os'),
 	fs = require('fs'),
 	readline = require('readline'),
 	serverUtils = require('./serverUtils');
@@ -286,6 +285,7 @@ var _findFolderItems = function (server, parentId, parentPath, _files) {
 						_files.push({
 							type: 'Folder',
 							id: items[i].id,
+							name: items[i].name,
 							path: parentPath ? parentPath + '/' + items[i].name : items[i].name
 						});
 						subfolderPromises.push(_findFolderItems(server, items[i].id, parentPath ? parentPath + '/' + items[i].name : items[i].name, _files));
@@ -1564,7 +1564,7 @@ var _queryItems = function (useDelivery, server, queryString) {
 					aggregationResults: data && data.aggregationResults
 				});
 			} else {
-				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.detail) ? ((data.title || '') + ' ' + (data.detail || '')) : (response.statusMessage || response.statusCode);
 				console.error('ERROR: failed to query items with ' + query + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
@@ -1574,7 +1574,8 @@ var _queryItems = function (useDelivery, server, queryString) {
 	});
 };
 
-var _queryAllItems = function (useDelivery, server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, aggregationResults, defaultQuery, rankBy) {
+var _queryAllItems = function (useDelivery, server, q, fields, orderBy, limit, offset, channelToken,
+	includeAdditionalData, aggregationResults, defaultQuery, defaultOperator, rankBy, showInfo) {
 	const QUERY_SIZE = 500;
 	return new Promise(function (resolve, reject) {
 		var queryString = [];
@@ -1595,7 +1596,10 @@ var _queryAllItems = function (useDelivery, server, q, fields, orderBy, limit, o
 			queryString.push('includeAdditionalData=true');
 		}
 		if (defaultQuery) {
-			queryString.push('default="' + defaultQuery + '"');
+			queryString.push('default=' + encodeURIComponent(defaultQuery));
+			if (defaultOperator) {
+				queryString.push('defaultOperator=' + defaultOperator);
+			}
 		}
 		if (aggregationResults) {
 			queryString.push('aggs={"name":"item_count_per_category","field":"id"}');
@@ -1635,6 +1639,11 @@ var _queryAllItems = function (useDelivery, server, q, fields, orderBy, limit, o
 					if (result.data) {
 						// console.log(' - returned ' + result.data.length);
 						items = items.concat(result.data);
+						if (showInfo) {
+							process.stdout.write(' - fetching items ' + items.length +
+							' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+						}
 					}
 					hasMore = result.hasMore;
 					returnLimit = result.limit;
@@ -1647,6 +1656,9 @@ var _queryAllItems = function (useDelivery, server, q, fields, orderBy, limit, o
 		Promise.resolve({}));
 
 		doGetItems.then(function (result) {
+			if (showInfo && items.length > 0) {
+				process.stdout.write(os.EOL);
+			}
 			return resolve({
 				data: items,
 				query: query,
@@ -1690,7 +1702,7 @@ var _scrollItems = function (server, url) {
 			if (response && response.statusCode === 200) {
 				return resolve(data);
 			} else {
-				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.detail) ? ((data.title || '') + ' ' + (data.detail || '')) : (response.statusMessage || response.statusCode);
 				console.error('ERROR: failed to scroll items with ' + query + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
@@ -1699,7 +1711,7 @@ var _scrollItems = function (server, url) {
 		});
 	});
 };
-var _scrollAllItems = function (useDelivery, server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, rankBy) {
+var _scrollAllItems = function (useDelivery, server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, defaultQuery, defaultOperator, rankBy) {
 	var SCROLL_SIZE = 4000;
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items';
@@ -1723,6 +1735,12 @@ var _scrollAllItems = function (useDelivery, server, q, fields, orderBy, limit, 
 		}
 		if (includeAdditionalData) {
 			url = url + '&includeAdditionalData=true';
+		}
+		if (defaultQuery) {
+			url = url + '&default=' + encodeURIComponent(defaultQuery);
+			if (defaultOperator) {
+				url = url + '&defaultOperator=' + defaultOperator;
+			}
 		}
 		if (rankBy) {
 			url = url + '&rankBy=' + rankBy;
@@ -1788,8 +1806,11 @@ const MAX_ITEM_LIMIT = 10000;
 module.exports.queryItems = function (args) {
 	var showTotal = args.showTotal === undefined ? true : args.showTotal;
 	return new Promise(function (resolve, reject) {
+		// orderBy is required to make pagination / scroll work
+		var orderBy = args.orderBy || 'id';
 		// find out the total first
-		_queryAllItems(args.useDelivery, args.server, args.q, args.fields, args.orderBy, 1, 0, args.channelToken, args.includeAdditionalData)
+		_queryAllItems(args.useDelivery, args.server, args.q, args.fields, orderBy, 1, 0, args.channelToken,
+			args.includeAdditionalData, args.aggregationResults, args.defaultQuery, args.defaultOperator, args.rankBy)
 			.then(function (result) {
 				var items = result && result.data || [];
 				if (items.length == 0 || result.limit === args.limit) {
@@ -1802,13 +1823,15 @@ module.exports.queryItems = function (args) {
 				}
 				var offset = args.offset ? args.offset : 0;
 				if (totalCount < MAX_ITEM_LIMIT || (args.limit && (offset + args.limit < MAX_ITEM_LIMIT))) {
-					_queryAllItems(args.useDelivery, args.server, args.q, args.fields, args.orderBy, (args.limit || totalCount), args.offset, args.channelToken, args.includeAdditionalData, args.aggregationResults, args.defaultQuery, args.rankBy)
+					_queryAllItems(args.useDelivery, args.server, args.q, args.fields, orderBy, (args.limit || totalCount), args.offset, args.channelToken,
+						args.includeAdditionalData, args.aggregationResults, args.defaultQuery, args.defaultOperator, args.rankBy, showTotal)
 						.then(function (result) {
 							return resolve(result);
 						});
 				} else {
 					// console.log(' - scrolling items...');
-					_scrollAllItems(args.useDelivery, args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData, args.rankBy)
+					_scrollAllItems(args.useDelivery, args.server, args.q, args.fields, orderBy, args.limit, args.offset, args.channelToken,
+						args.includeAdditionalData, args.defaultQuery, args.defaultOperator, args.rankBy)
 						.then(function (result) {
 							var items = result;
 							return resolve({
@@ -2104,7 +2127,7 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 						console.error('ERROR: Failed to create digital item for ' + filename + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						// console.log(data);
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
-							console.error(data['o:errorDetails']);
+							console.error(JSON.stringify(data['o:errorDetails'], null, 4));
 						}
 						// Shouldn't this reject on an error?
 						resolve({
@@ -7424,7 +7447,6 @@ var _exportContentItem = function (server, id, name, published) {
 				var csrfToken = result && result.token;
 
 				var url = server.url + '/content/management/api/v1.1/content-templates/exportjobs';
-				var auth = serverUtils.getRequestAuth(server);
 				var contentTemplateName = 'contentexport';
 				var postData = {
 					'name': contentTemplateName,
@@ -7443,14 +7465,15 @@ var _exportContentItem = function (server, id, name, published) {
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					auth: auth,
 					body: JSON.stringify(postData)
 				};
 				serverUtils.showRequestOptions(options);
 
-				request(options, function (err, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(options, function (err, response, body) {
 					if (err) {
 						console.error('ERROR: Failed to export content item ' + (name || id));
 						console.error(err);
@@ -7510,107 +7533,79 @@ var _updateRenditionStatus = function (server, isMultiPart, jobId, status, progr
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
-			} else {
+			} else if (isMultiPart && !fs.existsSync(filepath)) {
+				console.error('ERROR: updateRenditionStatus file ' + filepath + ' does not exist');
+				resolve({err: 'file ' + filepath + ' does not exist'});
+			}	else {
+				var request = require('./requestUtils.js').request;
 				var csrfToken = result && result.token,
 					options = {
 						method: 'POST',
 						url: server.url + '/content/management/api/v1.1/contentRenditionJobs',
-						auth: serverUtils.getRequestAuth(server),
+						headers: {
+							'X-CSRF-TOKEN': csrfToken,
+							'X-REQUESTED-WITH': 'XMLHttpRequest',
+							Authorization: serverUtils.getRequestAuthorization(server)
+						}
 					};
+
+				var job = {
+					'jobId': jobId,
+					'status': status,
+					'progress': progress,
+					'compiledAt': compiledAt
+				};
 
 				if (isMultiPart) {
-					options.headers = {
-						'Content-Type': 'multipart/form-data',
-						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
-					};
 
-					serverUtils.showRequestOptions(options);
-
-					var multiPartFormRequest = request.post(options, function optionalCallback(error, response, body) {
-						if (error) {
-							console.error('updateRenditionStatus: ' + error);
-							return resolve({
-								error: error
-							});
-						}
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {
-							data = body;
-						}
-
-						if (response && response.statusCode >= 200 && response.statusCode < 300) {
-							return resolve(data);
-						} else {
-							var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
-							console.error('updateRenditionStatus: ' + msg);
-							return resolve({
-								error: data
-							});
-						}
-					});
-
-					// populate the form body
-					var form = multiPartFormRequest.form();
+					var FormData = require('form-data');
+					var form = new FormData();
 
 					// add in the "status" details
-					form.append('status', JSON.stringify({
-						"jobId": jobId,
-						"status": status,
-						"progress": progress,
-						"compiledAt": compiledAt
-					}), {
+					form.append('status', JSON.stringify(job), {
 						contentType: 'application/json'
 					});
 
+					console.log(filepath);
 					// add in the "file" details
 					form.append('file', fs.createReadStream(filepath), {
 						contentType: 'application/zip'
 					});
+
+					options.body = form;
+
 				} else {
-					options.headers = {
-						'Content-Type': 'application/json',
-						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
-					};
-
-					options.body = JSON.stringify({
-						"jobId": jobId,
-						"status": status,
-						"progress": progress,
-						"compiledAt": compiledAt
-					});
-
-					serverUtils.showRequestOptions(options);
-
-					// console.log(' - uploading file ...');
-					request(options, function (error, response, body) {
-						if (error) {
-							console.error('updateRenditionStatus: ' + error);
-							return resolve({
-								error: error
-							});
-						}
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {
-							data = body;
-						}
-
-						if (response && response.statusCode >= 200 && response.statusCode < 300) {
-							return resolve(data);
-						} else {
-							var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
-							console.error('updateRenditionStatus: ' + msg);
-							return resolve({
-								error: data
-							});
-						}
-					});
+					options.headers['Content-Type'] = 'application/json';
+					options.body = JSON.stringify(job);
 				}
+
+				serverUtils.showRequestOptions(options);
+
+				// console.log(' - uploading file ...');
+				request.post(options, function (error, response, body) {
+					if (error) {
+						console.error('updateRenditionStatus: ' + error);
+						return resolve({
+							error: error
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						return resolve(data);
+					} else {
+						var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
+						console.error('updateRenditionStatus: ' + msg);
+						return resolve({
+							error: data
+						});
+					}
+				});
 			}
 		});
 	});
@@ -7741,7 +7736,6 @@ var _publishLaterChannelItems = function (server, name, items, channelId, reposi
 				var csrfToken = result && result.token;
 
 				var url = server.url + '/content/management/api/v1.1/publish/scheduledJobs';
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					'name': name,
 					'items': items,
@@ -7756,16 +7750,18 @@ var _publishLaterChannelItems = function (server, name, items, channelId, reposi
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					auth: auth,
-					body: JSON.stringify(postData)
+					body: JSON.stringify(postData),
+					json: true
 				};
 				serverUtils.showRequestOptions(options);
 
-				request(options, function (err, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(options, function (err, response, body) {
 					if (err) {
-						console.error('ERROR: Failed to schedule publishing of items ' + name);
+						console.error('ERROR: Failed to schedule publishing of items ' + name + ' (ecid: ' + response.ecid + ')');
 						console.error(err);
 						resolve({
 							err: 'err'
@@ -7795,7 +7791,7 @@ var _publishLaterChannelItems = function (server, name, items, channelId, reposi
 					} else {
 						// console.log(data);
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.error('ERROR: failed to schedule publishing of items: ' + msg);
+						console.error('ERROR: failed to schedule publishing of items: ' + msg + ' (ecid: ' + response.ecid + ')');
 						return resolve({
 							err: 'err'
 						});
@@ -8645,10 +8641,10 @@ module.exports.removeMembersFromGroup = function (args) {
  * @returns
  */
 module.exports.executeGet = function (args) {
-	return _executeGet(args.server, args.endpoint, args.noMsg, args.headers);
+	return _executeGet(args.server, args.endpoint, args.noMsg, args.headers, args.returnContentType);
 };
 
-var _executeGet = function (server, endpoint, noMsg, headers) {
+var _executeGet = function (server, endpoint, noMsg, headers, returnContentType) {
 	return new Promise(function (resolve, reject) {
 		var showDetail = noMsg ? false : true;
 		var url;
@@ -8690,7 +8686,11 @@ var _executeGet = function (server, endpoint, noMsg, headers) {
 				console.log(' - status: ' + response.statusCode + ' (' + response.statusMessage + ')');
 			}
 			if (response && response.statusCode === 200) {
-				return resolve(body);
+				if (returnContentType) {
+					return resolve({data: body, contentType: response.headers.get('content-type')});
+				} else {
+					return resolve(body);
+				}
 			} else {
 				console.error('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
 				var data;
@@ -11208,6 +11208,8 @@ var _archiveBulkOpItems = function (server, operation, itemIds, queryString, asy
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -11227,9 +11229,9 @@ var _archiveBulkOpItems = function (server, operation, itemIds, queryString, asy
 
 					if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
 						var statusId = response.location || '';
+						console.log(' - submit request: ' + statusId + ' (ecid: ' + response.ecid + ')');
 						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
 						statusId = 'archive/' + statusId;
-						console.log(' - submit request');
 						var startTime = new Date();
 						var needNewLine = false;
 						var inter = setInterval(function () {
@@ -11240,9 +11242,8 @@ var _archiveBulkOpItems = function (server, operation, itemIds, queryString, asy
 									if (needNewLine) {
 										process.stdout.write(os.EOL);
 									}
-									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-									console.error('ERROR: Failed to' + operation + ' items ', msg);
-
+									var msg = data.message ? data.message : (data.error ? data.error : '');
+									console.error('ERROR: Failed to ' + operation + ' items ' + msg);
 									return resolve({
 										err: 'err'
 									});
@@ -11252,9 +11253,9 @@ var _archiveBulkOpItems = function (server, operation, itemIds, queryString, asy
 									if (needNewLine) {
 										process.stdout.write(os.EOL);
 									}
-									return resolve({});
+									return resolve(data.result);
 								} else {
-									process.stdout.write(' -' + operation + ' items in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									process.stdout.write(' - ' + operation + ' items in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 									readline.cursorTo(process.stdout, 0);
 									needNewLine = true;
 								}

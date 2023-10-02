@@ -173,7 +173,7 @@ var getSiteSettingsFiles = function () {
 };
 
 var getContentActions = function () {
-	const actions = ['publish', 'unpublish', 'add', 'remove', 'set-translated', 'submit-for-review', 'approve', 'reject'];
+	const actions = ['publish', 'unpublish', 'add', 'remove', 'set-translated', 'submit-for-review', 'approve', 'reject', 'archive'];
 	return actions;
 };
 
@@ -366,8 +366,14 @@ var getLoggerLevels = function () {
 };
 
 var getListAssetProperties = function () {
-	const properties = ['id', 'name', 'type', 'language', 'slug', 'status', 'createdDate', 'createdBy', 'updatedDate', 'updatedBy', 'version', 'publishedVersion', 'size'];
+	const properties = ['id', 'name', 'type', 'language', 'slug', 'status', 'createdDate', 'createdBy', 'updatedDate', 'updatedBy', 'version', 'publishedVersion', 'size',
+		'references', 'referencedBy', 'referencedBySites'];
 	return properties;
+};
+
+var getListAssetExpand = function () {
+	const expandValues = ['relationships'];
+	return expandValues;
 };
 
 var getActivityObjectTypes = function () {
@@ -924,6 +930,24 @@ const uploadCompiledContent = {
 	]
 };
 
+const describeLocalContent = {
+	command: 'describe-local-content <name>',
+	alias: 'dslc',
+	name: 'describe-local-content',
+	usage: {
+		'short': 'Lists local content resources.',
+		'long': (function () {
+			let desc = 'Lists local content resources.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-local-content Site1Channel', 'List content resources from src/content/Site1Channel/'],
+		['cec describe-local-content Template1 -t', 'List content resources from src/templates/Template1/'],
+		['cec describe-local-content ~/Downloads/content.zip -f ', 'List content resources in the file']
+	]
+};
+
 const deleteTemplate = {
 	command: 'delete-template <name>',
 	alias: '',
@@ -1185,6 +1209,7 @@ const controlContent = {
 		['cec control-content remove -l Collection -s SampleServer1', 'Remove all items in collection Collection1 on the registered server SampleServer1'],
 		['cec control-content publish -c C1 -r R1 -s SampleServer1 -d "2021/9/21 0:30:00 PST" -n Name', 'Create a publishing job called Name to publish all items in channel C1 on the specified date. Requires server version: 21.2.1'],
 		['cec control-content set-translated -a GUID1,GUID2 -s SampleServer1', 'Set translatable item GUID1 and GUID2 as translated'],
+		['cec control-content archive -c Channel1 -s SampleServer1', 'Archive all items in channel Channel1']
 	]
 };
 
@@ -1206,6 +1231,7 @@ const transferContent = {
 		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -n 1000', 'Set the number of items in each batch to 1000'],
 		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -c Channel1', 'Transfer the items added to channel Channel1 in repository Repository1'],
 		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -c Channel1 -p', 'Transfer the items published to channel Channel1 in repository Repository1'],
+		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -q \'type eq "BlogType"\'', 'Transfer the items in repository Repository1, matching the query'],
 		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -u', 'Only import the content that is newer than the content in Repository1 on server SampleServer1']
 	]
 };
@@ -1797,7 +1823,7 @@ const transferSite = {
 		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -x', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer without content'],
 		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -e', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer without transferring components to server SampleServer1'],
 		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -e -c', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer without transferring components and theme to server SampleServer1'],
-		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -m "Shared Images:Shared Images,Shared Video:Shared Video"', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer and transfter the assets from repository Shared Images and Shared Video'],
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -m "Shared Images:Shared Images,Shared Video:Shared Video"', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer and transfer the assets from repository Shared Images and Shared Video'],
 		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -i', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer with static files from SampleServer'],
 		['cec transfer-site Site1 -s SampleServer -d SampleServer1', 'Updates site Site1 on server SampleServer1 based on site Site1 on server SampleServer'],
 		['cec transfer-site StandardSite1 -s SampleServer -d SampleServer1', 'Creates standard site on server SampleServer1 based on site StandardSite1 on server SampleServer']
@@ -1822,6 +1848,7 @@ const transferSiteContent = {
 		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -e', 'Generate script Site1_downloadcontent and Site1_uploadcontent and execute them'],
 		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -n 200', 'Set batch size to 200 items'],
 		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -p', 'Only the published assets will be transferred'],
+		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -q \'type eq "BlogType"\'', 'Only the assets matching the query and their dependencies will be transferred'],
 		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -u', 'Only import the content that is newer than the content in site repository on server SampleServer1'],
 		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -l', 'The assets from the site repository will be added to site default collection on destination server'],
 		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -m "Shared Images:Shared Images,Shared Video:Shared Video"']
@@ -3156,7 +3183,8 @@ const listAssets = {
 		'long': (function () {
 			let desc = 'Lists assets on OCM server. Optionally specify -c <channel>, -r <repository>, -l <collection> or -q <query> to query assets. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc += 'Optionally specify -p to select to show the properties of assets. The supported properties are:' + os.EOL + os.EOL;
-			return getListAssetProperties().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
+			desc = getListAssetProperties().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
+			return desc;
 		})()
 	},
 	example: [
@@ -3169,7 +3197,9 @@ const listAssets = {
 		['cec list-assets -c Channel1 -v', 'Query all items from channel Channel1 and validate existence'],
 		['cec list-assets -r Repo1 -l Collection1', 'List all assets from collection Collection1 and repository Repo1'],
 		['cec list-assets -q \'fields.category eq "RECIPE"\'', 'List all assets matching the query'],
-		['cec list-assets -q \'fields.category eq "RECIPE"\' -k ranking1', 'List all assets matching the query and order them by relevance']
+		['cec list-assets -q \'fields.category eq "RECIPE"\' -k ranking1', 'List all assets matching the query and order them by relevance'],
+		['cec list-assets -r Repo1 -e coffee,tea', 'List all assets from repository Repo1 where the values coffee or tea matches to asset name, description or any user-defined fields.'],
+		['cec list-assets -r Repo1 -e coffee,tea -t and', 'List all assets from repository Repo1 where the values coffee and tea matches to asset name, description or any user-defined fields.']
 	]
 };
 
@@ -3556,7 +3586,8 @@ const downloadFolder = {
 		['cec download-folder Releases/1 -f .', 'Downloads folder Releases/1 from OCM server and save to the current local folder'],
 		['cec download-folder site:blog1 -f ~/Downloads/blog1Files', 'Downloads all files of site blog1 and save to local folder ~/Download/blog1Files'],
 		['cec download-folder theme:blog1Theme', 'Downloads all files of theme blog1Theme and save to local folder src/documents/blog1Theme/'],
-		['cec download-folder component:Comp1/assets', 'Downloads all files in folder assets of component Comp1 and save to local folder src/documents/Comp1/assets/']
+		['cec download-folder component:Comp1/assets', 'Downloads all files in folder assets of component Comp1 and save to local folder src/documents/Comp1/assets/'],
+		['cec download-folder LargeFileFolder -n 5', 'Download folder LargeFileFolder from OCM server with 5 files in each batch']
 	]
 };
 
@@ -3567,7 +3598,7 @@ const listFolder = {
 	usage: {
 		'short': 'Displays folder hierarchy on OCM server.',
 		'long': (function () {
-			let desc = 'Displays folder and all its content on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Displays folder and all its content on OCM server. Optionally specify -n to filter the results to only those folders and files whose name matches the specified string. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -3575,6 +3606,7 @@ const listFolder = {
 		['cec list-folder Releases/1'],
 		['cec list-folder Releases/1 -s SampleServer1'],
 		['cec list-folder site:blog1'],
+		['cec list-folder site:blog1 -n "en-CA"'],
 		['cec list-folder theme:blog1Theme'],
 		['cec list-folder component:Comp1/assets']
 	]
@@ -4257,7 +4289,8 @@ const executeGet = {
 		})()
 	},
 	example: [
-		['cec exeg "/sites/management/api/v1/sites?links=none" -f allsites.json -s SampleServer '],
+		['cec exeg "/sites/management/api/v1/sites?links=none" -f allsites.json -s SampleServer', 'The result will be written to file allsites.json'],
+		['cec exeg "/sites/management/api/v1/sites?links=none" -s SampleServer', 'The result will be displayed'],
 		['cec exeg "/content/management/api/v1.1/channels?links=none" -f allchannels.json -s SampleServer '],
 		['cec exeg "/documents/api/1.2/folders/self/items" -f homefolderitems.json -s SampleServer ']
 	]
@@ -4499,7 +4532,8 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(createAssetUsageReport) + os.EOL +
 	_getCmdHelp(migrateContent) + os.EOL +
 	_getCmdHelp(compileContent) + os.EOL +
-	_getCmdHelp(uploadCompiledContent) + os.EOL;
+	_getCmdHelp(uploadCompiledContent) + os.EOL +
+	_getCmdHelp(describeLocalContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createRepository) + os.EOL +
@@ -4622,7 +4656,7 @@ const argv = yargs.usage(_usage)
 				.example(...createComponent.examples[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createComponent.command}\n\n${createComponent.usage.long}`);
+				.usage(`Usage:  cec ${createComponent.command} | cec ${createComponent.command.replace(createComponent.name, createComponent.alias)}\n\n${createComponent.usage.long}`);
 		})
 	.command([createContentLayout.command, createContentLayout.alias], false,
 		(yargs) => {
@@ -4661,7 +4695,7 @@ const argv = yargs.usage(_usage)
 				.example(...createContentLayout.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createContentLayout.command}\n\n${createContentLayout.usage.long}`);
+				.usage(`Usage: cec ${createContentLayout.command} | cec ${createContentLayout.command.replace(createContentLayout.name, createContentLayout.alias)}\n\n${createContentLayout.usage.long}`);
 		})
 	.command([copyComponent.command, copyComponent.alias], false,
 		(yargs) => {
@@ -4678,21 +4712,21 @@ const argv = yargs.usage(_usage)
 				.example(...copyComponent.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${copyComponent.command}\n\n${copyComponent.usage.long}`);
+				.usage(`Usage: cec ${copyComponent.command} | cec ${copyComponent.command.replace(copyComponent.name, copyComponent.alias)}\n\n${copyComponent.usage.long}`);
 		})
 	.command([importComponent.command, importComponent.alias], false,
 		(yargs) => {
 			yargs.example(...importComponent.example)
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${importComponent.command}\n\n${importComponent.usage.long}`);
+				.usage(`Usage: cec ${importComponent.command} | cec ${importComponent.command.replace(importComponent.name, importComponent.alias)}\n\n${importComponent.usage.long}`);
 		})
 	.command([exportComponent.command, exportComponent.alias], false,
 		(yargs) => {
 			yargs.example(...exportComponent.example)
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${exportComponent.command}\n\n${exportComponent.usage.long}`);
+				.usage(`Usage: cec ${exportComponent.command} | cec ${exportComponent.command.replace(exportComponent.name, exportComponent.alias)}\n\n${exportComponent.usage.long}`);
 		})
 	.command([downloadComponent.command, downloadComponent.alias], false,
 		(yargs) => {
@@ -4710,7 +4744,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadComponent.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadComponent.command}\n\n${downloadComponent.usage.long}`);
+				.usage(`Usage: cec ${downloadComponent.command} | cec ${downloadComponent.command.replace(downloadComponent.name, downloadComponent.alias)}\n\n${downloadComponent.usage.long}`);
 		})
 	.command([deployComponent.command, deployComponent.alias], false,
 		(yargs) => {
@@ -4733,7 +4767,7 @@ const argv = yargs.usage(_usage)
 				.example(...deployComponent.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${deployComponent.command}\n\n${deployComponent.usage.long}`);
+				.usage(`Usage: cec ${deployComponent.command} | cec ${deployComponent.command.replace(deployComponent.name, deployComponent.alias)}\n\n${deployComponent.usage.long}`);
 		})
 	.command([uploadComponent.command, uploadComponent.alias], false,
 		(yargs) => {
@@ -4756,7 +4790,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadComponent.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadComponent.command}\n\n${uploadComponent.usage.long}`);
+				.usage(`Usage: cec ${uploadComponent.command} | cec ${uploadComponent.command.replace(uploadComponent.name, uploadComponent.alias)}\n\n${uploadComponent.usage.long}`);
 		})
 	.command([controlComponent.command, controlComponent.alias], false,
 		(yargs) => {
@@ -4782,7 +4816,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlComponent.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${controlComponent.command}\n\n${controlComponent.usage.long}`);
+				.usage(`Usage: cec ${controlComponent.command} | cec ${controlComponent.command.replace(controlComponent.name, controlComponent.alias)}\n\n${controlComponent.usage.long}`);
 		})
 	.command([shareComponent.command, shareComponent.alias], false,
 		(yargs) => {
@@ -4817,7 +4851,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareComponent.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${shareComponent.command}\n\n${shareComponent.usage.long}`);
+				.usage(`Usage: cec ${shareComponent.command} | cec ${shareComponent.command.replace(shareComponent.name, shareComponent.alias)}\n\n${shareComponent.usage.long}`);
 		})
 	.command([unshareComponent.command, unshareComponent.alias], false,
 		(yargs) => {
@@ -4844,7 +4878,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareComponent.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${unshareComponent.command}\n\n${unshareComponent.usage.long}`);
+				.usage(`Usage: cec ${unshareComponent.command} | cec ${unshareComponent.command.replace(unshareComponent.name, unshareComponent.alias)}\n\n${unshareComponent.usage.long}`);
 		})
 	.command([describeComponent.command, describeComponent.alias], false,
 		(yargs) => {
@@ -4860,7 +4894,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeComponent.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeComponent.command}\n\n${describeComponent.usage.long}`);
+				.usage(`Usage: cec ${describeComponent.command} | cec ${describeComponent.command.replace(describeComponent.name, describeComponent.alias)}\n\n${describeComponent.usage.long}`);
 		})
 	.command([createTemplate.command, createTemplate.alias], false,
 		(yargs) => {
@@ -4936,7 +4970,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplate.example[11])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createTemplate.command}\n\n${createTemplate.usage.long}`);
+				.usage(`Usage: cec ${createTemplate.command} | cec ${createTemplate.command.replace(createTemplate.name, createTemplate.alias)}\n\n${createTemplate.usage.long}`);
 		})
 	.command([createTemplateFromSite.command, createTemplateFromSite.alias], false,
 		(yargs) => {
@@ -4963,7 +4997,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplateFromSite.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createTemplateFromSite.command}\n\n${createTemplateFromSite.usage.long}`);
+				.usage(`Usage: cec ${createTemplateFromSite.command} | cec ${createTemplateFromSite.command.replace(createTemplateFromSite.name, createTemplateFromSite.alias)}\n\n${createTemplateFromSite.usage.long}`);
 		})
 	.command([copyTemplate.command, copyTemplate.alias], false,
 		(yargs) => {
@@ -4980,14 +5014,14 @@ const argv = yargs.usage(_usage)
 				.example(...copyTemplate.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${copyTemplate.command}\n\n${copyTemplate.usage.long}`);
+				.usage(`Usage: cec ${copyTemplate.command} | cec ${copyTemplate.command.replace(copyTemplate.name, copyTemplate.alias)}\n\n${copyTemplate.usage.long}`);
 		})
 	.command([importTemplate.command, importTemplate.alias], false,
 		(yargs) => {
 			yargs.example(...importTemplate.example)
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${importTemplate.command}\n\n${importTemplate.usage.long}`);
+				.usage(`Usage: cec ${importTemplate.command} | cec ${importTemplate.command.replace(importTemplate.name, importTemplate.alias)}\n\n${importTemplate.usage.long}`);
 		})
 	.command([exportTemplate.command, exportTemplate.alias], false,
 		(yargs) => {
@@ -4998,7 +5032,7 @@ const argv = yargs.usage(_usage)
 				.example(...exportTemplate.example)
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${exportTemplate.command}\n\n${exportTemplate.usage.long}`);
+				.usage(`Usage: cec ${exportTemplate.command} | cec ${exportTemplate.command.replace(exportTemplate.name, exportTemplate.alias)}\n\n${exportTemplate.usage.long}`);
 		})
 	.command([downloadTemplate.command, downloadTemplate.alias], false,
 		(yargs) => {
@@ -5010,7 +5044,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadTemplate.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadTemplate.command}\n\n${downloadTemplate.usage.long}`);
+				.usage(`Usage: cec ${downloadTemplate.command} | cec ${downloadTemplate.command.replace(downloadTemplate.name, downloadTemplate.alias)}\n\n${downloadTemplate.usage.long}`);
 		})
 	.command([compileTemplate.command, compileTemplate.alias], false,
 		(yargs) => {
@@ -5097,7 +5131,7 @@ const argv = yargs.usage(_usage)
 				.example(...compileTemplate.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${compileTemplate.command}\n\n${compileTemplate.usage.long}`);
+				.usage(`Usage: cec ${compileTemplate.command} | cec ${compileTemplate.command.replace(compileTemplate.name, compileTemplate.alias)}\n\n${compileTemplate.usage.long}`);
 		})
 	.command([compileSite.command, compileSite.alias], false,
 		(yargs) => {
@@ -5137,7 +5171,7 @@ const argv = yargs.usage(_usage)
 				.example(...compileSite.example[0])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${compileSite.command}\n\n${compileSite.usage.long}`);
+				.usage(`Usage: cec ${compileSite.command} | cec ${compileSite.command.replace(compileSite.name, compileSite.alias)}\n\n${compileSite.usage.long}`);
 		})
 	.command([deleteTemplate.command], false,
 		(yargs) => {
@@ -5181,7 +5215,7 @@ const argv = yargs.usage(_usage)
 				.example(...deployTemplate.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${deployTemplate.command}\n\n${deployTemplate.usage.long}`);
+				.usage(`Usage: cec ${deployTemplate.command} | cec ${deployTemplate.command.replace(deployTemplate.name, deployTemplate.alias)}\n\n${deployTemplate.usage.long}`);
 		})
 	.command([uploadTemplate.command, uploadTemplate.alias], false,
 		(yargs) => {
@@ -5223,7 +5257,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadTemplate.example[7])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadTemplate.command}\n\n${uploadTemplate.usage.long}`);
+				.usage(`Usage: cec ${uploadTemplate.command} | cec ${uploadTemplate.command.replace(uploadTemplate.name, uploadTemplate.alias)}\n\n${uploadTemplate.usage.long}`);
 		})
 	.command([shareTemplate.command, shareTemplate.alias], false,
 		(yargs) => {
@@ -5258,7 +5292,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareTemplate.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${shareTemplate.command}\n\n${shareTemplate.usage.long}`);
+				.usage(`Usage: cec ${shareTemplate.command} | cec ${shareTemplate.command.replace(shareTemplate.name, shareTemplate.alias)}\n\n${shareTemplate.usage.long}`);
 		})
 	.command([unshareTemplate.command, unshareTemplate.alias], false,
 		(yargs) => {
@@ -5285,7 +5319,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareTemplate.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${unshareTemplate.command}\n\n${unshareTemplate.usage.long}`);
+				.usage(`Usage: cec ${unshareTemplate.command} | cec ${unshareTemplate.command.replace(unshareTemplate.name, unshareTemplate.alias)}\n\n${unshareTemplate.usage.long}`);
 		})
 	.command([describeTemplate.command, describeTemplate.alias], false,
 		(yargs) => {
@@ -5302,7 +5336,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeTemplate.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeTemplate.command}\n\n${describeTemplate.usage.long}`);
+				.usage(`Usage: cec ${describeTemplate.command} | cec ${describeTemplate.command.replace(describeTemplate.name, describeTemplate.alias)}\n\n${describeTemplate.usage.long}`);
 		})
 	.command([createTemplateReport.command, createTemplateReport.alias], false,
 		(yargs) => {
@@ -5320,7 +5354,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplateReport.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createTemplateReport.command}\n\n${createTemplateReport.usage.long}`);
+				.usage(`Usage: cec ${createTemplateReport.command} | cec ${createTemplateReport.command.replace(createTemplateReport.name, createTemplateReport.alias)}\n\n${createTemplateReport.usage.long}`);
 		})
 	.command([cleanupTemplate.command], false,
 		(yargs) => {
@@ -5359,7 +5393,7 @@ const argv = yargs.usage(_usage)
 				.example(...updateTemplate.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${updateTemplate.command}\n\n${updateTemplate.usage.long}`);
+				.usage(`Usage: cec ${updateTemplate.command} | cec ${updateTemplate.command.replace(updateTemplate.name, updateTemplate.alias)}\n\n${updateTemplate.usage.long}`);
 		})
 	.command([listServerContentTypes.command, listServerContentTypes.alias], false,
 		(yargs) => {
@@ -5401,7 +5435,7 @@ const argv = yargs.usage(_usage)
 				*/
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listServerContentTypes.command}\n\n${listServerContentTypes.usage.long}`);
+				.usage(`Usage: cec ${listServerContentTypes.command} | cec ${listServerContentTypes.command.replace(listServerContentTypes.name, listServerContentTypes.alias)}\n\n${listServerContentTypes.usage.long}`);
 		})
 	.command([addContentLayoutMapping.command, addContentLayoutMapping.alias], false,
 		(yargs) => {
@@ -5440,7 +5474,7 @@ const argv = yargs.usage(_usage)
 				.example(...addContentLayoutMapping.example[5])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${addContentLayoutMapping.command}\n\n${addContentLayoutMapping.usage.long}`);
+				.usage(`Usage: cec ${addContentLayoutMapping.command} | cec ${addContentLayoutMapping.command.replace(addContentLayoutMapping.name, addContentLayoutMapping.alias)}\n\n${addContentLayoutMapping.usage.long}`);
 		})
 	.command([removeContentLayoutMapping.command, removeContentLayoutMapping.alias], false,
 		(yargs) => {
@@ -5479,7 +5513,7 @@ const argv = yargs.usage(_usage)
 				.example(...removeContentLayoutMapping.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${removeContentLayoutMapping.command}\n\n${removeContentLayoutMapping.usage.long}`);
+				.usage(`Usage: cec ${removeContentLayoutMapping.command} | cec ${removeContentLayoutMapping.command.replace(removeContentLayoutMapping.name, removeContentLayoutMapping.alias)}\n\n${removeContentLayoutMapping.usage.long}`);
 		})
 	.command([addFieldEditor.command, addFieldEditor.alias], false,
 		(yargs) => {
@@ -5506,7 +5540,7 @@ const argv = yargs.usage(_usage)
 				.example(...addFieldEditor.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${addFieldEditor.command}\n\n${addFieldEditor.usage.long}`);
+				.usage(`Usage: cec ${addFieldEditor.command} | cec ${addFieldEditor.command.replace(addFieldEditor.name, addFieldEditor.alias)}\n\n${addFieldEditor.usage.long}`);
 		})
 	.command([removeFieldEditor.command, removeFieldEditor.alias], false,
 		(yargs) => {
@@ -5533,7 +5567,7 @@ const argv = yargs.usage(_usage)
 				.example(...removeFieldEditor.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${removeFieldEditor.command}\n\n${removeFieldEditor.usage.long}`);
+				.usage(`Usage: cec ${removeFieldEditor.command} | cec ${removeFieldEditor.command.replace(removeFieldEditor.name, removeFieldEditor.alias)}\n\n${removeFieldEditor.usage.long}`);
 		})
 	.command([downloadContent.command, downloadContent.alias], false,
 		(yargs) => {
@@ -5604,7 +5638,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadContent.example[9])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadContent.command}\n\n${downloadContent.usage.long}`);
+				.usage(`Usage: cec ${downloadContent.command} | cec ${downloadContent.command.replace(downloadContent.name, downloadContent.alias)}\n\n${downloadContent.usage.long}`);
 		})
 	.command([uploadContent.command, uploadContent.alias], false,
 		(yargs) => {
@@ -5672,7 +5706,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadContent.example[8])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadContent.command}\n\n${uploadContent.usage.long}`);
+				.usage(`Usage: cec ${uploadContent.command} | cec ${uploadContent.command.replace(uploadContent.name, uploadContent.alias)}\n\n${uploadContent.usage.long}`);
 		})
 	.command([transferContent.command, transferContent.alias], false,
 		(yargs) => {
@@ -5693,6 +5727,10 @@ const argv = yargs.usage(_usage)
 				.option('publishedassets', {
 					alias: 'p',
 					description: 'The flag to indicate published assets only'
+				})
+				.option('query', {
+					alias: 'q',
+					description: 'Query to fetch the assets'
 				})
 				.option('reuse', {
 					alias: 'u',
@@ -5721,9 +5759,10 @@ const argv = yargs.usage(_usage)
 				.example(...transferContent.example[3])
 				.example(...transferContent.example[4])
 				.example(...transferContent.example[5])
+				.example(...transferContent.example[6])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${transferContent.command}\n\n${transferContent.usage.long}`);
+				.usage(`Usage: cec ${transferContent.command} | cec ${transferContent.command.replace(transferContent.name, transferContent.alias)}\n\n${transferContent.usage.long}`);
 		})
 	.command([transferRendition.command, transferRendition.alias], false,
 		(yargs) => {
@@ -5765,7 +5804,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferRendition.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${transferRendition.command}\n\n${transferRendition.usage.long}`);
+				.usage(`Usage: cec ${transferRendition.command} | cec ${transferRendition.command.replace(transferRendition.name, transferRendition.alias)}\n\n${transferRendition.usage.long}`);
 		})
 	.command([controlContent.command, controlContent.alias], false,
 		(yargs) => {
@@ -5871,9 +5910,10 @@ const argv = yargs.usage(_usage)
 				.example(...controlContent.example[13])
 				.example(...controlContent.example[14])
 				.example(...controlContent.example[15])
+				.example(...controlContent.example[16])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${controlContent.command}\n\n${controlContent.usage.long}`);
+				.usage(`Usage: cec ${controlContent.command} | cec ${controlContent.command.replace(controlContent.name, controlContent.alias)}\n\n${controlContent.usage.long}`);
 		})
 	.command([validateContent.command, validateContent.alias], false,
 		(yargs) => {
@@ -5885,7 +5925,24 @@ const argv = yargs.usage(_usage)
 				.example(...validateContent.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${validateContent.command}\n\n${validateContent.usage.long}`);
+				.usage(`Usage: cec ${validateContent.command} | cec ${validateContent.command.replace(validateContent.name, validateContent.alias)}\n\n${validateContent.usage.long}`);
+		})
+	.command([describeLocalContent.command, describeLocalContent.alias], false,
+		(yargs) => {
+			yargs.option('template', {
+				alias: 't',
+				description: 'The content is from site template'
+			})
+				.option('file', {
+					alias: 'f',
+					description: 'The content is from file'
+				})
+				.example(...describeLocalContent.example[0])
+				.example(...describeLocalContent.example[1])
+				.example(...describeLocalContent.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeLocalContent.command} | cec ${describeLocalContent.command.replace(describeLocalContent.name, describeLocalContent.alias)}\n\n${describeLocalContent.usage.long}`);
 		})
 	.command([createDigitalAsset.command, createDigitalAsset.alias], false,
 		(yargs) => {
@@ -5939,7 +5996,7 @@ const argv = yargs.usage(_usage)
 				.example(...createDigitalAsset.example[8])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createDigitalAsset.command}\n\n${createDigitalAsset.usage.long}`);
+				.usage(`Usage: cec ${createDigitalAsset.command} | cec ${createDigitalAsset.command.replace(createDigitalAsset.name, createDigitalAsset.alias)}\n\n${createDigitalAsset.usage.long}`);
 		})
 	.command([updateDigitalAsset.command, updateDigitalAsset.alias], false,
 		(yargs) => {
@@ -5975,7 +6032,7 @@ const argv = yargs.usage(_usage)
 				.example(...updateDigitalAsset.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${updateDigitalAsset.command}\n\n${updateDigitalAsset.usage.long}`);
+				.usage(`Usage: cec ${updateDigitalAsset.command} | cec ${updateDigitalAsset.command.replace(updateDigitalAsset.name, updateDigitalAsset.alias)}\n\n${updateDigitalAsset.usage.long}`);
 		})
 	.command([copyAssets.command, copyAssets.alias], false,
 		(yargs) => {
@@ -6013,7 +6070,7 @@ const argv = yargs.usage(_usage)
 				.example(...copyAssets.example[6])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${copyAssets.command}\n\n${copyAssets.usage.long}`);
+				.usage(`Usage: cec ${copyAssets.command} | cec ${copyAssets.command.replace(copyAssets.name, copyAssets.alias)}\n\n${copyAssets.usage.long}`);
 		})
 	.command([downloadTaxonomy.command, downloadTaxonomy.alias], false,
 		(yargs) => {
@@ -6041,7 +6098,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadTaxonomy.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadTaxonomy.command}\n\n${downloadTaxonomy.usage.long}`);
+				.usage(`Usage: cec ${downloadTaxonomy.command} | cec ${downloadTaxonomy.command.replace(downloadTaxonomy.name, downloadTaxonomy.alias)}\n\n${downloadTaxonomy.usage.long}`);
 		})
 	.command([uploadTaxonomy.command, uploadTaxonomy.alias], false,
 		(yargs) => {
@@ -6082,7 +6139,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadTaxonomy.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadTaxonomy.command}\n\n${uploadTaxonomy.usage.long}`);
+				.usage(`Usage: cec ${uploadTaxonomy.command} | cec ${uploadTaxonomy.command.replace(uploadTaxonomy.name, uploadTaxonomy.alias)}\n\n${uploadTaxonomy.usage.long}`);
 		})
 	.command([transferCategoryProperty.command, transferCategoryProperty.alias], false,
 		(yargs) => {
@@ -6107,7 +6164,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferCategoryProperty.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${transferCategoryProperty.command}\n\n${transferCategoryProperty.usage.long}`);
+				.usage(`Usage: cec ${transferCategoryProperty.command} | cec ${transferCategoryProperty.command.replace(transferCategoryProperty.name, transferCategoryProperty.alias)}\n\n${transferCategoryProperty.usage.long}`);
 		})
 	.command([controlTaxonomy.command, controlTaxonomy.alias], false,
 		(yargs) => {
@@ -6151,7 +6208,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlTaxonomy.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${controlTaxonomy.command}\n\n${controlTaxonomy.usage.long}`);
+				.usage(`Usage: cec ${controlTaxonomy.command} | cec ${controlTaxonomy.command.replace(controlTaxonomy.name, controlTaxonomy.alias)}\n\n${controlTaxonomy.usage.long}`);
 		})
 	.command([updateTaxonomy.command, updateTaxonomy.alias], false,
 		(yargs) => {
@@ -6181,7 +6238,7 @@ const argv = yargs.usage(_usage)
 				.example(...updateTaxonomy.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${updateTaxonomy.command}\n\n${updateTaxonomy.usage.long}`);
+				.usage(`Usage: cec ${updateTaxonomy.command} | cec ${updateTaxonomy.command.replace(updateTaxonomy.name, updateTaxonomy.alias)}\n\n${updateTaxonomy.usage.long}`);
 		})
 	.command([describeTaxonomy.command, describeTaxonomy.alias], false,
 		(yargs) => {
@@ -6202,7 +6259,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeTaxonomy.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeTaxonomy.command}\n\n${describeTaxonomy.usage.long}`);
+				.usage(`Usage: cec ${describeTaxonomy.command} | cec ${describeTaxonomy.command.replace(describeTaxonomy.name, describeTaxonomy.alias)}\n\n${describeTaxonomy.usage.long}`);
 		})
 	.command([describeCategory.command, describeCategory.alias], false,
 		(yargs) => {
@@ -6228,7 +6285,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeCategory.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeCategory.command}\n\n${describeCategory.usage.long}`);
+				.usage(`Usage: cec ${describeCategory.command} | cec ${describeCategory.command.replace(describeCategory.name, describeCategory.alias)}\n\n${describeCategory.usage.long}`);
 		})
 	.command([shareTaxonomy.command, shareTaxonomy.alias], false,
 		(yargs) => {
@@ -6267,7 +6324,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareTaxonomy.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${shareTaxonomy.command}\n\n${shareTaxonomy.usage.long}`);
+				.usage(`Usage: cec ${shareTaxonomy.command} | cec ${shareTaxonomy.command.replace(shareTaxonomy.name, shareTaxonomy.alias)}\n\n${shareTaxonomy.usage.long}`);
 		})
 	.command([unshareTaxonomy.command, unshareTaxonomy.alias], false,
 		(yargs) => {
@@ -6298,7 +6355,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareTaxonomy.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${unshareTaxonomy.command}\n\n${unshareTaxonomy.usage.long}`);
+				.usage(`Usage: cec ${unshareTaxonomy.command} | cec ${unshareTaxonomy.command.replace(unshareTaxonomy.name, unshareTaxonomy.alias)}\n\n${unshareTaxonomy.usage.long}`);
 		})
 	.command([shareTheme.command, shareTheme.alias], false,
 		(yargs) => {
@@ -6333,7 +6390,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareTheme.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${shareTheme.command}\n\n${shareTheme.usage.long}`);
+				.usage(`Usage: cec ${shareTheme.command} | cec ${shareTheme.command.replace(shareTheme.name, shareTheme.alias)}\n\n${shareTheme.usage.long}`);
 		})
 	.command([unshareTheme.command, unshareTheme.alias], false,
 		(yargs) => {
@@ -6360,7 +6417,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareTheme.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${unshareTheme.command}\n\n${unshareTheme.usage.long}`);
+				.usage(`Usage: cec ${unshareTheme.command} | cec ${unshareTheme.command.replace(unshareTheme.name, unshareTheme.alias)}\n\n${unshareTheme.usage.long}`);
 		})
 	.command([describeTheme.command, describeTheme.alias], false,
 		(yargs) => {
@@ -6372,7 +6429,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeTheme.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeTheme.command}\n\n${describeTheme.usage.long}`);
+				.usage(`Usage: cec ${describeTheme.command} | cec ${describeTheme.command.replace(describeTheme.name, describeTheme.alias)}\n\n${describeTheme.usage.long}`);
 		})
 	.command([addComponentToTheme.command, addComponentToTheme.alias], false,
 		(yargs) => {
@@ -6389,7 +6446,7 @@ const argv = yargs.usage(_usage)
 				.example(...addComponentToTheme.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${addComponentToTheme.command}\n\n${addComponentToTheme.usage.long}`);
+				.usage(`Usage: cec ${addComponentToTheme.command} | cec ${addComponentToTheme.command.replace(addComponentToTheme.name, addComponentToTheme.alias)}\n\n${addComponentToTheme.usage.long}`);
 		})
 	.command([removeComponentFromTheme.command, removeComponentFromTheme.alias], false,
 		(yargs) => {
@@ -6401,7 +6458,7 @@ const argv = yargs.usage(_usage)
 				.example(...removeComponentFromTheme.example[0])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${removeComponentFromTheme.command}\n\n${removeComponentFromTheme.usage.long}`);
+				.usage(`Usage: cec ${removeComponentFromTheme.command} | cec ${removeComponentFromTheme.command.replace(removeComponentFromTheme.name, removeComponentFromTheme.alias)}\n\n${removeComponentFromTheme.usage.long}`);
 		})
 	.command([copyTheme.command, copyTheme.alias], false,
 		(yargs) => {
@@ -6417,7 +6474,7 @@ const argv = yargs.usage(_usage)
 				.example(...copyTheme.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${copyTheme.command}\n\n${copyTheme.usage.long}`);
+				.usage(`Usage: cec ${copyTheme.command} | cec ${copyTheme.command.replace(copyTheme.name, copyTheme.alias)}\n\n${copyTheme.usage.long}`);
 		})
 	.command([controlTheme.command, controlTheme.alias], false,
 		(yargs) => {
@@ -6442,7 +6499,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlTheme.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${controlTheme.command}\n\n${controlTheme.usage.long}`);
+				.usage(`Usage: cec ${controlTheme.command} | cec ${controlTheme.command.replace(controlTheme.name, controlTheme.alias)}\n\n${controlTheme.usage.long}`);
 		})
 	.command([listResources.command, listResources.alias], false,
 		(yargs) => {
@@ -6461,7 +6518,7 @@ const argv = yargs.usage(_usage)
 				.example(...listResources.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listResources.command}\n\n${listResources.usage.long}`);
+				.usage(`Usage: cec ${listResources.command} | cec ${listResources.command.replace(listResources.name, listResources.alias)}\n\n${listResources.usage.long}`);
 		})
 	.command([listActivities.command, listActivities.alias], false,
 		(yargs) => {
@@ -6515,7 +6572,7 @@ const argv = yargs.usage(_usage)
 				.example(...listActivities.example[5])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listActivities.command}\n\n${listActivities.usage.long}`);
+				.usage(`Usage: cec ${listActivities.command} | cec ${listActivities.command.replace(listActivities.name, listActivities.alias)}\n\n${listActivities.usage.long}`);
 		})
 	.command([describeBackgroundJob.command, describeBackgroundJob.alias], false,
 		(yargs) => {
@@ -6532,7 +6589,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeBackgroundJob.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeBackgroundJob.command}\n\n${describeBackgroundJob.usage.long}`);
+				.usage(`Usage: cec ${describeBackgroundJob.command} | cec ${describeBackgroundJob.command.replace(describeBackgroundJob.name, describeBackgroundJob.alias)}\n\n${describeBackgroundJob.usage.long}`);
 		})
 	.command([createSite.command, createSite.alias], false,
 		(yargs) => {
@@ -6601,7 +6658,7 @@ const argv = yargs.usage(_usage)
 				.example(...createSite.example[6])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createSite.command}\n\n${createSite.usage.long}`);
+				.usage(`Usage: cec ${createSite.command} | cec ${createSite.command.replace(createSite.name, createSite.alias)}\n\n${createSite.usage.long}`);
 		})
 	.command([createSitePage.command, createSitePage.alias], false,
 		(yargs) => {
@@ -6642,7 +6699,7 @@ const argv = yargs.usage(_usage)
 				.example(...createSitePage.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createSitePage.command}\n\n${createSitePage.usage.long}`);
+				.usage(`Usage: cec ${createSitePage.command} | cec ${createSitePage.command.replace(createSitePage.name, createSitePage.alias)}\n\n${createSitePage.usage.long}`);
 		})
 	.command([copySite.command, copySite.alias], false,
 		(yargs) => {
@@ -6672,7 +6729,7 @@ const argv = yargs.usage(_usage)
 				.example(...copySite.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${copySite.command}\n\n${copySite.usage.long}`);
+				.usage(`Usage: cec ${copySite.command} | cec ${copySite.command.replace(copySite.name, copySite.alias)}\n\n${copySite.usage.long}`);
 		})
 	.command([transferSite.command, transferSite.alias], false,
 		(yargs) => {
@@ -6761,7 +6818,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSite.example[10])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${transferSite.command}\n\n${transferSite.usage.long}`);
+				.usage(`Usage: cec ${transferSite.command} | cec ${transferSite.command.replace(transferSite.name, transferSite.alias)}\n\n${transferSite.usage.long}`);
 		})
 	.command([transferSiteContent.command, transferSiteContent.alias], false,
 		(yargs) => {
@@ -6783,6 +6840,10 @@ const argv = yargs.usage(_usage)
 				.option('publishedassets', {
 					alias: 'p',
 					description: 'The flag to indicate published assets only'
+				})
+				.option('query', {
+					alias: 'q',
+					description: 'Query to fetch the assets'
 				})
 				.option('addtositecollection', {
 					alias: 'l',
@@ -6820,9 +6881,10 @@ const argv = yargs.usage(_usage)
 				.example(...transferSiteContent.example[4])
 				.example(...transferSiteContent.example[5])
 				.example(...transferSiteContent.example[6])
+				.example(...transferSiteContent.example[7])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${transferSiteContent.command}\n\n${transferSiteContent.usage.long}`);
+				.usage(`Usage: cec ${transferSiteContent.command} | cec ${transferSiteContent.command.replace(transferSiteContent.name, transferSiteContent.alias)}\n\n${transferSiteContent.usage.long}`);
 		})
 	.command([transferSitePage.command, transferSitePage.alias], false,
 		(yargs) => {
@@ -6850,7 +6912,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSitePage.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${transferSitePage.command}\n\n${transferSitePage.usage.long}`);
+				.usage(`Usage: cec ${transferSitePage.command} | cec ${transferSitePage.command.replace(transferSitePage.name, transferSitePage.alias)}\n\n${transferSitePage.usage.long}`);
 		})
 	.command([controlSite.command, controlSite.alias], false,
 		(yargs) => {
@@ -6995,7 +7057,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[17])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${controlSite.command}\n\n${controlSite.usage.long}`);
+				.usage(`Usage: cec ${controlSite.command} | cec ${controlSite.command.replace(controlSite.name, controlSite.alias)}\n\n${controlSite.usage.long}`);
 		})
 	.command([shareSite.command, shareSite.alias], false,
 		(yargs) => {
@@ -7030,7 +7092,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareSite.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${shareSite.command}\n\n${shareSite.usage.long}`);
+				.usage(`Usage: cec ${shareSite.command} | cec ${shareSite.command.replace(shareSite.name, shareSite.alias)}\n\n${shareSite.usage.long}`);
 		})
 	.command([unshareSite.command, unshareSite.alias], false,
 		(yargs) => {
@@ -7057,7 +7119,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareSite.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${unshareSite.command}\n\n${unshareSite.usage.long}`);
+				.usage(`Usage: cec ${unshareSite.command} | cec ${unshareSite.command.replace(unshareSite.name, unshareSite.alias)}\n\n${unshareSite.usage.long}`);
 		})
 	.command([deleteSite.command], false,
 		(yargs) => {
@@ -7090,7 +7152,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeSite.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeSite.command}\n\n${describeSite.usage.long}`);
+				.usage(`Usage: cec ${describeSite.command} | cec ${describeSite.command.replace(describeSite.name, describeSite.alias)}\n\n${describeSite.usage.long}`);
 		})
 	.command([describeSitePage.command, describeSitePage.alias], false,
 		(yargs) => {
@@ -7117,7 +7179,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeSitePage.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeSitePage.command}\n\n${describeSitePage.usage.long}`);
+				.usage(`Usage: cec ${describeSitePage.command} | cec ${describeSitePage.command.replace(describeSitePage.name, describeSitePage.alias)}n\n${describeSitePage.usage.long}`);
 		})
 	.command([getSiteSecurity.command, getSiteSecurity.alias], false,
 		(yargs) => {
@@ -7129,7 +7191,7 @@ const argv = yargs.usage(_usage)
 				.example(...getSiteSecurity.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${getSiteSecurity.command}\n\n${getSiteSecurity.usage.long}`);
+				.usage(`Usage: cec ${getSiteSecurity.command} | cec ${getSiteSecurity.command.replace(getSiteSecurity.name, getSiteSecurity.alias)}\n\n${getSiteSecurity.usage.long}`);
 		})
 	.command([setSiteSecurity.command, setSiteSecurity.alias], false,
 		(yargs) => {
@@ -7184,7 +7246,7 @@ const argv = yargs.usage(_usage)
 				.example(...setSiteSecurity.example[5])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${setSiteSecurity.command}\n\n${setSiteSecurity.usage.long}`);
+				.usage(`Usage: cec ${setSiteSecurity.command} | cec ${setSiteSecurity.command.replace(setSiteSecurity.name, setSiteSecurity.alias)}\n\n${setSiteSecurity.usage.long}`);
 		})
 	.command([exportSite.command, exportSite.alias], false,
 		(yargs) => {
@@ -7218,7 +7280,7 @@ const argv = yargs.usage(_usage)
 				.example(...exportSite.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${exportSite.command}\n\n${exportSite.usage.long}`);
+				.usage(`Usage: cec ${exportSite.command} | cec ${exportSite.command.replace(exportSite.name, exportSite.alias)}\n\n${exportSite.usage.long}`);
 		})
 	.command([importSite.command, importSite.alias], false,
 		(yargs) => {
@@ -7306,7 +7368,7 @@ const argv = yargs.usage(_usage)
 				.example(...importSite.example[6])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${importSite.command}\n\n${importSite.usage.long}`);
+				.usage(`Usage: cec ${importSite.command} | cec ${importSite.command.replace(importSite.name, importSite.alias)}\n\n${importSite.usage.long}`);
 		})
 
 	.command([unblockImportJob.command, unblockImportJob.alias], false,
@@ -7323,7 +7385,7 @@ const argv = yargs.usage(_usage)
 				.example(...unblockImportJob.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${unblockImportJob.command}\n\n${unblockImportJob.usage.long}`);
+				.usage(`Usage: cec ${unblockImportJob.command} | cec ${unblockImportJob.command.replace(unblockImportJob.name, unblockImportJob.alias)}\n\n${unblockImportJob.usage.long}`);
 		})
 
 	.command([retryImportJob.command, retryImportJob.alias], false,
@@ -7335,7 +7397,7 @@ const argv = yargs.usage(_usage)
 				.example(...retryImportJob.example[0])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${retryImportJob.command}\n\n${retryImportJob.usage.long}`);
+				.usage(`Usage: cec ${retryImportJob.command} | cec ${retryImportJob.command.replace(retryImportJob.name, retryImportJob.alias)}\n\n${retryImportJob.usage.long}`);
 		})
 
 	.command([cancelExportJob.command, cancelExportJob.alias], false,
@@ -7348,7 +7410,7 @@ const argv = yargs.usage(_usage)
 				.example(...cancelExportJob.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${cancelExportJob.command}\n\n${cancelExportJob.usage.long}`);
+				.usage(`Usage: cec ${cancelExportJob.command} | cec ${cancelExportJob.command.replace(cancelExportJob.name, cancelExportJob.alias)}\n\n${cancelExportJob.usage.long}`);
 		})
 
 	.command([cancelImportJob.command, cancelImportJob.alias], false,
@@ -7361,7 +7423,7 @@ const argv = yargs.usage(_usage)
 				.example(...cancelImportJob.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${cancelImportJob.command}\n\n${cancelImportJob.usage.long}`);
+				.usage(`Usage: cec ${cancelImportJob.command} | cec ${cancelImportJob.command.replace(cancelImportJob.name, cancelImportJob.alias)}\n\n${cancelImportJob.usage.long}`);
 		})
 
 	.command([deleteExportJob.command], false,
@@ -7400,7 +7462,7 @@ const argv = yargs.usage(_usage)
 				.example(...listExportJobs.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listExportJobs.command}\n\n${listExportJobs.usage.long}`);
+				.usage(`Usage: cec ${listExportJobs.command} | cec ${listExportJobs.command.replace(listExportJobs.name, listExportJobs.alias)}\n\n${listExportJobs.usage.long}`);
 		})
 
 	.command([describeExportJob.command, describeExportJob.alias], false,
@@ -7418,7 +7480,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeExportJob.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeExportJob.command}\n\n${describeExportJob.usage.long}`);
+				.usage(`Usage: cec ${describeExportJob.command} | cec ${describeExportJob.command.replace(describeExportJob.name, describeExportJob.alias)}\n\n${describeExportJob.usage.long}`);
 		})
 
 	.command([listImportJobs.command, listImportJobs.alias], false,
@@ -7431,7 +7493,7 @@ const argv = yargs.usage(_usage)
 				.example(...listImportJobs.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listImportJobs.command}\n\n${listImportJobs.usage.long}`);
+				.usage(`Usage: cec ${listImportJobs.command} | cec ${listImportJobs.command.replace(listImportJobs.name, listImportJobs.alias)}\n\n${listImportJobs.usage.long}`);
 		})
 
 	.command([describeImportJob.command, describeImportJob.alias], false,
@@ -7449,7 +7511,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeImportJob.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeImportJob.command}\n\n${describeImportJob.usage.long}`);
+				.usage(`Usage: cec ${describeImportJob.command} | cec ${describeImportJob.command.replace(describeImportJob.name, describeImportJob.alias)}\n\n${describeImportJob.usage.long}`);
 		})
 
 	.command([updateSite.command, updateSite.alias], false,
@@ -7493,7 +7555,7 @@ const argv = yargs.usage(_usage)
 				.example(...updateSite.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${updateSite.command}\n\n${updateSite.usage.long}`);
+				.usage(`Usage: cec ${updateSite.command} | cec ${updateSite.command.replace(updateSite.name, updateSite.alias)}\n\n${updateSite.usage.long}`);
 		})
 	.command([validateSite.command, validateSite.alias], false,
 		(yargs) => {
@@ -7511,7 +7573,7 @@ const argv = yargs.usage(_usage)
 				.example(...validateSite.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${validateSite.command}\n\n${validateSite.usage.long}`);
+				.usage(`Usage: cec ${validateSite.command} | cec ${validateSite.command.replace(validateSite.name, validateSite.alias)}\n\n${validateSite.usage.long}`);
 		})
 	.command([indexSite.command, indexSite.alias], false,
 		(yargs) => {
@@ -7539,7 +7601,7 @@ const argv = yargs.usage(_usage)
 				.example(...indexSite.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${indexSite.command}\n\n${indexSite.usage.long}`);
+				.usage(`Usage: cec ${indexSite.command} | cec ${indexSite.command.replace(indexSite.name, indexSite.alias)}\n\n${indexSite.usage.long}`);
 		})
 	.command([createSiteMap.command, createSiteMap.alias], false,
 		(yargs) => {
@@ -7647,7 +7709,7 @@ const argv = yargs.usage(_usage)
 				.example(...createSiteMap.example[17])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
+				.usage(`Usage: cec ${createSiteMap.command} | cec ${createSiteMap.command.replace(createSiteMap.name, createSiteMap.alias)}\n\n${createSiteMap.usage.long}`);
 		})
 	.command([createRSSFeed.command, createRSSFeed.alias], false,
 		(yargs) => {
@@ -7724,7 +7786,7 @@ const argv = yargs.usage(_usage)
 				.example(...createRSSFeed.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createRSSFeed.command}\n\n${createRSSFeed.usage.long}`);
+				.usage(`Usage: cec ${createRSSFeed.command} | cec ${createRSSFeed.command.replace(createRSSFeed.name, createRSSFeed.alias)}\n\n${createRSSFeed.usage.long}`);
 		})
 	.command([createAssetReport.command, createAssetReport.alias], false,
 		(yargs) => {
@@ -7748,7 +7810,7 @@ const argv = yargs.usage(_usage)
 				.example(...createAssetReport.example[5])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createAssetReport.command}\n\n${createAssetReport.usage.long}`);
+				.usage(`Usage: cec ${createAssetReport.command} | cec ${createAssetReport.command.replace(createAssetReport.name, createAssetReport.alias)}\n\n${createAssetReport.usage.long}`);
 		})
 	.command([uploadStaticSite.command, uploadStaticSite.alias], false,
 		(yargs) => {
@@ -7781,7 +7843,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadStaticSite.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadStaticSite.command}\n\n${uploadStaticSite.usage.long}`);
+				.usage(`Usage: cec ${uploadStaticSite.command} | cec ${uploadStaticSite.command.replace(uploadStaticSite.name, uploadStaticSite.alias)}\n\n${uploadStaticSite.usage.long}`);
 		})
 	.command([downloadStaticSite.command, downloadStaticSite.alias], false,
 		(yargs) => {
@@ -7798,7 +7860,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadStaticSite.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadStaticSite.command}\n\n${downloadStaticSite.usage.long}`);
+				.usage(`Usage: cec ${downloadStaticSite.command} | cec ${downloadStaticSite.command.replace(downloadStaticSite.name, downloadStaticSite.alias)}\n\n${downloadStaticSite.usage.long}`);
 		})
 	.command([deleteStaticSite.command], false,
 		(yargs) => {
@@ -7822,7 +7884,7 @@ const argv = yargs.usage(_usage)
 				.example(...refreshPrerenderCache.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${refreshPrerenderCache.command}\n\n${refreshPrerenderCache.usage.long}`);
+				.usage(`Usage: cec ${refreshPrerenderCache.command} | cec ${refreshPrerenderCache.command.replace(refreshPrerenderCache.name, refreshPrerenderCache.alias)}\n\n${refreshPrerenderCache.usage.long}`);
 		})
 	.command([createSitePlan.command, createSitePlan.alias], false,
 		(yargs) => {
@@ -7858,7 +7920,7 @@ const argv = yargs.usage(_usage)
 				.example(...createSitePlan.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createSitePlan.command}\n\n${createSitePlan.usage.long}`);
+				.usage(`Usage: cec ${createSitePlan.command} | cec ${createSitePage.command.replace(createSitePage.name, createSitePage.alias)}\n\n${createSitePlan.usage.long}`);
 		})
 	.command([migrateSite.command, migrateSite.alias], false,
 		(yargs) => {
@@ -7903,7 +7965,7 @@ const argv = yargs.usage(_usage)
 				.example(...migrateSite.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${migrateSite.command}\n\n${migrateSite.usage.long}`);
+				.usage(`Usage: cec ${migrateSite.command} | cec ${migrateSite.command.replace(migrateSite.name, migrateSite.alias)}\n\n${migrateSite.usage.long}`);
 		})
 	.command([migrateContent.command, migrateContent.alias], false,
 		(yargs) => {
@@ -7935,7 +7997,7 @@ const argv = yargs.usage(_usage)
 				.example(...migrateContent.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${migrateContent.command}\n\n${migrateContent.usage.long}`);
+				.usage(`Usage: cec ${migrateContent.command} | cec ${migrateContent.command.replace(migrateContent.name, migrateContent.alias)}\n\n${migrateContent.usage.long}`);
 		})
 	.command([compileContent.command, compileContent.alias], false,
 		(yargs) => {
@@ -7996,7 +8058,7 @@ const argv = yargs.usage(_usage)
 				.example(...compileContent.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${compileContent.command}\n\n${compileContent.usage.long}`);
+				.usage(`Usage: cec ${compileContent.command} | cec ${compileContent.command.replace(compileContent.name, compileContent.alias)}\n\n${compileContent.usage.long}`);
 		})
 	.command([uploadCompiledContent.command, uploadCompiledContent.alias], false,
 		(yargs) => {
@@ -8008,7 +8070,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadCompiledContent.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadCompiledContent.command}\n\n${uploadCompiledContent.usage.long}`);
+				.usage(`Usage: cec ${uploadCompiledContent.command} | cec ${uploadCompiledContent.command.replace(uploadCompiledContent.name, uploadCompiledContent.alias)}\n\n${uploadCompiledContent.usage.long}`);
 		})
 	.command([renameContentType.command, renameContentType.alias], false,
 		(yargs) => {
@@ -8030,7 +8092,7 @@ const argv = yargs.usage(_usage)
 				.example(...renameContentType.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${renameContentType.command}\n\n${renameContentType.usage.long}`);
+				.usage(`Usage: cec ${renameContentType.command} | cec ${renameContentType.command.replace(renameContentType.name, renameContentType.alias)}\n\n${renameContentType.usage.long}`);
 		})
 	.command([createRepository.command, createRepository.alias], false,
 		(yargs) => {
@@ -8072,7 +8134,7 @@ const argv = yargs.usage(_usage)
 				.example(...createRepository.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createRepository.command}\n\n${createRepository.usage.long}`);
+				.usage(`Usage: cec ${createRepository.command} | cec ${createRepository.command.replace(createRepository.name, createRepository.alias)}\n\n${createRepository.usage.long}`);
 		})
 	.command([controlRepository.command, controlRepository.alias], false,
 		(yargs) => {
@@ -8145,7 +8207,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlRepository.example[14])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${controlRepository.command}\n\n${controlRepository.usage.long}`);
+				.usage(`Usage: cec ${controlRepository.command} | cec ${controlRepository.command.replace(controlRepository.name, controlRepository.alias)}\n\n${controlRepository.usage.long}`);
 		})
 	.command([shareRepository.command, shareRepository.alias], false,
 		(yargs) => {
@@ -8196,7 +8258,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareRepository.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${shareRepository.command}\n\n${shareRepository.usage.long}`);
+				.usage(`Usage: cec ${shareRepository.command} | cec ${shareRepository.command.replace(shareRepository.name, shareRepository.alias)}\n\n${shareRepository.usage.long}`);
 		})
 	.command([unshareRepository.command, unshareRepository.alias], false,
 		(yargs) => {
@@ -8228,7 +8290,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareRepository.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${unshareRepository.command}\n\n${unshareRepository.usage.long}`);
+				.usage(`Usage: cec ${unshareRepository.command} | cec ${unshareRepository.command.replace(unshareRepository.name, unshareRepository.alias)}\n\n${unshareRepository.usage.long}`);
 		})
 	.command([describeRepository.command, describeRepository.alias], false,
 		(yargs) => {
@@ -8244,7 +8306,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeRepository.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeRepository.command}\n\n${describeRepository.usage.long}`);
+				.usage(`Usage: cec ${describeRepository.command} | cec ${describeRepository.command.replace(describeRepository.name, describeRepository.alias)}\n\n${describeRepository.usage.long}`);
 		})
 	.command([setEditorialPermission.command, setEditorialPermission.alias], false,
 		(yargs) => {
@@ -8322,7 +8384,7 @@ const argv = yargs.usage(_usage)
 				.example(...setEditorialPermission.example[11])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${setEditorialPermission.command}\n\n${setEditorialPermission.usage.long}`);
+				.usage(`Usage: cec ${setEditorialPermission.command} | cec ${setEditorialPermission.command.replace(setEditorialPermission.name, setEditorialPermission.alias)}\n\n${setEditorialPermission.usage.long}`);
 		})
 	.command([listEditorialPermission.command, listEditorialPermission.alias], false,
 		(yargs) => {
@@ -8334,7 +8396,7 @@ const argv = yargs.usage(_usage)
 				.example(...listEditorialPermission.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listEditorialPermission.command}\n\n${listEditorialPermission.usage.long}`);
+				.usage(`Usage: cec ${listEditorialPermission.command} | cec ${listEditorialPermission.command.replace(listEditorialPermission.name, listEditorialPermission.alias)}\n\n${listEditorialPermission.usage.long}`);
 		})
 	.command([listEditorialRole.command, listEditorialRole.alias], false,
 		(yargs) => {
@@ -8351,7 +8413,7 @@ const argv = yargs.usage(_usage)
 				.example(...listEditorialRole.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listEditorialRole.command}\n\n${listEditorialRole.usage.long}`);
+				.usage(`Usage: cec ${listEditorialRole.command} | cec ${listEditorialRole.command.replace(listEditorialRole.name, listEditorialRole.alias)}\n\n${listEditorialRole.usage.long}`);
 		})
 	.command([createEditorialRole.command, createEditorialRole.alias], false,
 		(yargs) => {
@@ -8367,7 +8429,7 @@ const argv = yargs.usage(_usage)
 				.example(...createEditorialRole.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createEditorialRole.command}\n\n${createEditorialRole.usage.long}`);
+				.usage(`Usage: cec ${createEditorialRole.command} | cec ${createEditorialRole.command.replace(createEditorialRole.name, createEditorialRole.alias)}\n\n${createEditorialRole.usage.long}`);
 		})
 	.command([setEditorialRole.command, setEditorialRole.alias], false,
 		(yargs) => {
@@ -8433,7 +8495,7 @@ const argv = yargs.usage(_usage)
 				.example(...setEditorialRole.example[10])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${setEditorialRole.command}\n\n${setEditorialRole.usage.long}`);
+				.usage(`Usage: cec ${setEditorialRole.command} | cec ${setEditorialRole.command.replace(setEditorialRole.name, setEditorialRole.alias)}\n\n${setEditorialRole.usage.long}`);
 		})
 	.command([deleteEditorialRole.command], false,
 		(yargs) => {
@@ -8463,7 +8525,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferEditorialRole.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${transferEditorialRole.command}\n\n${transferEditorialRole.usage.long}`);
+				.usage(`Usage: cec ${transferEditorialRole.command} | cec ${transferEditorialRole.command.replace(transferEditorialRole.name, transferEditorialRole.alias)}\n\n${transferEditorialRole.usage.long}`);
 		})
 	.command([shareType.command, shareType.alias], false,
 		(yargs) => {
@@ -8498,7 +8560,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareType.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${shareType.command}\n\n${shareType.usage.long}`);
+				.usage(`Usage: cec ${shareType.command} | cec ${shareType.command.replace(shareType.name, shareType.alias)}\n\n${shareType.usage.long}`);
 		})
 	.command([unshareType.command, unshareType.alias], false,
 		(yargs) => {
@@ -8525,7 +8587,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareType.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${unshareType.command}\n\n${unshareType.usage.long}`);
+				.usage(`Usage: cec ${unshareType.command} | cec ${unshareType.command.replace(unshareType.name, unshareType.alias)}\n\n${unshareType.usage.long}`);
 		})
 	.command([downloadType.command, downloadType.alias], false,
 		(yargs) => {
@@ -8543,7 +8605,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadType.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadType.command}\n\n${downloadType.usage.long}`);
+				.usage(`Usage: cec ${downloadType.command} | cec ${downloadType.command.replace(downloadType.name, downloadType.alias)}\n\n${downloadType.usage.long}`);
 		})
 	.command([copyType.command, copyType.alias], false,
 		(yargs) => {
@@ -8563,7 +8625,7 @@ const argv = yargs.usage(_usage)
 				.example(...copyType.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${copyType.command}\n\n${copyType.usage.long}`);
+				.usage(`Usage: cec ${copyType.command} | cec ${copyType.command.replace(copyType.name, copyType.alias)}\n\n${copyType.usage.long}`);
 		})
 	.command([updateType.command, updateType.alias], false,
 		(yargs) => {
@@ -8607,7 +8669,7 @@ const argv = yargs.usage(_usage)
 				.example(...updateType.example[6])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${updateType.command}\n\n${updateType.usage.long}`);
+				.usage(`Usage: cec ${updateType.command} | cec ${updateType.command.replace(updateType.name, updateType.alias)}\n\n${updateType.usage.long}`);
 		})
 	.command([uploadType.command, uploadType.alias], false,
 		(yargs) => {
@@ -8630,7 +8692,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadType.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadType.command}\n\n${uploadType.usage.long}`);
+				.usage(`Usage: cec ${uploadType.command} | cec ${uploadType.command.replace(uploadType.name, uploadType.alias)}\n\n${uploadType.usage.long}`);
 		})
 	.command([describeType.command, describeType.alias], false,
 		(yargs) => {
@@ -8655,7 +8717,7 @@ const argv = yargs.usage(_usage)
 				*/
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeType.command}\n\n${describeType.usage.long}`);
+				.usage(`Usage: cec ${describeType.command} | cec ${describeType.command.replace(describeType.name, describeType.alias)}\n\n${describeType.usage.long}`);
 		})
 	.command([describeWorkflow.command, describeWorkflow.alias], false,
 		(yargs) => {
@@ -8671,7 +8733,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeWorkflow.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeWorkflow.command}\n\n${describeWorkflow.usage.long}`);
+				.usage(`Usage: cec ${describeWorkflow.command} | cec ${describeWorkflow.command.replace(describeWorkflow.name, describeWorkflow.alias)}\n\n${describeWorkflow.usage.long}`);
 		})
 	/**
 	  * 2021-08-20 removed
@@ -8752,7 +8814,7 @@ const argv = yargs.usage(_usage)
 				.example(...createCollection.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createCollection.command}\n\n${createCollection.usage.long}`);
+				.usage(`Usage: cec ${createCollection.command} | cec ${createCollection.command.replace(createCollection.name, createCollection.alias)}\n\n${createCollection.usage.long}`);
 		})
 	.command([controlCollection.command, controlCollection.alias], false,
 		(yargs) => {
@@ -8810,7 +8872,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlCollection.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${controlCollection.command}\n\n${controlCollection.usage.long}`);
+				.usage(`Usage: cec ${controlCollection.command} | cec ${controlCollection.command.replace(controlCollection.name, controlCollection.alias)}\n\n${controlCollection.usage.long}`);
 		})
 	.command([createChannel.command, createChannel.alias], false,
 		(yargs) => {
@@ -8849,7 +8911,7 @@ const argv = yargs.usage(_usage)
 				.example(...createChannel.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createChannel.command}\n\n${createChannel.usage.long}`);
+				.usage(`Usage: cec ${createChannel.command} | cec ${createChannel.command.replace(createChannel.name, createChannel.alias)}\n\n${createChannel.usage.long}`);
 		})
 	.command([shareChannel.command, shareChannel.alias], false,
 		(yargs) => {
@@ -8884,7 +8946,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareChannel.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${shareChannel.command}\n\n${shareChannel.usage.long}`);
+				.usage(`Usage: cec ${shareChannel.command} | cec ${shareChannel.command.replace(shareChannel.name, shareChannel.alias)}\n\n${shareChannel.usage.long}`);
 		})
 	.command([unshareChannel.command, unshareChannel.alias], false,
 		(yargs) => {
@@ -8911,7 +8973,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareChannel.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${unshareChannel.command}\n\n${unshareChannel.usage.long}`);
+				.usage(`Usage: cec ${unshareChannel.command} | cec ${unshareChannel.command.replace(unshareChannel.name, unshareChannel.alias)}\n\n${unshareChannel.usage.long}`);
 		})
 	.command([describeChannel.command, describeChannel.alias], false,
 		(yargs) => {
@@ -8927,7 +8989,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeChannel.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeChannel.command}\n\n${describeChannel.usage.long}`);
+				.usage(`Usage: cec ${describeChannel.command} | cec ${describeChannel.command.replace(describeChannel.name, describeChannel.alias)}\n\n${describeChannel.usage.long}`);
 		})
 	.command([createLocalizationPolicy.command, createLocalizationPolicy.alias], false,
 		(yargs) => {
@@ -8958,7 +9020,7 @@ const argv = yargs.usage(_usage)
 				.example(...createLocalizationPolicy.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createLocalizationPolicy.command}\n\n${createLocalizationPolicy.usage.long}`);
+				.usage(`Usage: cec ${createLocalizationPolicy.command} | cec ${createLocalizationPolicy.command.replace(createLocalizationPolicy.name, createLocalizationPolicy.alias)}\n\n${createLocalizationPolicy.usage.long}`);
 		})
 	.command([downloadLocalizationPolicy.command, downloadLocalizationPolicy.alias], false,
 		(yargs) => {
@@ -8971,7 +9033,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadLocalizationPolicy.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadLocalizationPolicy.command}\n\n${downloadLocalizationPolicy.usage.long}`);
+				.usage(`Usage: cec ${downloadLocalizationPolicy.command} | cec ${downloadLocalizationPolicy.command.replace(downloadLocalizationPolicy.name, downloadLocalizationPolicy.alias)}\n\n${downloadLocalizationPolicy.usage.long}`);
 		})
 	.command([uploadLocalizationPolicy.command, uploadLocalizationPolicy.alias], false,
 		(yargs) => {
@@ -8993,7 +9055,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadLocalizationPolicy.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadLocalizationPolicy.command}\n\n${uploadLocalizationPolicy.usage.long}`);
+				.usage(`Usage: cec ${uploadLocalizationPolicy.command} | cec ${uploadLocalizationPolicy.command.replace(uploadLocalizationPolicy.name, uploadLocalizationPolicy.alias)}\n\n${uploadLocalizationPolicy.usage.long}`);
 		})
 	.command([listAssets.command, listAssets.alias], false,
 		(yargs) => {
@@ -9017,6 +9079,14 @@ const argv = yargs.usage(_usage)
 					alias: 'o',
 					description: 'The order of query items'
 				})
+				.option('search', {
+					alias: 'e',
+					description: 'The search query expression, that matches values of the items across all fields.'
+				})
+				.option('searchoperator', {
+					alias: 't',
+					description: 'The search query operator [or | and], defaults to or.'
+				})
 				.option('rankby', {
 					alias: 'k',
 					description: 'The ranking policy API name'
@@ -9027,10 +9097,14 @@ const argv = yargs.usage(_usage)
 				})
 				.option('properties', {
 					alias: 'p',
-					description: 'The comma separated list of asset properties to show'
+					description: 'The comma separated list of asset properties to show',
+				})
+				.option('file', {
+					alias: 'f',
+					description: 'Save the result to a JSON file',
 				})
 				.option('assetsfile', {
-					alias: 'f',
+					alias: 'a',
 					description: 'The file with an array of asset GUIDS',
 					hidden: true
 				})
@@ -9048,6 +9122,10 @@ const argv = yargs.usage(_usage)
 					if (argv.collection && !argv.repository) {
 						throw new Error(`<repository> is required when <collection> is specified`);
 					}
+					if (argv.searchoperator && argv.searchoperator !== 'or' && argv.searchoperator !== 'and') {
+						throw new Error(os.EOL + 'The value for <searchoperator> should be either "or" or "and"');
+					}
+
 					return true;
 				})
 				.example(...listAssets.example[0])
@@ -9060,9 +9138,11 @@ const argv = yargs.usage(_usage)
 				.example(...listAssets.example[7])
 				.example(...listAssets.example[8])
 				.example(...listAssets.example[9])
+				.example(...listAssets.example[10])
+				.example(...listAssets.example[11])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listAssets.command}\n\n${listAssets.usage.long}`);
+				.usage(`Usage: cec ${listAssets.command} | cec ${listAssets.command.replace(listAssets.name, listAssets.alias)}\n\n${listAssets.usage.long}`);
 		})
 	.command([listAssetIds.command, listAssetIds.alias], false,
 		(yargs) => {
@@ -9095,7 +9175,7 @@ const argv = yargs.usage(_usage)
 				.example(...listAssetIds.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listAssetIds.command}\n\n${listAssetIds.usage.long}`);
+				.usage(`Usage: cec ${listAssetIds.command} | cec ${listAssetIds.command.replace(listAssetIds.name, listAssetIds.alias)}\n\n${listAssetIds.usage.long}`);
 		})
 	.command([describeAsset.command, describeAsset.alias], false,
 		(yargs) => {
@@ -9106,7 +9186,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeAsset.example[0])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeAsset.command}\n\n${describeAsset.usage.long}`);
+				.usage(`Usage: cec ${describeAsset.command} | cec ${describeAsset.command.replace(describeAsset.name, describeAsset.alias)}\n\n${describeAsset.usage.long}`);
 		})
 	.command([deleteAssets.command], false,
 		(yargs) => {
@@ -9178,7 +9258,7 @@ const argv = yargs.usage(_usage)
 				.example(...validateAssets.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${validateAssets.command}\n\n${validateAssets.usage.long}`);
+				.usage(`Usage: cec ${validateAssets.command} | cec ${validateAssets.command.replace(validateAssets.name, validateAssets.alias)}\n\n${validateAssets.usage.long}`);
 		})
 	.command([createAssetUsageReport.command, createAssetUsageReport.alias], false,
 		(yargs) => {
@@ -9197,7 +9277,7 @@ const argv = yargs.usage(_usage)
 				.example(...createAssetUsageReport.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createAssetUsageReport.command}\n\n${createAssetUsageReport.usage.long}`);
+				.usage(`Usage: cec ${createAssetUsageReport.command} | cec ${createAssetUsageReport.command.replace(createAssetUsageReport.name, createAssetUsageReport.alias)}\n\n${createAssetUsageReport.usage.long}`);
 		})
 	.command([listTranslationJobs.command, listTranslationJobs.alias], false,
 		(yargs) => {
@@ -9210,7 +9290,7 @@ const argv = yargs.usage(_usage)
 				.example(...listTranslationJobs.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listTranslationJobs.command}\n\n${listTranslationJobs.usage.long}`);
+				.usage(`Usage: cec ${listTranslationJobs.command} | cec ${listTranslationJobs.command.replace(listTranslationJobs.name, listTranslationJobs.alias)}\n\n${listTranslationJobs.usage.long}`);
 		})
 	.command([createTranslationJob.command, createTranslationJob.alias], false,
 		(yargs) => {
@@ -9287,7 +9367,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTranslationJob.example[8])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createTranslationJob.command}\n\n${createTranslationJob.usage.long}`);
+				.usage(`Usage: cec ${createTranslationJob.command} | cec ${createTranslationJob.command.replace(createTranslationJob.name, createTranslationJob.alias)}\n\n${createTranslationJob.usage.long}`);
 		})
 	.command([downloadTranslationJob.command, downloadTranslationJob.alias], false,
 		(yargs) => {
@@ -9300,7 +9380,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadTranslationJob.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadTranslationJob.command}\n\n${downloadTranslationJob.usage.long}`);
+				.usage(`Usage: cec ${downloadTranslationJob.command} | cec ${downloadTranslationJob.command.replace(downloadTranslationJob.name, downloadTranslationJob.alias)}\n\n${downloadTranslationJob.usage.long}`);
 		})
 	.command([submitTranslationJob.command, submitTranslationJob.alias], false,
 		(yargs) => {
@@ -9320,7 +9400,7 @@ const argv = yargs.usage(_usage)
 				.example(...submitTranslationJob.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${submitTranslationJob.command}\n\n${submitTranslationJob.usage.long}`);
+				.usage(`Usage: cec ${submitTranslationJob.command} | cec ${submitTranslationJob.command.replace(submitTranslationJob.name, submitTranslationJob.alias)}\n\n${submitTranslationJob.usage.long}`);
 		})
 	.command([refreshTranslationJob.command, refreshTranslationJob.alias], false,
 		(yargs) => {
@@ -9333,7 +9413,7 @@ const argv = yargs.usage(_usage)
 				.example(...refreshTranslationJob.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${refreshTranslationJob.command}\n\n${refreshTranslationJob.usage.long}`);
+				.usage(`Usage: cec ${refreshTranslationJob.command} | cec ${refreshTranslationJob.command.replace(refreshTranslationJob.name, refreshTranslationJob.alias)}\n\n${refreshTranslationJob.usage.long}`);
 		})
 	.command([ingestTranslationJob.command, ingestTranslationJob.alias], false,
 		(yargs) => {
@@ -9347,7 +9427,7 @@ const argv = yargs.usage(_usage)
 				.example(...ingestTranslationJob.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${ingestTranslationJob.command}\n\n${ingestTranslationJob.usage.long}`);
+				.usage(`Usage: cec ${ingestTranslationJob.command} | cec ${ingestTranslationJob.command.replace(ingestTranslationJob.name, ingestTranslationJob.alias)}\n\n${ingestTranslationJob.usage.long}`);
 		})
 	.command([uploadTranslationJob.command, uploadTranslationJob.alias], false,
 		(yargs) => {
@@ -9371,7 +9451,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadTranslationJob.example[5])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadTranslationJob.command}\n\n${uploadTranslationJob.usage.long}`);
+				.usage(`Usage: cec ${uploadTranslationJob.command} | cec ${uploadTranslationJob.command.replace(uploadTranslationJob.name, uploadTranslationJob.alias)}\n\n${uploadTranslationJob.usage.long}`);
 		})
 	.command([createTranslationConnector.command, createTranslationConnector.alias], false,
 		(yargs) => {
@@ -9389,7 +9469,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTranslationConnector.example[0])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createTranslationConnector.command}\n\n${createTranslationConnector.usage.long}`);
+				.usage(`Usage: cec ${createTranslationConnector.command} | cec ${createTranslationConnector.command.replace(createTranslationConnector.name, createTranslationConnector.alias)}\n\n${createTranslationConnector.usage.long}`);
 		})
 	.command([startTranslationConnector.command, startTranslationConnector.alias], false,
 		(yargs) => {
@@ -9406,7 +9486,7 @@ const argv = yargs.usage(_usage)
 				.example(...startTranslationConnector.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${startTranslationConnector.command}\n\n${startTranslationConnector.usage.long}`);
+				.usage(`Usage: cec ${startTranslationConnector.command} | cec ${startTranslationConnector.command.replace(startTranslationConnector.name, startTranslationConnector.alias)}\n\n${startTranslationConnector.usage.long}`);
 		})
 	.command([registerTranslationConnector.command, registerTranslationConnector.alias], false,
 		(yargs) => {
@@ -9450,7 +9530,7 @@ const argv = yargs.usage(_usage)
 				.example(...registerTranslationConnector.example[0])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${registerTranslationConnector.command}\n\n${registerTranslationConnector.usage.long}`);
+				.usage(`Usage: cec ${registerTranslationConnector.command} | cec ${registerTranslationConnector.command.replace(registerTranslationConnector.name, registerTranslationConnector.alias)}\n\n${registerTranslationConnector.usage.long}`);
 		})
 	.command([createFolder.command, createFolder.alias], false,
 		(yargs) => {
@@ -9463,7 +9543,7 @@ const argv = yargs.usage(_usage)
 				.example(...createFolder.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createFolder.command}\n\n${createFolder.usage.long}`);
+				.usage(`Usage: cec ${createFolder.command} | cec ${createFolder.command.replace(createFolder.name, createFolder.alias)}\n\n${createFolder.usage.long}`);
 		})
 	.command([copyFolder.command, copyFolder.alias], false,
 		(yargs) => {
@@ -9483,7 +9563,7 @@ const argv = yargs.usage(_usage)
 				.example(...copyFolder.example[5])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${copyFolder.command}\n\n${copyFolder.usage.long}`);
+				.usage(`Usage: cec ${copyFolder.command} | cec ${copyFolder.command.replace(copyFolder.name, copyFolder.alias)}\n\n${copyFolder.usage.long}`);
 		})
 	.command([shareFolder.command, shareFolder.alias], false,
 		(yargs) => {
@@ -9519,7 +9599,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareFolder.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${shareFolder.command}\n\n${shareFolder.usage.long}`);
+				.usage(`Usage: cec ${shareFolder.command} | cec ${shareFolder.command.replace(shareFolder.name, shareFolder.alias)}\n\n${shareFolder.usage.long}`);
 		})
 	.command([unshareFolder.command, unshareFolder.alias], false,
 		(yargs) => {
@@ -9547,22 +9627,27 @@ const argv = yargs.usage(_usage)
 				.example(...unshareFolder.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${unshareFolder.command}\n\n${unshareFolder.usage.long}`);
+				.usage(`Usage: cec ${unshareFolder.command} | cec ${unshareFolder.command.replace(unshareFolder.name, unshareFolder.alias)}\n\n${unshareFolder.usage.long}`);
 		})
 	.command([listFolder.command, listFolder.alias], false,
 		(yargs) => {
-			yargs.option('server', {
-				alias: 's',
-				description: 'The registered OCM server'
+			yargs.option('namefilter', {
+				alias: 'n',
+				description: 'The specified string to filter the results'
 			})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
 				.example(...listFolder.example[0])
 				.example(...listFolder.example[1])
 				.example(...listFolder.example[2])
 				.example(...listFolder.example[3])
 				.example(...listFolder.example[4])
+				.example(...listFolder.example[5])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listFolder.command}\n\n${listFolder.usage.long}`);
+				.usage(`Usage: cec ${listFolder.command} | cec ${listFolder.command.replace(listFolder.name, listFolder.alias)}\n\n${listFolder.usage.long}`);
 		})
 	.command([downloadFolder.command, downloadFolder.alias], false,
 		(yargs) => {
@@ -9570,9 +9655,21 @@ const argv = yargs.usage(_usage)
 				alias: 'f',
 				description: '<folder> Local folder to save the folder on OCM server'
 			})
+				.option('number', {
+					alias: 'n',
+					description: 'The number of files in each batch, defaults to 50'
+				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCM server'
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.number !== undefined) {
+						if (!Number.isInteger(argv.number) || argv.number <= 0) {
+							throw new Error(os.EOL + 'Value for number should be an integer greater than 0');
+						}
+					}
+					return true;
 				})
 				.example(...downloadFolder.example[0])
 				.example(...downloadFolder.example[1])
@@ -9582,9 +9679,10 @@ const argv = yargs.usage(_usage)
 				.example(...downloadFolder.example[5])
 				.example(...downloadFolder.example[6])
 				.example(...downloadFolder.example[7])
+				.example(...downloadFolder.example[8])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadFolder.command}\n\n${downloadFolder.usage.long}`);
+				.usage(`Usage: cec ${downloadFolder.command} | cec ${downloadFolder.command.replace(downloadFolder.name, downloadFolder.alias)}\n\n${downloadFolder.usage.long}`);
 		})
 	.command([uploadFolder.command, uploadFolder.alias], false,
 		(yargs) => {
@@ -9606,7 +9704,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadFolder.example[7])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadFolder.command}\n\n${uploadFolder.usage.long}`);
+				.usage(`Usage: cec ${uploadFolder.command} | cec ${uploadFolder.command.replace(uploadFolder.name, uploadFolder.alias)}\n\n${uploadFolder.usage.long}`);
 		})
 	.command([deleteFolder.command], false,
 		(yargs) => {
@@ -9646,7 +9744,7 @@ const argv = yargs.usage(_usage)
 				.example(...copyFile.example[5])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${copyFile.command}\n\n${copyFile.usage.long}`);
+				.usage(`Usage: cec ${copyFile.command} | cec ${copyFile.command.replace(copyFile.name, copyFile.alias)}\n\n${copyFile.usage.long}`);
 		})
 	.command([uploadFile.command, uploadFile.alias], false,
 		(yargs) => {
@@ -9670,7 +9768,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadFile.example[5])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadFile.command}\n\n${uploadFile.usage.long}`);
+				.usage(`Usage: cec ${uploadFile.command} | cec ${uploadFile.command.replace(uploadFile.name, uploadFile.alias)}\n\n${uploadFile.usage.long}`);
 		})
 	.command([downloadFile.command, downloadFile.alias], false,
 		(yargs) => {
@@ -9704,7 +9802,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadFile.example[7])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadFile.command}\n\n${downloadFile.usage.long}`);
+				.usage(`Usage: cec ${downloadFile.command} | cec ${downloadFile.command.replace(downloadFile.name, downloadFile.alias)}\n\n${downloadFile.usage.long}`);
 		})
 	.command([deleteFile.command], false,
 		(yargs) => {
@@ -9739,7 +9837,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeFile.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeFile.command}\n\n${describeFile.usage.long}`);
+				.usage(`Usage: cec ${describeFile.command} | cec ${describeFile.command.replace(describeFile.name, describeFile.alias)}\n\n${describeFile.usage.long}`);
 		})
 	.command([listTrash.command, listTrash.alias], false,
 		(yargs) => {
@@ -9751,7 +9849,7 @@ const argv = yargs.usage(_usage)
 				.example(...listTrash.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listTrash.command}\n\n${listTrash.usage.long}`);
+				.usage(`Usage: cec ${listTrash.command} | cec ${listTrash.command.replace(listTrash.name, listTrash.alias)}\n\n${listTrash.usage.long}`);
 		})
 	.command([deleteTrash.command], false,
 		(yargs) => {
@@ -9789,7 +9887,7 @@ const argv = yargs.usage(_usage)
 				.example(...restoreTrash.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${restoreTrash.command}\n\n${restoreTrash.usage.long}`);
+				.usage(`Usage: cec ${restoreTrash.command} | cec ${restoreTrash.command.replace(restoreTrash.name, restoreTrash.alias)}\n\n${restoreTrash.usage.long}`);
 		})
 	.command([emptyTrash.command], false,
 		(yargs) => {
@@ -9833,7 +9931,7 @@ const argv = yargs.usage(_usage)
 				.example(...createGroup.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createGroup.command}\n\n${createGroup.usage.long}`);
+				.usage(`Usage: cec ${createGroup.command} | cec ${createGroup.command.replace(createGroup.name, createGroup.alias)}\n\n${createGroup.usage.long}`);
 		})
 	.command([deleteGroup.command], false,
 		(yargs) => {
@@ -9879,7 +9977,7 @@ const argv = yargs.usage(_usage)
 				.example(...addMemberToGroup.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${addMemberToGroup.command}\n\n${addMemberToGroup.usage.long}`);
+				.usage(`Usage: cec ${addMemberToGroup.command} | cec ${addMemberToGroup.command.replace(addMemberToGroup.name, addMemberToGroup.alias)}\n\n${addMemberToGroup.usage.long}`);
 		})
 	.command([removeMemberFromGroup.command, removeMemberFromGroup.alias], false,
 		(yargs) => {
@@ -9896,7 +9994,7 @@ const argv = yargs.usage(_usage)
 				.example(...removeMemberFromGroup.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${removeMemberFromGroup.command}\n\n${removeMemberFromGroup.usage.long}`);
+				.usage(`Usage: cec ${removeMemberFromGroup.command} | cec ${removeMemberFromGroup.command.replace(removeMemberFromGroup.name, removeMemberFromGroup.alias)}\n\n${removeMemberFromGroup.usage.long}`);
 		})
 	.command([downloadRecommendation.command, downloadRecommendation.alias], false,
 		(yargs) => {
@@ -9928,7 +10026,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadRecommendation.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadRecommendation.command}\n\n${downloadRecommendation.usage.long}`);
+				.usage(`Usage: cec ${downloadRecommendation.command} | cec ${downloadRecommendation.command.replace(downloadRecommendation.name, downloadRecommendation.alias)}\n\n${downloadRecommendation.usage.long}`);
 		})
 	.command([uploadRecommendation.command, uploadRecommendation.alias], false,
 		(yargs) => {
@@ -9945,7 +10043,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadRecommendation.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadRecommendation.command}\n\n${uploadRecommendation.usage.long}`);
+				.usage(`Usage: cec ${uploadRecommendation.command} | cec ${uploadRecommendation.command.replace(uploadRecommendation.name, uploadRecommendation.alias)}\n\n${uploadRecommendation.usage.long}`);
 		})
 	.command([controlRecommendation.command, controlRecommendation.alias], false,
 		(yargs) => {
@@ -9985,7 +10083,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlRecommendation.example[5])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${controlRecommendation.command}\n\n${controlRecommendation.usage.long}`);
+				.usage(`Usage: cec ${controlRecommendation.command} | cec ${controlRecommendation.command.replace(controlRecommendation.name, controlRecommendation.alias)}\n\n${controlRecommendation.usage.long}`);
 		})
 	.command([listScheduledJobs.command, listScheduledJobs.alias], false,
 		(yargs) => {
@@ -10001,7 +10099,7 @@ const argv = yargs.usage(_usage)
 				.example(...listScheduledJobs.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listScheduledJobs.command}\n\n${listScheduledJobs.usage.long}`);
+				.usage(`Usage: cec ${listScheduledJobs.command} | cec ${listScheduledJobs.command.replace(listScheduledJobs.name, listScheduledJobs.alias)}\n\n${listScheduledJobs.usage.long}`);
 		})
 	.command([describeScheduledJob.command, describeScheduledJob.alias], false,
 		(yargs) => {
@@ -10013,7 +10111,7 @@ const argv = yargs.usage(_usage)
 				.example(...describeScheduledJob.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${describeScheduledJob.command}\n\n${describeScheduledJob.usage.long}`);
+				.usage(`Usage: cec ${describeScheduledJob.command} | cec ${describeScheduledJob.command.replace(describeScheduledJob.name, describeScheduledJob.alias)}\n\n${describeScheduledJob.usage.long}`);
 		})
 	.command([listPublishingJobs.command, listPublishingJobs.alias], false,
 		(yargs) => {
@@ -10049,7 +10147,7 @@ const argv = yargs.usage(_usage)
 				.example(...listPublishingJobs.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listPublishingJobs.command}\n\n${listPublishingJobs.usage.long}`);
+				.usage(`Usage: cec ${listPublishingJobs.command} | cec ${listPublishingJobs.command.replace(listPublishingJobs.name, listPublishingJobs.alias)}\n\n${listPublishingJobs.usage.long}`);
 		})
 	.command([downloadJobLog.command, downloadJobLog.alias], false,
 		(yargs) => {
@@ -10061,7 +10159,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadJobLog.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${downloadJobLog.command}\n\n${downloadJobLog.usage.long}`);
+				.usage(`Usage: cec ${downloadJobLog.command} | cec ${downloadJobLog.command.replace(downloadJobLog.name, downloadJobLog.alias)}\n\n${downloadJobLog.usage.long}`);
 		})
 	.command([updateRenditionJob.command, updateRenditionJob.alias], false,
 		(yargs) => {
@@ -10077,14 +10175,14 @@ const argv = yargs.usage(_usage)
 				.example(...updateRenditionJob.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${updateRenditionJob.command}\n\n${updateRenditionJob.usage.long}`);
+				.usage(`Usage: cec ${updateRenditionJob.command} | cec ${updateRenditionJob.command.replace(updateRenditionJob.name, updateRenditionJob.alias)}\n\n${updateRenditionJob.usage.long}`);
 		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
 			yargs.example(...createEncryptionKey.example[0])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${createEncryptionKey.command}\n\n${createEncryptionKey.usage.long}`);
+				.usage(`Usage: cec ${createEncryptionKey.command} | cec ${createEncryptionKey.command.replace(createEncryptionKey.name, createEncryptionKey.alias)}\n\n${createEncryptionKey.usage.long}`);
 		})
 	.command([registerServer.command, registerServer.alias], false,
 		(yargs) => {
@@ -10188,7 +10286,7 @@ const argv = yargs.usage(_usage)
 				.example(...registerServer.example[6])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${registerServer.command}\n\n${registerServer.usage.long}`);
+				.usage(`Usage: cec ${registerServer.command} | cec ${registerServer.command.replace(registerServer.name, registerServer.alias)}\n\n${registerServer.usage.long}`);
 		})
 	.command([configProperties.command, configProperties.alias], false,
 		(yargs) => {
@@ -10209,7 +10307,7 @@ const argv = yargs.usage(_usage)
 				.example(...configProperties.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${configProperties.command}\n\n${configProperties.usage.long}`);
+				.usage(`Usage: cec ${configProperties.command} | cec ${configProperties.command.replace(configProperties.name, configProperties.alias)}\n\n${configProperties.usage.long}`);
 		})
 	.command([setOAuthToken.command, setOAuthToken.alias], false,
 		(yargs) => {
@@ -10222,7 +10320,7 @@ const argv = yargs.usage(_usage)
 				.example(...setOAuthToken.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${setOAuthToken.command}\n\n${setOAuthToken.usage.long}`);
+				.usage(`Usage: cec ${setOAuthToken.command} | cec ${setOAuthToken.command.replace(setOAuthToken.name, setOAuthToken.alias)}\n\n${setOAuthToken.usage.long}`);
 		})
 	.command([refreshOAuthToken.command, refreshOAuthToken.alias], false,
 		(yargs) => {
@@ -10235,14 +10333,14 @@ const argv = yargs.usage(_usage)
 				.example(...refreshOAuthToken.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${refreshOAuthToken.command}\n\n${refreshOAuthToken.usage.long}`);
+				.usage(`Usage: cec ${refreshOAuthToken.command} | cec ${refreshOAuthToken.command.replace(refreshOAuthToken.name, refreshOAuthToken.alias)}\n\n${refreshOAuthToken.usage.long}`);
 		})
 	.command([executeGet.command, executeGet.alias], false,
 		(yargs) => {
 			yargs.option('file', {
 				alias: 'f',
-				description: 'The file to save the result',
-				demandOption: true
+				description: 'The file to save the result'
+
 			})
 				.option('server', {
 					alias: 's',
@@ -10251,9 +10349,10 @@ const argv = yargs.usage(_usage)
 				.example(...executeGet.example[0])
 				.example(...executeGet.example[1])
 				.example(...executeGet.example[2])
+				.example(...executeGet.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${executeGet.command}\n\n${executeGet.usage.long}`);
+				.usage(`Usage: cec ${executeGet.command} | cec ${executeGet.command.replace(executeGet.name, executeGet.alias)}\n\n${executeGet.usage.long}`);
 		})
 	.command([executePost.command, executePost.alias], false,
 		(yargs) => {
@@ -10280,7 +10379,7 @@ const argv = yargs.usage(_usage)
 				.example(...executePost.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${executePost.command}\n\n${executePost.usage.long}`);
+				.usage(`Usage: cec ${executePost.command} | cec ${executePost.command.replace(executePost.name, executePost.alias)}\n\n${executePost.usage.long}`);
 		})
 	.command([executePut.command, executePut.alias], false,
 		(yargs) => {
@@ -10301,7 +10400,7 @@ const argv = yargs.usage(_usage)
 				.example(...executePut.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${executePut.command}\n\n${executePut.usage.long}`);
+				.usage(`Usage: cec ${executePut.command} | cec ${executePut.command.replace(executePut.name, executePut.alias)}\n\n${executePut.usage.long}`);
 		})
 	.command([executePatch.command, executePatch.alias], false,
 		(yargs) => {
@@ -10321,7 +10420,7 @@ const argv = yargs.usage(_usage)
 				.example(...executePatch.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${executePatch.command}\n\n${executePatch.usage.long}`);
+				.usage(`Usage: cec ${executePatch.command} | cec ${executePatch.command.replace(executePatch.name, executePatch.alias)}\n\n${executePatch.usage.long}`);
 		})
 	.command([executeDelete.command, executeDelete.alias], false,
 		(yargs) => {
@@ -10336,14 +10435,14 @@ const argv = yargs.usage(_usage)
 				.example(...executeDelete.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${executeDelete.command}\n\n${executeDelete.usage.long}`);
+				.usage(`Usage: cec ${executeDelete.command} | cec ${executeDelete.command.replace(executeDelete.name, executeDelete.alias)}\n\n${executeDelete.usage.long}`);
 		})
 	.command([install.command, install.alias], false,
 		(yargs) => {
 			yargs.example(...install.example[0])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${install.command}\n\n${install.usage.long}`);
+				.usage(`Usage: cec ${install.command} | cec ${install.command.replace(install.name, install.alias)}\n\n${install.usage.long}`);
 		})
 	.command([develop.command, develop.alias], false,
 		(yargs) => {
@@ -10364,7 +10463,7 @@ const argv = yargs.usage(_usage)
 				.example(...develop.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${develop.command}\n\n${develop.usage.long}`);
+				.usage(`Usage: cec ${develop.command} | cec ${develop.command.replace(develop.name, develop.alias)}\n\n${develop.usage.long}`);
 		})
 	.command([syncServer.command, syncServer.alias], false,
 		(yargs) => {
@@ -10442,7 +10541,7 @@ const argv = yargs.usage(_usage)
 				.example(...syncServer.example[7])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${syncServer.command}\n\n${syncServer.usage.long}`);
+				.usage(`Usage: cec ${syncServer.command} | cec ${syncServer.command.replace(syncServer.name, syncServer.alias)}\n\n${syncServer.usage.long}`);
 		})
 	.command([webhookServer.command, webhookServer.alias], false,
 		(yargs) => {
@@ -10482,7 +10581,7 @@ const argv = yargs.usage(_usage)
 				.example(...webhookServer.example[2])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${webhookServer.command}\n\n${webhookServer.usage.long}`);
+				.usage(`Usage: cec ${webhookServer.command} | cec ${webhookServer.command.replace(webhookServer.name, webhookServer.alias)}\n\n${webhookServer.usage.long}`);
 		})
 	.command([compilationServer.command, compilationServer.alias], false,
 		(yargs) => {
@@ -10526,7 +10625,7 @@ const argv = yargs.usage(_usage)
 				.example(...compilationServer.example[4])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${compilationServer.command}\n\n${compilationServer.usage.long}`);
+				.usage(`Usage: cec ${compilationServer.command} | cec ${compilationServer.command.replace(compilationServer.name, compilationServer.alias)}\n\n${compilationServer.usage.long}`);
 		})
 	.command([setLoggerLevel.command, setLoggerLevel.alias], false,
 		(yargs) => {
@@ -10541,7 +10640,7 @@ const argv = yargs.usage(_usage)
 				.example(...setLoggerLevel.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${setLoggerLevel.command}\n\n${setLoggerLevel.usage.long}`);
+				.usage(`Usage: cec ${setLoggerLevel.command} | cec ${setLoggerLevel.command.replace(setLoggerLevel.name, setLoggerLevel.alias)}\n\n${setLoggerLevel.usage.long}`);
 		})
 	.help(false)
 	.version()
@@ -10551,13 +10650,16 @@ const argv = yargs.usage(_usage)
 		description: 'Show Help'
 	})
 	.strict()
-	.wrap(yargs.terminalWidth())
+	.wrap(process.shim ? 480 : yargs.terminalWidth())
 	.fail((msg, err, yargs) => {
 		yargs.showHelp('log');
 		if (msg.indexOf('Not enough non-option arguments') < 0) {
 			console.log(msg);
 		}
 		console.log('');
+		if (process.shim) {
+			window.parsingError = true;
+		}
 		process.exit(1);
 	})
 	.argv;
@@ -10572,6 +10674,9 @@ if (!argv._[0] || argv.help) {
 	process.exit(0);
 }
 
+if (process.shim && window.parsingError) {
+	throw new Error()
+}
 
 // Display timestamp
 var d = new Date();
@@ -10620,7 +10725,8 @@ var _displayCommand = function (cmdName, obscureParams) {
 			}
 		}
 	});
-	console.log(cmdStr + requiredParamStr + paramStr);
+	let cmdDisplay = cmdStr + requiredParamStr + paramStr;
+	console.log(process.shim ? cmdDisplay.replace(/[\\"]/g, "") : cmdDisplay);
 };
 
 
@@ -11557,6 +11663,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.publishedassets) {
 		transferContentArgs.push(...['--publishedassets', argv.publishedassets]);
 	}
+	if (argv.query) {
+		transferContentArgs.push(...['--query', argv.query]);
+	}
 	if (argv.reuse) {
 		transferContentArgs.push(...['--reuse', argv.reuse]);
 	}
@@ -12189,8 +12298,14 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.orderby) {
 		listAssetsArgs.push(...['--orderby', argv.orderby]);
 	}
-	if (argv.validate) {
-		listAssetsArgs.push(...['--validate', argv.validate]);
+	if (argv.search) {
+		listAssetsArgs.push(...['--search', argv.search]);
+	}
+	if (argv.searchoperator) {
+		listAssetsArgs.push(...['--searchoperator', argv.searchoperator]);
+	}
+	if (argv.expand) {
+		listAssetsArgs.push(...['--expand', argv.expand]);
 	}
 	if (argv.rankby) {
 		listAssetsArgs.push(...['--rankby', argv.rankby]);
@@ -12200,6 +12315,10 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.properties) {
 		listAssetsArgs.push(...['--properties', argv.properties]);
+	}
+	if (argv.file) {
+		let file = typeof argv.file === 'boolean' ? 'listassets.json' : argv.file;
+		listAssetsArgs.push(...['--file', file]);
 	}
 	if (argv.assetsfile && typeof argv.assetsfile !== 'boolean') {
 		listAssetsArgs.push(...['--assetsfile', argv.assetsfile]);
@@ -12460,6 +12579,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 	if (argv.publishedassets) {
 		transferSiteContentArgs.push(...['--publishedassets', argv.publishedassets]);
+	}
+	if (argv.query) {
+		transferSiteContentArgs.push(...['--query', argv.query]);
 	}
 	if (argv.reuse) {
 		transferSiteContentArgs.push(...['--reuse', argv.reuse]);
@@ -13342,6 +13464,26 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, uploadCompiledContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeLocalContent.name || argv._[0] === describeLocalContent.alias) {
+	_displayCommand(uploadCompiledContent.name);
+	let describeLocalContentArgs = ['run', '-s', describeLocalContent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	if (argv.template) {
+		describeLocalContentArgs.push(...['--template', argv.template]);
+	}
+	if (argv.file) {
+		describeLocalContentArgs.push(...['--file', argv.file]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, describeLocalContentArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -14331,6 +14473,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--projectDir', cwd,
 		'--path', argv.path
 	];
+
+	listFolderArgs.push(...['--namefilter', argv.namefilter]);
+
 	if (argv.server && typeof argv.server !== 'boolean') {
 		listFolderArgs.push(...['--server', argv.server]);
 	}
@@ -14348,6 +14493,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	];
 	if (argv.folder && typeof argv.folder !== 'boolean') {
 		downloadFolderArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.number) {
+		downloadFolderArgs.push(...['--number', argv.number]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadFolderArgs.push(...['--server', argv.server]);
@@ -15010,7 +15158,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--',
 		'--projectDir', cwd,
 		'--endpoint', argv.endpoint,
-		'--file', argv.file
+		'--file', argv.file || ''
 	];
 
 	if (argv.server && typeof argv.server !== 'boolean') {

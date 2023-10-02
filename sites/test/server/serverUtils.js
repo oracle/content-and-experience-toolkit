@@ -172,24 +172,8 @@ module.exports.getConfiguredServer = function (currPath, showError) {
 };
 var _getConfiguredServer = function (currPath, showError) {
 	if (process.shim) {
-		// if under webbrowser , return current server where toolkit is loaded
-		return  {
-			fileloc: 'cec.properties',
-			fileexist: true,
-			configured: true,
-			//use dev instance as base url if under dev
-			url: document.location.origin.includes('localhost') ? "http://ssvrint-oracle.us.oracle.com/" : document.location.origin,
-			username: 'ssvrint.SitesAdmin1.admin',
-			password: 'welcome1',
-			oauthtoken: '',
-			env: 'dev_ec',
-			useRest: false,
-			idcs_url: '',
-			client_id: '',
-			client_secret: '',
-			scope: ''
-		};
-
+		// return the config that will have been setup with the powershell
+		return window.processServerConfig;
 	}
 	var configFile;
 	if (process.env.CEC_PROPERTIES) {

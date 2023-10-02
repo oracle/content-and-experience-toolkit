@@ -88,12 +88,29 @@ On the SOURCE server, go to Integrations / Webhooks and click Create, and then c
 
 ![](https://github.com/oracle/content-and-experience-toolkit/blob/master/sites/doc/images/AS-cw1.png?raw=true)
 
-Name: Asset Lifecycle Webhook for Repository1
-Repository: Pick the repository created above that you want to have sync: E.g: repository1
-Events: select the following: Content Item Created, Content Item Updated, Content Item Deleted, Digital Asset Created, Digital Asset Updated, Digital Asset Deleted
-Payload: Brief
-Target URL: E.g, the URL tested above for your sync server:  http://10.159.158.82:8086
-Authentication: Basic, click Details button and enter the username and password you used in the `cec asset-sync` command - e.g. admin, welcome1.
+<p>Name: Asset Lifecycle Webhook for Repository1
+<p>Repository: Pick the repository created above that you want to have sync: E.g: repository1
+<p>Events: select the following: 
+
+- Content Item Created
+- Content Item Updated
+- Content Item Deleted
+- Content Item Approved
+- Content Item Language Added
+- Content Item Category Added
+- Content Item Category Removed
+- Digital Asset Created
+- Digital Asset Updated
+- Digital Asset Deleted
+- Digital Asset Approved
+- Digital Asset Language Added
+- Digital Asset Category Added
+- Digital Asset Category Removed
+
+
+<p>Payload: Brief
+<p>Target URL: E.g, the URL tested above for your sync server:  http://10.159.158.82:8086
+<p>Authentication: Basic, click Details button and enter the username and password you used in the `cec asset-sync` command - e.g. admin, welcome1.
 
 Click Save.
 
@@ -102,12 +119,16 @@ On the SOURCE server, go to Integrations / Webhooks and click Create, and then c
 
 ![](https://github.com/oracle/content-and-experience-toolkit/blob/master/sites/doc/images/AS-cw2.png?raw=true)
 
-Name: Asset Publishing Webhook for Repository1
-Repository: Pick the repository created above that you want to have sync: E.g: repository1
-Events: select the following: Channel Asset Published, Channel Asset Unpublished
-Payload: Brief
-Target URL: E.g, the URL tested above for your sync server:  http://10.159.158.82:8086
-Authentication: Basic, click Details button and enter the username and password you used in the `cec asset-sync` command - e.g. admin, welcome1.
+<p>Name: Asset Publishing Webhook for Repository1
+<p>Repository: Pick the repository created above that you want to have sync: E.g: repository1
+<p>Events: select the following: 
+
+- Channel Asset Published
+- Channel Asset Unpublished
+
+<p>Payload: Brief
+<p>Target URL: E.g, the URL tested above for your sync server:  http://10.159.158.82:8086
+<p>Authentication: Basic, click Details button and enter the username and password you used in the `cec asset-sync` command - e.g. admin, welcome1.
 
 Click Save.
 

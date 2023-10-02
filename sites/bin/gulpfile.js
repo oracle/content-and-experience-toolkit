@@ -1228,6 +1228,19 @@ gulp.task('validate-content', function (done) {
 });
 
 /**
+ * List resource in local content export
+ */
+gulp.task('describe-local-content', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	resourcelib.describeLocalContent(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+
+/**
  * Delete assets on server
  */
 gulp.task('delete-assets', function (done) {

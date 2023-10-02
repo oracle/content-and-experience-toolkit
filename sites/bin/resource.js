@@ -6,16 +6,19 @@
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
+	fileUtils = require('../test/server/fileUtils.js'),
 	crypto = require('crypto'),
 	fs = require('fs'),
 	os = require('os'),
 	readline = require('readline'),
 	path = require('path'),
-	sprintf = require('sprintf-js').sprintf;
+	sprintf = require('sprintf-js').sprintf,
+	formatter = require('./formatter.js');
 
 var console = require('../test/server/logger.js').console;
 
 var projectDir,
+	buildDir,
 	componentsSrcDir,
 	connectionsSrcDir,
 	connectorsSrcDir,
@@ -32,6 +35,8 @@ var verifyRun = function (argv) {
 		return true;
 	}
 	projectDir = argv.projectDir;
+
+	buildDir = serverUtils.getBuildFolder(projectDir);
 
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
@@ -848,9 +853,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					if (!channelToken && tokens.length > 0) {
 						channelToken = tokens[0].token;
 					}
-					if (process.shim) {
-						channel.name = `[!--dsch--]${channel.name}[/!--dsch--]`;
-					}
+					channel.name = formatter.channelFormat(channel.name);
 					var publishPolicy = channel.publishPolicy === 'anythingPublished' ? 'Anything can be published' : 'Only approved items can be published';
 					console.log(sprintf(channelFormat, channel.name, channelToken, channel.isSiteChannel ? '    √' : '', channel.channelType, publishPolicy));
 				}
@@ -901,9 +904,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 						}
 						var published = comp.publishStatus === 'published' ? '    √' : '';
 						let browser_format = '  %-59s  %-36s  %-s';
-						if (process.shim) {
-							comp.name = `[!--dscp--]${comp.name}[/!--dscp--]`;
-						}
+						comp.name = formatter.componentFormat(comp.name);
 						console.log(sprintf(process.shim ? browser_format : format3, comp.name, typeLabel, published));
 					}
 					if (comps.length > 0) {
@@ -1003,11 +1004,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 							}
 						}
 						var repoType = repositories[i].repositoryType === 'Business' ? ' B' : ' S';
-						if (process.shim) {
-							repo.name = `[!--dsr--]${repo.name}[/!--dsr--]`
-							//adding repository -> channel link , it affects spacing in output
-							repoChannels = repoChannels.map(c => `[!--dsch--]${c}[/!--dsch--]`)
-						}
+						repo.name = formatter.repositoryFormat(repo.name);
 						console.log(sprintf(repoFormat, repoType, repo.name, repo.defaultLanguage, repoChannels, contentTypes));
 					}
 					if (repositories.length > 0) {
@@ -1146,10 +1143,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 								}
 							}
 						}
-						if (process.shim) {
-							site.name = `[!--dss--]${site.name}[/!--dss--]`
-							site.themeName = `[!--dsth--]${site.themeName}[/!--dsth--]`
-						}
+						site.name = formatter.siteFormat(site.name);
+						site.themeName = formatter.themeFormat(site.themeName);
 						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online, secure, totalItems, otherItems));
 					}
 					if (sites.length > 0) {
@@ -1179,10 +1174,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 						var temp = templates[i];
 						var type = temp.isEnterprise ? 'Enterprise' : 'Standard';
 						let frmt_brow = '  %-59s  %-59s  %-s'
-						if (process.shim) {
-							temp.name = `[!--dst--]${temp.name}[/!--dst--]`;
-							temp.themeName = `[!--dsth--]${temp.themeName}[/!--dsth--]`
-						}
+						temp.name = formatter.templateFormat(temp.name);
+						temp.themeName = formatter.themeFormat(temp.themeName);
 						console.log(sprintf(process.shim ? frmt_brow : format3, temp.name, temp.themeName, type));
 					}
 				}
@@ -1210,9 +1203,9 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 						var status = themes[i].publishStatus === 'published' ? '   √' : '';
 						let frmt = format2;
 						if (process.shim) {
-							themes[i].name = `[!--dsth--]${themes[i].name}[/!--dsth--]`;
 							frmt = '  %-58s  %-36s';
 						}
+						themes[i].name = formatter.themeFormat(themes[i].name);
 						console.log(sprintf(frmt, themes[i].name, status));
 					}
 				}
@@ -1259,8 +1252,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 							var version = states[i].version ? '   ' + states[i].version : '';
 							var published = states[i].published ? '    √' : '';
 							var channelLabel = states[i].published ? channels.join(', ') : '';
-							if (process.shim && name) {
-								name = `[!--dstx--]${name}[/!--dstx--]`
+							if (name) {
+								name = formatter.taxonomyFormat(name);
 							}
 							console.log(sprintf(taxFormat, name, id, abbr, publishable, states[i].status, version, published, channelLabel));
 						}
@@ -1356,6 +1349,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 							var jobs = results[i];
 							if (jobs && !jobs.err) {
 								jobs.forEach(function (job) {
+									job.JobID = formatter.bgjobFormat(job.JobID);
 									console.log(sprintf(jobFormat, job.JobID, job.JobType, job.JobAction, job.JobStatus,
 										job.JobPercentage, (job.JobCreatorFullName || job.JobCreatorLoginName),
 										job.JobCreateDate, job.JobMessage));
@@ -1678,7 +1672,16 @@ module.exports.describeBackgroundJob = function (argv, done) {
 									var publishingStatus = 'total: ' + publishJobData.total + '  completed: ' + publishJobData.completed + '  failed: ' + publishJobData.failed + '  queued: ' + publishJobData.queued;
 									console.log(sprintf(jobFormat, 'Publishing tasks', publishingStatus));
 									if (publishJobData.failures && publishJobData.failures.length > 0) {
-										console.log(publishJobData.failures);
+										// display failed publishing jobs for browser
+										if (process.shim) {
+											for (let f of publishJobData.failures) {
+												for (let k in f) {
+													console.log(`\t - ${k}\t${f[k]}`)
+												}
+											}
+										} else {
+											console.log(publishJobData.failures);
+										}
 									}
 
 									console.log('');
@@ -2391,24 +2394,25 @@ module.exports.executeGet = function (argv, done) {
 	}
 
 	var output = argv.file;
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
 
-	if (!path.isAbsolute(output)) {
-		output = path.join(projectDir, output);
-	}
-	output = path.resolve(output);
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
 
-	var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
-	// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
-	if (!fs.existsSync(outputFolder)) {
-		console.error('ERROR: folder ' + outputFolder + ' does not exist');
-		done();
-		return;
-	}
-
-	if (!fs.statSync(outputFolder).isDirectory()) {
-		console.error('ERROR: ' + outputFolder + ' is not a folder');
-		done();
-		return;
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
 	}
 
 	var endpoint = argv.endpoint;
@@ -2429,27 +2433,49 @@ module.exports.executeGet = function (argv, done) {
 		});
 		*/
 
+		if (output) {
+			var writer = fs.createWriteStream(output);
+			serverRest.executeGetStream({
+				server: server,
+				endpoint: endpoint,
+				writer: writer,
+				noMsg: console.showInfo() ? false : true
+			})
+				.then(function (result) {
 
-		var writer = fs.createWriteStream(output);
-		serverRest.executeGetStream({
-			server: server,
-			endpoint: endpoint,
-			writer: writer,
-			noMsg: console.showInfo() ? false : true
-		})
-			.then(function (result) {
-
-				if (!result || result.err) {
-					done();
-				} else {
-					// fs.writeFileSync(output, result);
-					// var writer = fs.createWriteStream(output);
-					// writer.write(result);
-					console.log(' - result saved to ' + output);
-
-					done(true);
-				}
-			});
+					if (!result || result.err) {
+						done();
+					} else {
+						console.log(' - result saved to ' + output);
+						done(true);
+					}
+				});
+		} else {
+			serverRest.executeGet({
+				server: server,
+				endpoint: endpoint,
+				noMsg: console.showInfo() ? false : true,
+				returnContentType: true
+			})
+				.then(function (result) {
+					if (!result || result.err || !result.data) {
+						done();
+					}  else {
+						let contentType = result.contentType || '';
+						let data = result.data;
+						if (contentType.indexOf('html') >= 0 || contentType.indexOf('text') >= 0) {
+							console.log('');
+							console.log(data.toString());
+						} else if (contentType.indexOf('json') >= 0) {
+							console.log('');
+							console.log(JSON.stringify(JSON.parse(data), null, 4));
+						} else {
+							console.log(' - the result is ' + result.contentType + ', please specify a file to save it');
+						}
+						done(true);
+					}
+				});
+		}
 	});
 };
 
@@ -2799,6 +2825,229 @@ module.exports.executeDelete = function (argv, done) {
 
 };
 
+var _unzipFile = function (filePath, targetFolder) {
+	return new Promise(function (resolve, reject) {
+		var contentPath;
+		if (fs.existsSync(targetFolder)) {
+			fileUtils.remove(targetFolder);
+		}
+		fs.mkdirSync(targetFolder, {recursive: true});
+
+		fileUtils.extractZip(filePath, targetFolder)
+			.then(function (err) {
+				if (err) {
+					console.error('ERROR: file ' + filePath + ' is not a valid zip file');
+					return resolve(contentPath);
+				} else {
+					let siteTemplateContentExport = path.join(targetFolder, 'template');
+					let contentExport = path.join(targetFolder, 'contentexport');
+
+					if (fs.existsSync(siteTemplateContentExport)) {
+						siteTemplateContentExport = path.join(targetFolder, 'template', 'assets', 'contenttemplate');
+						let exportFile = path.join(siteTemplateContentExport, 'export.zip');
+						if (fs.existsSync(exportFile)) {
+							// unzip the export.zip file
+							fileUtils.extractZip(exportFile, siteTemplateContentExport)
+								.then(function (err) {
+									if (err) {
+										return resolve(contentExport);
+									} else {
+										let items = fs.readdirSync(siteTemplateContentExport);
+										for (let i = 0; i < items.length; i++) {
+											if (items[i].startsWith('Content Template of')) {
+												contentPath = path.join(siteTemplateContentExport, items[i]);
+												break;
+											}
+										}
+										return resolve(contentPath);
+									}
+								});
+						} else {
+							console.error('ERROR: site template file' + filePath + ' does not have content');
+							return resolve(contentPath);
+						}
+					} else if (fs.existsSync(contentExport)) {
+						contentPath = contentExport;
+						return resolve(contentPath);
+					} else {
+						console.error('ERROR: file ' + filePath + ' is not a site template nor a content export file');
+						return resolve(contentPath);
+					}
+				}
+			});
+	});
+};
+
+module.exports.describeLocalContent = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+	var name = argv.name;
+	var isTemplate = typeof argv.template === 'string' && argv.template.toLowerCase() === 'true';
+	var isFile = typeof argv.file === 'string' && argv.file.toLowerCase() === 'true';
+
+	var contentPath;
+
+	var unzipPromises = [];
+	var filePath;
+	if (isFile) {
+		filePath = name;
+		if (!path.isAbsolute(filePath)) {
+			filePath = path.join(projectDir, filePath);
+		}
+		filePath = path.resolve(filePath);
+
+		if (!fs.existsSync(filePath)) {
+			console.error('ERROR: file ' + filePath + ' does not exist');
+			done();
+			return;
+		}
+
+		// unzip to build folder first
+		unzipPromises.push(_unzipFile(filePath, path.join(buildDir, 'content')));
+
+	}
+
+	Promise.all(unzipPromises)
+		.then(function (results) {
+			if (isFile) {
+				if (!results || !results[0]) {
+					// console.error('ERROR: file ' + filePath + ' does not contain content');
+					return Promise.reject();
+				}
+				contentPath = results[0];
+			}
+
+			if (isTemplate) {
+				var templatepath = path.join(templatesSrcDir, name);
+				if (!fs.existsSync(templatepath)) {
+					console.error('ERROR: template folder ' + templatepath + ' does not exist');
+					return Promise.reject();
+				}
+
+				// check if the template has content
+				contentPath = path.join(templatepath, 'assets', 'contenttemplate', 'Content Template of ' + name);
+				if (!fs.existsSync(contentPath)) {
+					console.error('ERROR: template ' + name + ' does not have content');
+					return Promise.reject();
+				}
+
+			} else if (!isFile) {
+				contentPath = path.join(contentSrcDir, name);
+				if (!fs.existsSync(contentPath)) {
+					console.error('ERROR: content folder ' + contentPath + ' does not exist');
+					return Promise.reject();
+				}
+				contentPath = path.join(contentSrcDir, name, 'contentexport');
+				if (!fs.existsSync(contentPath)) {
+					console.error('ERROR: content export ' + name + ' does not have content');
+					return Promise.reject();
+				}
+			}
+
+			console.info(' - content from ' + contentPath);
+			if (!contentPath || !fs.existsSync(contentPath)) {
+				return Promise.reject();
+			}
+
+			var _getJson = function (filePath) {
+				var obj = undefined;
+				if (filePath && fs.existsSync(filePath)) {
+					try {
+						obj = JSON.parse(fs.readFileSync(filePath));
+					} catch (e) {
+						// not a JSON
+					}
+				}
+				return obj;
+			};
+
+			var _getFolderItems = function (folderPath) {
+				var objs = [];
+				if (fs.existsSync(folderPath)) {
+					let items = fs.readdirSync(folderPath);
+					items.forEach(function (item) {
+						let obj = _getJson(path.join(folderPath, item));
+						if (obj) {
+							objs.push(obj);
+						}
+					});
+				}
+				return objs;
+			};
+
+			var format1 = '  %-36s  %-s';
+			// content types
+			console.log('Content Types:');
+			var types = _getFolderItems(path.join(contentPath, 'ContentTypes'));
+			if (types.length > 0) {
+				console.log(sprintf(format1, 'Name', 'Type'));
+				types.forEach(function (type) {
+					console.log(sprintf(format1, type.name, type.typeCategory || ''));
+				});
+			}
+			console.log('');
+
+			// localization policies
+			console.log('Localization Policies:');
+			var policies = _getFolderItems(path.join(contentPath, 'LocalizationPolicies'));
+			if (policies.length > 0) {
+				let policyFormat = '  %-36s  %-13s  %-36s  %-s';
+				console.log(sprintf(policyFormat, 'Name', 'Default Value', 'Required Values', 'Optional Values'));
+				policies.forEach(function (policy) {
+					console.log(sprintf(policyFormat, policy.name, policy.defaultValue, policy.requiredValues, policy.optionalValues));
+				});
+			}
+			console.log('');
+
+			// Taxonomies
+			console.log('Taxonomies:');
+			var taxonomies = _getFolderItems(path.join(contentPath, 'Taxonomies'));
+			if (taxonomies.length > 0) {
+				let taxFormat = '  %-32s  %-48s  %-s'
+				console.log(sprintf(taxFormat, 'Id', 'Name', 'Abbreviation'));
+				taxonomies.forEach(function (tax) {
+					console.log(sprintf(taxFormat, tax.id, tax.name, tax.shortName));
+				});
+			}
+			console.log('');
+
+			// Content Items
+			console.log('Content Items:');
+			var totalItems = 0;
+			if (fs.existsSync(path.join(contentPath, 'ContentItems'))) {
+				var itemTypes = fs.readdirSync(path.join(contentPath, 'ContentItems'));
+				if (itemTypes.length > 0) {
+					itemTypes.forEach(function (type) {
+						if (type !== 'VariationSets') {
+							let items = _getFolderItems(path.join(contentPath, 'ContentItems', type));
+							console.log(type + ' (' + items.length + ')');
+							let itemFormat = '  %-36s  %-48s  %-48s  %-s'
+							console.log(sprintf(itemFormat, 'Id', 'Name', 'Slug', 'Language'));
+							items.forEach(function (item) {
+								console.log(sprintf(itemFormat, item.id, item.name, item.slug || '', item.language || ''));
+							});
+							console.log('');
+							totalItems += items.length;
+						}
+					});
+					console.log('Total items: ' + totalItems);
+				}
+			}
+			console.log('');
+
+			done(true);
+		})
+		.catch((error) => {
+			if (error) {
+				console.error(error);
+			}
+			done();
+		});
+};
 
 module.exports.renameContentType = function (argv, done) {
 	'use strict';

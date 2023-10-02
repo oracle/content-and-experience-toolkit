@@ -7,7 +7,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	sprintf = require('sprintf-js').sprintf,
-	path = require('path');
+	path = require('path'),
+	formatter = require('./formatter.js');
 
 var console = require('../test/server/logger.js').console;
 
@@ -651,7 +652,7 @@ module.exports.describeTheme = function (argv, done) {
 				});
 
 				if (process.shim) {
-					themeSites = themeSites.map(t => `[!--dss--]${t}[/!--dss--]`)
+					themeSites = themeSites.map(s => formatter.siteFormat(s));
 				}
 				console.log(sprintf(format1, 'Sites using the theme', themeSites.sort()));
 				console.log(sprintf(format1, 'Enterprise live sites', enterpriseLiveSites.sort()));

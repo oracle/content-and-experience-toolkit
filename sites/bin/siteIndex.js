@@ -809,10 +809,17 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 		if (properties && !properties.noIndex) {
 			var pageTitle = masterPageData && masterPageData.properties && masterPageData.properties.title || ' ';
 			var pageDescription = masterPageData && masterPageData.properties && masterPageData.properties.pageDescription || ' ';
+			var pageKeywords = masterPageData && masterPageData.properties && masterPageData.properties.keywords || ' ';
 			var masterPage = _getPageFromMastrStructure(pageId);
 			var pageName = masterPage ? masterPage.name : ' ';
 			var pageUrl = masterPage ? masterPage.pageUrl : ' ';
-			// console.log('page title=' + pageTitle + ' description=' + pageDescription);
+			// console.log('page id=' + pageId + ' title=' + pageTitle + ' description=' + pageDescription + ' keywords=' + pageKeywords);
+
+			var keywords = [];
+
+			if (pageKeywords) {
+				keywords = _addKeywords(pageKeywords);
+			}
 
 			var componentInstances = pageData[i].data.componentInstances;
 			var masterComponentInstances = masterPageData.componentInstances;
@@ -840,7 +847,7 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 				});
 			}
 			// console.log('Page: id: ' + pageId + ' name: ' + pageName + ' Comp keywords: ' + compKeywords);
-			var keywords = _addKeywords(compKeywords.join(sep));
+			keywords = keywords.concat(_addKeywords(compKeywords.join(sep)));
 			// console.log(' - page ' + pageName + ': index components');
 
 			// Go through all content items on the page

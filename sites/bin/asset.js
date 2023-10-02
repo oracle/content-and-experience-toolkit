@@ -5,6 +5,7 @@
 
 const e = require('express');
 const { all } = require('underscore');
+const { showCompletionScript } = require('yargs');
 
 
 var serverUtils = require('../test/server/serverUtils.js'),
@@ -19,9 +20,11 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	sprintf = require('sprintf-js').sprintf,
 	vsprintf = require('sprintf-js').vsprintf,
 	path = require('path'),
-	zip = require('gulp-zip');
+	zip = require('gulp-zip'),
+	formatter = require('./formatter.js');
 
 var console = require('../test/server/logger.js').console;
+
 
 var projectDir,
 	buildDir,
@@ -1766,8 +1769,8 @@ module.exports.describeRepository = function (argv, done) {
 				var format1 = '%-38s  %-s';
 				if (process.shim) {
 					//adding tags
-					channelNames = channelNames.map(c => `[!--dsch--]${c}[/!--dsch--]`)
-					taxNames = taxNames.map(c => `[!--dstx--]${c}[/!--dstx--]`)
+					channelNames = channelNames.map(c => formatter.channelFormat(c))
+					taxNames = taxNames.map(c => formatter.taxonomyFormat(c))
 				}
 				console.log('');
 				console.log(sprintf(format1, 'Id', repo.id));
@@ -6613,6 +6616,33 @@ module.exports.listAssets = function (argv, done) {
 	}
 	console.info(' - server: ' + server.url);
 
+	var output = argv.file;
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		if (fs.existsSync(output)) {
+			if (fs.statSync(output).isDirectory()) {
+				output = path.join(output, 'listassets.json');
+			}
+		} else {
+			var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+			if (!fs.existsSync(outputFolder)) {
+				console.error('ERROR: folder ' + outputFolder + ' does not exist');
+				done();
+				return;
+			}
+
+			if (!fs.statSync(outputFolder).isDirectory()) {
+				console.error('ERROR: ' + outputFolder + ' is not a folder');
+				done();
+				return;
+			}
+		}
+	}
+
 	var channelName = argv.channel;
 	var query = argv.query;
 	var repositoryName = argv.repository;
@@ -6634,9 +6664,23 @@ module.exports.listAssets = function (argv, done) {
 	var ranking = argv.rankby;
 	var rankingApiName;
 
+	// wrap each search string with quotes
+	var defaultQuery = argv.search;
+	if (defaultQuery) {
+		defaultQuery = JSON.stringify(defaultQuery.split(','));
+		if (defaultQuery.startsWith('[')) {
+			defaultQuery = defaultQuery.substring(1);
+		}
+		if (defaultQuery.endsWith(']')) {
+			defaultQuery = defaultQuery.substring(0, defaultQuery.length - 1);
+		}
+	}
+	var defaultOperator = argv.searchoperator;
+
 	var validate = typeof argv.validate === 'boolean' ? argv.validate : argv.validate === 'true';
 
-	const allowedProperties = ['id', 'name', 'type', 'language', 'slug', 'status', 'createdDate', 'createdBy', 'updatedDate', 'updatedBy', 'version', 'publishedVersion', 'size'];
+	const allowedProperties = ['id', 'name', 'type', 'language', 'slug', 'status', 'createdDate', 'createdBy', 'updatedDate', 'updatedBy', 'version', 'publishedVersion', 'size',
+		'references', 'referencedBy', 'referencedBySites'];
 	const defaultProperties = ['type', 'id', 'version', 'status', 'language', 'size', 'name'];
 	var properties = argv.properties ? argv.properties.split(',') : [];
 	var propertiesToShow = [];
@@ -6651,6 +6695,11 @@ module.exports.listAssets = function (argv, done) {
 		propertiesToShow = defaultProperties;
 	}
 	console.log(' - properties to show: ' + propertiesToShow);
+
+	var expand = '';
+	if (propertiesToShow.includes('references') || propertiesToShow.includes('referencedBy') || propertiesToShow.includes('referencedBySites')) {
+		expand = 'relationships';
+	}
 
 	//
 	// hidden param
@@ -6843,6 +6892,9 @@ module.exports.listAssets = function (argv, done) {
 				} else {
 					console.info(' - query all assets');
 				}
+				if (defaultQuery) {
+					console.info(' - match string: ' + defaultQuery);
+				}
 
 				startTime = new Date();
 				let fields = 'name,status,slug,language,publishedChannels,languageIsMaster,translatable,createdDate,createdBy,updatedDate,updatedBy,version,versionInfo,typeCategory';
@@ -6853,7 +6905,9 @@ module.exports.listAssets = function (argv, done) {
 						fields: fields,
 						includeAdditionalData: true,
 						orderBy: orderBy,
-						rankBy: rankingApiName
+						rankBy: rankingApiName,
+						defaultQuery: defaultQuery,
+						defaultOperator: defaultOperator
 					}));
 			})
 			.then(function (result) {
@@ -6861,12 +6915,40 @@ module.exports.listAssets = function (argv, done) {
 					return Promise.reject();
 				}
 
-				var timeSpent = serverUtils.timeUsed(startTime, new Date());
+				let timeSpent = serverUtils.timeUsed(startTime, new Date());
 				items = assetsInFile.length > 0 ? result || [] : result && result.data || [];
 				total = items.length;
 				limit = result.limit || total;
 
 				console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
+
+				var expandPromises = [];
+				if (expand) {
+					expandPromises.push(_queryItemExpandResources(server, items, expand));
+				}
+
+				return Promise.all(expandPromises);
+
+			})
+			.then(function (results) {
+
+				let timeSpent = serverUtils.timeUsed(startTime, new Date());
+
+				if (expand) {
+					let expandedItems = results && results[0] || [];
+					for (let i = 0; i < items.length; i++) {
+						let expandedItem = undefined;
+						for (let j = 0; j < expandedItems.length; j++) {
+							if (items[i].id === expandedItems[j].id) {
+								expandedItem = expandedItems[j];
+								break;
+							}
+						}
+						if (expandedItem) {
+							items[i] = expandedItem;
+						}
+					}
+				}
 
 				if (total > 0) {
 					_displayAssets(server, propertiesToShow, repository, collection, channel, channelToken, items, showURLS, rankingApiName);
@@ -6998,6 +7080,11 @@ module.exports.listAssets = function (argv, done) {
 
 				}
 
+				// save to file
+				if (output) {
+					_saveAssetsToFile(output, propertiesToShow, items);
+				}
+
 				done(true);
 			})
 			.catch((error) => {
@@ -7006,6 +7093,64 @@ module.exports.listAssets = function (argv, done) {
 				}
 				done();
 			});
+	});
+};
+
+var _queryItemExpandResources = function (server, items, expand) {
+	return new Promise(function (resolve, reject) {
+		var total = items.length;
+		var groups = [];
+		var limit = 30;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+		var expandedItems = [];
+		var needNewLine = false;
+		var startTime = new Date();
+
+		var doQueryAsset = groups.reduce(function (assetPromise, param) {
+			return assetPromise.then(function (result) {
+				var assetPromises = [];
+				for (let i = param.start; i <= param.end; i++) {
+					assetPromises.push(serverRest.getItem({ server: server, id: items[i].id, expand: expand}));
+				}
+				return Promise.all(assetPromises)
+					.then(function (results) {
+						for (let i = 0; i < results.length; i++) {
+							if (results[i] && !results[i].err) {
+								expandedItems.push(results[i]);
+							}
+						}
+						process.stdout.write(' - fetching items with expanded resources ' + expandedItems.length + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						readline.cursorTo(process.stdout, 0);
+						needNewLine = true;
+					})
+			});
+		},
+		Promise.resolve({})
+		);
+
+		doQueryAsset.then(function (result) {
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
+			resolve(expandedItems);
+		});
 	});
 };
 
@@ -7069,7 +7214,7 @@ var _validateDigitalAssetNativeFile = function (server, items) {
 	});
 };
 
-var _displayAssets = function (server, propertiesToShow, repository, collection, channel, channelToken, items, showURLS, ranking) {
+var _displayAssets = function (server, propertiesToShowOrig, repository, collection, channel, channelToken, items, showURLS, ranking) {
 	var types = [];
 	var allIds = [];
 	var duplicateIds = [];
@@ -7092,6 +7237,24 @@ var _displayAssets = function (server, propertiesToShow, repository, collection,
 	if (duplicateIds.length > 0) {
 		console.info(' - duplicates (' + duplicateIds.length + '): ' + duplicateIds);
 	}
+
+	var propertiesToShow = [];
+	var showRelationships = false;
+	propertiesToShowOrig.forEach(function (name) {
+		if (name === 'references' || name === 'referencedBy' || name === 'referencedBySites') {
+			// will put to the end
+		} else {
+			propertiesToShow.push(name);
+		}
+	});
+	propertiesToShowOrig.forEach(function (name) {
+		if (name === 'references' || name === 'referencedBy' || name === 'referencedBySites') {
+			propertiesToShow.push(name);
+			showRelationships = true;
+		}
+	});
+
+	// console.log(' - properties to show: ' + propertiesToShow);
 
 	// sort types
 	var byType = types.slice(0);
@@ -7173,14 +7336,14 @@ var _displayAssets = function (server, propertiesToShow, repository, collection,
 			if (i === propertiesToShow.length - 1) {
 				f = '%-s';
 			} else {
-				if (name === 'id' || name === 'type') {
+				if (name === 'id' || name === 'type' || name === 'slug') {
 					f = '%-38s ';
 				}
 				if (name === 'name') {
 					f = '%-30s ';
 				}
 				if (name === 'version') {
-					f = '%-7s ';
+					f = '%4s ';
 				}
 				if (name === 'publishedVersion') {
 					f = '%-16s ';
@@ -7201,14 +7364,47 @@ var _displayAssets = function (server, propertiesToShow, repository, collection,
 					f = '%-26s ';
 				}
 			}
+			if (name === 'references' || name === 'referencedBy' || name === 'referencedBySites') {
+				// will display in seperate lines
+				f = '';
+			}
 			format2 += f;
 		}
 		// console.log(format2);
 
+		var _displayRelationships = function (item, name, firstIsType) {
+			let label = name[0].toUpperCase() + name.slice(1);
+			let data = item.relationships && item.relationships.data;
+			if (data) {
+				let labelFormat = firstIsType ? '   %-38s     %-s' : '     %-1s %-s';
+				let dataFormat =  firstIsType ? '   %-38s         %-s' : '     %-1s     %-s';
+				console.log(sprintf(labelFormat, '', label));
+				let objs = item.relationships.data[name] || [];
+				if (name === 'references' || name === 'referencedBy') {
+					objs.forEach(function(obj) {
+						console.log(sprintf(dataFormat, '', obj.id));
+					});
+				} else {
+					objs.forEach(function(obj) {
+						if (obj.site) {
+							console.log(sprintf(dataFormat, '', (obj.site + '/' + (obj.pageId || '') + '/' + (obj.component || ''))));
+						}
+					});
+				}
+			}
+
+		};
+
 		// labels
 		console.log(vsprintf(format2, labels));
+		if (process.shim) {
+			for (let i = 0;i < items.length;++i) {
+				items[i].id = formatter.assetFormat(items[i].id)
+			}
+		}
 
 		var totalSize = 0;
+		let firstIsType = propertiesToShow[0] === 'type';
 		if (propertiesToShow.includes('type')) {
 			for (let i = 0; i < list.length; i++) {
 				for (let j = 0; j < list[i].items.length; j++) {
@@ -7225,29 +7421,40 @@ var _displayAssets = function (server, propertiesToShow, repository, collection,
 					*/
 					let values = [];
 					propertiesToShow.forEach(function (name) {
-						let value = '';
-						if (item.hasOwnProperty(name)) {
-							if (name === 'updatedDate' || name === 'createdDate') {
-								value = item[name].value;
-							} else {
-								value = item[name];
+						if (name === 'references' || name === 'referencedBy' || name === 'referencedBySites') {
+							// display other properties
+							if (values.length > 0) {
+								console.log(vsprintf(format2, values));
+								values = [];
 							}
+							_displayRelationships(item, name, firstIsType);
 						} else {
-							if (name === 'size') {
+							let value = '';
+							if (item.hasOwnProperty(name)) {
+								if (name === 'updatedDate' || name === 'createdDate') {
+									value = item[name].value;
+								} else {
+									value = item[name];
+								}
+							} else if (name === 'size') {
+
 								value = item.fields && item.fields.size ? item.fields.size : '';
+
 							}
-						}
-						if (name === 'type') {
-							if (j > 0) {
+							if (name === 'type') {
+								if (j > 0) {
+									value = '';
+								}
+							}
+							if (value === undefined) {
 								value = '';
 							}
+							values.push(value);
 						}
-						if (value === undefined) {
-							value = '';
-						}
-						values.push(value);
 					});
-					console.log(vsprintf(format2, values));
+					if (!showRelationships) {
+						console.log(vsprintf(format2, values));
+					}
 				}
 			}
 		} else {
@@ -7258,24 +7465,35 @@ var _displayAssets = function (server, propertiesToShow, repository, collection,
 					totalSize = totalSize + item.fields.size;
 				}
 				propertiesToShow.forEach(function (name) {
-					let value = '';
-					if (item.hasOwnProperty(name)) {
-						if (name === 'updatedDate' || name === 'createdDate') {
-							value = item[name].value;
-						} else {
-							value = item[name];
+					if (name === 'references' || name === 'referencedBy' || name === 'referencedBySites') {
+						// display other properties
+						if (values.length > 0) {
+							console.log(vsprintf(format2, values));
+							values = [];
 						}
+						_displayRelationships(item, name, firstIsType);
 					} else {
-						if (name === 'size') {
+						let value = '';
+						if (item.hasOwnProperty(name)) {
+							if (name === 'updatedDate' || name === 'createdDate') {
+								value = item[name].value;
+							} else {
+								value = item[name];
+							}
+						} else if (name === 'size') {
+
 							value = item.fields && item.fields.size ? item.fields.size : '';
+
 						}
+						if (value === undefined) {
+							value = '';
+						}
+						values.push(value);
 					}
-					if (value === undefined) {
-						value = '';
-					}
-					values.push(value);
 				});
-				console.log(vsprintf(format2, values));
+				if (!showRelationships) {
+					console.log(vsprintf(format2, values));
+				}
 			}
 		}
 		console.log('');
@@ -7284,6 +7502,51 @@ var _displayAssets = function (server, propertiesToShow, repository, collection,
 		}
 	}
 
+};
+
+var _saveAssetsToFile = function (filePath, propertiesToShow, items) {
+	var outputItems = [];
+	for (let i = 0; i < items.length; i++) {
+		let item = items[i];
+		let oneitem = {};
+		propertiesToShow.forEach(function (name) {
+			let value = undefined;
+			if (item.hasOwnProperty(name)) {
+				if (name === 'updatedDate' || name === 'createdDate') {
+					value = item[name].value;
+				} else {
+					value = item[name];
+				}
+			} else if (name === 'size') {
+
+				value = item.fields && item.fields.size ? item.fields.size : '';
+
+			}  else if (name === 'references' || name === 'referencedBy' || name === 'referencedBySites') {
+				let data = item.relationships && item.relationships.data;
+				if (data) {
+					let objs = item.relationships.data[name] || [];
+					if (name === 'references' || name === 'referencedBy') {
+						let ids = [];
+						objs.forEach(function(obj) {
+							if (obj.id) {
+								ids.push(obj.id);
+							}
+						});
+						value = ids;
+					} else {
+						value = objs;
+					}
+				}
+			}
+			if (value === undefined) {
+				value = '';
+			}
+			oneitem[name] = value;
+		});
+		outputItems.push(oneitem);
+	}
+	fs.writeFileSync(filePath, JSON.stringify(outputItems, null, 4));
+	console.log(' - result written to file ' + filePath);
 };
 
 module.exports.listAssetIds = function (argv, done) {
@@ -7597,10 +7860,20 @@ module.exports.describeAsset = function (argv, done) {
 				console.log(sprintf(format1, 'Published', item.isPublished ? '√' : ''));
 				console.log(sprintf(format1, 'Repository', repository.name + ' (Id: ' + repository.id + ')'));
 				console.log(sprintf(format1, 'Collections', ''));
-				if (collections.length > 0) {
+				if (collections.length > 0 && item.collections && item.collections.data && item.collections.data.length > 0) {
+					let itemCollections = item.collections.data;
 					console.log(sprintf(format3, 'Name', 'Id'));
-					collections.forEach(function (col) {
-						console.log(sprintf(format3, col.name, col.id));
+					itemCollections.forEach(function (itemcol) {
+						let col;
+						for (let i = 0; i < collections.length; i++) {
+							if (collections[i].id === itemcol.id) {
+								col = collections[i];
+								break;
+							}
+						}
+						if (col) {
+							console.log(sprintf(format3, col.name, col.id));
+						}
 					});
 				}
 				console.log(sprintf(format1, 'Channels', ''));

@@ -837,8 +837,6 @@ var updateStatus = function (args) {
 };
 
 var initializeContent = function () {
-	// validate we can login to the server
-	var request = serverUtils.getRequest();
 
 	// get the content Ids
 	var getContentItems = function () {
@@ -951,7 +949,7 @@ var initializeContent = function () {
 		});
 	};
 
-	return serverUtils.loginToServer(server, request).then(function () {
+	return serverUtils.loginToServer(server).then(function () {
 		// make a clean "itemsDir"
 		fileUtils.remove(itemsDir);
 		fs.mkdirSync(itemsDir, {
@@ -990,7 +988,6 @@ var initializeContent = function () {
 				return Promise.resolve({
 					items: fetchedItems,
 					itemsDir: itemsDir,
-					request: request,
 					SCSCompileAPI: compiler.getContentCompileAPI()
 				});
 			});

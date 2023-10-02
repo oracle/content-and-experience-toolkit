@@ -606,6 +606,10 @@ router.get('/*', (req, res) => {
 			buf = buf.replace('_devcs_component_custom_settings', customsettingsdatastr);
 			buf = buf.replace('_devcs_component_cloud_service', cloudservicestr);
 
+			let serverInfo = app.locals.server && app.locals.server.valid ? ('Connected to ' + app.locals.server.url) : 'No connection to OCM server';
+			buf = buf.replace('_devcs_server_info', serverInfo);
+			buf = buf.replace('_devcs_server_valid', app.locals.server && app.locals.server.valid ? 'true' : 'false');
+
 			// field editor
 			var fieldEditorType = '';
 			if (compType === 'fieldeditor') {

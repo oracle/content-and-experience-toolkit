@@ -4,10 +4,14 @@
  */
 
 /* Toolkit logger for browser */
-
+let htmlEncode = document.createElement("textarea");
 let tagsReplacer = line => {
 	if (line === '\n') {
-		return ""
+		return "";
+	} else {
+		// HTML encode all values
+		htmlEncode.innerText = (line || '');
+		line = htmlEncode.innerHTML;
 	}
 	//matching tag to resource type to simplfy `describe-[tagType]` command
 	let TagType = {
@@ -18,7 +22,8 @@ let tagsReplacer = line => {
 		"dsr": "repository",
 		"dst": "template",
 		"dstx": "taxonomy",
-		"dsbj":"background-job"
+		"dsbj":"background-job",
+		"dsa":"asset",
 	}
 
 
@@ -29,12 +34,11 @@ let tagsReplacer = line => {
 		/**
 		 * Replacing tag  untill there's no more occurrence
 		 */
+
 		while (match != null) {
-			let args = []
-			args.push(TagType[tag])
-			args.push(`${match[1].trim()}`)
+			let name = match[1].trim()
 			// replacing macros with an anchor that calls `handleCreateNewTabWithCommand` with the appropriate describe command, once clicked this function will send a message to inform the parent window about the occured event, check powershell.html.
-			line = line.replaceAll(match[0], `<a href="javascript:void(0)" onclick="javascript:(function() { handleCreateNewTabWithCommand(decodeURIComponent('${encodeURIComponent(`describe-${args.join(" ")}`)}')); })();">${match[1]}</a>`);
+			line = line.replaceAll(match[0], `<a href="javascript:void(0)" name="${name}" aria-label="cec describe-${TagType[tag]} ${name}" title="cec describe-${TagType[tag]} ${name}" type="${TagType[tag]}" onclick="javascript:(function() { handleCreateNewTabWithCommand(decodeURIComponent('${encodeURIComponent(`describe-${TagType[tag]} "${name}"`)}'),true); })();">${match[1]}</a>`);
 			match = line.match(regxp)
 		}
 	}
@@ -58,21 +62,52 @@ var _setLevel = function (level) {
 };
 
 
+window.writeQueue = []
+function processQueue() {
+
+	for (let i = 0;i < 200;++i) {
+		if (window.writeQueue.length > 0) {
+			let item = window.writeQueue.shift()
+			logger(item)
+		}
+	}
+}
 
 function logger(m) {
 	if (typeof m == "string" && m.startsWith(" - configuration file:")) return
 	let shellContainer = document.getElementById(`output-powershell`);
+	m = m.replace(/-(\w+), -\1,/g, '-$1,')
+	m = m.replace(/\s\s\s+--.+\n/g, "\n")
+	m = m.replace(/[\\]/g, "")
 	let output = `${tagsReplacer(m.toString())}\n`;
 	if (!shellContainer) {
 		return;
 	}
-	shellContainer.innerHTML += output.replace(/^[\s\n]+/g, "")
+	// display multi lines
+	if (m.startsWith("Unknown argument:")) {
+		return;
+	}
+
+
+	const div = document.createElement('div');
+	div.innerHTML = output.replace(/^[\n]+/g, "");
+	shellContainer.appendChild(div);
+
+	if (window.autoScroll) {
+		let bottomDiv = document.getElementById(`output-bottom`);
+		if (bottomDiv) {
+			bottomDiv.scrollIntoView();
+		}
+	}
+
 }
+
+setInterval(processQueue, 10)
 
 module.exports.console = {
 	showInfo: _showinfo,
 	setLevel: _setLevel,
-	log: logger,
+	log:(m) => window.writeQueue.push(m),
 	debug: logger,
 	info: logger,
 	warn: logger,

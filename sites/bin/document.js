@@ -1591,6 +1591,18 @@ module.exports.listFolder = function (argv, done) {
 		return;
 	}
 
+	var nameFilter = argv.namefilter;
+	if (typeof nameFilter === 'number') {
+		nameFilter = nameFilter.toString();
+	}
+	if (nameFilter) {
+		nameFilter = nameFilter.toLowerCase();
+	}
+	if (nameFilter === 'undefined') {
+		nameFilter = '';
+	}
+	// console.log(argv.namefilter + ' ' + (typeof argv.namefilter) + ' ' + nameFilter + ' ' + (typeof nameFilter));
+
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.error(result.statusMessage);
@@ -1688,6 +1700,17 @@ module.exports.listFolder = function (argv, done) {
 			.then(function (result) {
 				var items = result || [];
 
+				if (nameFilter) {
+					console.info(' - name filter: "' + nameFilter + '"');
+					let filterItems = [];
+					items.forEach(function (item) {
+						if (item.name.toLowerCase().indexOf(nameFilter) >= 0) {
+							filterItems.push(item);
+						}
+					});
+					items = filterItems;
+				}
+
 				var byName = items.slice(0);
 				byName.sort(function (a, b) {
 					var x = a.path;
@@ -1743,6 +1766,8 @@ module.exports.downloadFolder = function (argv, done) {
 		return;
 	}
 
+	var fileGroupSize = argv.number || 50;
+
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.error(result.statusMessage);
@@ -1750,7 +1775,8 @@ module.exports.downloadFolder = function (argv, done) {
 			return;
 		}
 
-		_downloadFolder(argv, server, true, true).then(function (result) {
+		let excludeFolder = [];
+		_downloadFolder(argv, server, true, true, excludeFolder, fileGroupSize).then(function (result) {
 			if (!result || result.err) {
 				done();
 			} else {
@@ -1782,6 +1808,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 		}
 
 		var groupSize = fileGroupSize === undefined ? 50 : fileGroupSize;
+		// console.log(' - file batch size: ' + groupSize);
 
 		var inputPath = argv.path === '/' ? '' : serverUtils.trimString(argv.path, '/');
 		var resourceFolder = false;
