@@ -22,7 +22,8 @@ var gulp = require('gulp'),
 	sprintf = require('sprintf-js').sprintf,
 	path = require('path'),
 	argv = require('yargs').argv,
-	zip = require('gulp-zip');
+	zip = require('gulp-zip'),
+	formatter = require('./formatter.js');
 
 var console = require('../test/server/logger.js').console;
 
@@ -2030,7 +2031,7 @@ var _displayServerTemplate = function (server, name, output) {
 					console.log(sprintf(format1, 'Type', (temp.isEnterprise ? 'Enterprise' : 'Standard')));
 					console.log(sprintf(format1, 'Localization policy', temp.localizationPolicy ? temp.localizationPolicy.name : ''));
 					console.log(sprintf(format1, 'Default language', temp.defaultLanguage || ''));
-					console.log(sprintf(format1, 'Theme', temp.themeName));
+					console.log(sprintf(format1, 'Theme', formatter.themeFormat(temp.themeName)));
 					console.log(sprintf(format1, 'Require Site Security Taxonomy', temp.granularSecurity && temp.granularSecurity.enabled));
 
 					console.log('');

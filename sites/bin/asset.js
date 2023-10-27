@@ -13,6 +13,9 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	fileUtils = require('../test/server/fileUtils.js'),
 	componentUtils = require('./component.js').utils,
 	contentUtils = require('./content.js').utils,
+	documentUtils = require('./document.js').utils,
+	exportImportRest = require('../test/server/exportImportRest.js'),
+	exportserviceUtils = require('./exportserviceutils.js').utils,
 	fs = require('fs'),
 	gulp = require('gulp'),
 	os = require('os'),
@@ -21,6 +24,7 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	vsprintf = require('sprintf-js').vsprintf,
 	path = require('path'),
 	zip = require('gulp-zip'),
+	exportSiteFileGroupSize = 1,
 	formatter = require('./formatter.js');
 
 var console = require('../test/server/logger.js').console;
@@ -1679,8 +1683,11 @@ module.exports.describeRepository = function (argv, done) {
 		}
 
 		var repo;
+		var collections;
 		var channels = [];
 		var taxonomies = [];
+		var totalItems = 0;
+		var totalMasterItems = 0;
 
 		// need all fields, otherwise channel language not returned
 		serverRest.getRepositoryWithName({
@@ -1722,6 +1729,35 @@ module.exports.describeRepository = function (argv, done) {
 
 				channels = results || [];
 
+				return serverRest.getCollections({ server: server, repositoryId: repo.id });
+
+			})
+			.then(function (result) {
+
+				collections = result || [];
+
+				let itemPromises = [];
+				itemPromises.push(serverRest.queryItems({
+					server: server,
+					q: 'repositoryId eq "' + repo.id + '"',
+					limit: 1,
+					showTotal: false
+				}));
+				itemPromises.push(serverRest.queryItems({
+					server: server,
+					q: 'repositoryId eq "' + repo.id + '"  AND languageIsMaster eq "true"',
+					limit: 1,
+					showTotal: false
+				}));
+
+				return Promise.all(itemPromises);
+
+			})
+			.then(function (results) {
+
+				totalItems = results && results[0] && results[0].limit;
+				totalMasterItems = results && results[1] && results[1].limit;
+
 				var taxonomyPromises = [];
 
 				if (repo.taxonomies && repo.taxonomies.length > 0) {
@@ -1737,7 +1773,7 @@ module.exports.describeRepository = function (argv, done) {
 
 			})
 			.then(function (results) {
-				var taxonomies = results || [];
+				taxonomies = results || [];
 				var taxNames = [];
 				taxonomies.forEach(function (tax) {
 					if (tax && tax.id && tax.name) {
@@ -1782,9 +1818,20 @@ module.exports.describeRepository = function (argv, done) {
 				console.log(sprintf(format1, 'Publishing channels', channelNames.sort()));
 				console.log(sprintf(format1, 'Taxonomies', taxNames.sort()));
 				console.log(sprintf(format1, 'Default language', repo.defaultLanguage));
-				console.log(sprintf(format1, 'Channel languages', repo.configuredLanguages));
-				console.log(sprintf(format1, 'Additional languages', repo.languageOptions));
+				console.log(sprintf(format1, 'Channel languages', repo.configuredLanguages.sort()));
+				console.log(sprintf(format1, 'Additional languages', repo.languageOptions.sort()));
+				console.log(sprintf(format1, 'Total items', totalItems));
+				console.log(sprintf(format1, 'Total master items', totalMasterItems));
 				console.log(sprintf(format1, 'Editorial roles', editorialRoles));
+				console.log(sprintf(format1, 'Collections (' + collections.length + ')', ''));
+				if (collections.length > 0) {
+					let format2 = '  %-36s  %-60s  %-s';
+					console.log(sprintf(format2, 'Id', 'Name', 'Dynamic'));
+					collections.forEach(function (col) {
+						console.log(sprintf(format2, col.id, col.name, (col.isDynamic ? '   √' : '')));
+					});
+				}
+
 				console.log('');
 
 				done(true);
@@ -2794,7 +2841,7 @@ module.exports.describeType = function (argv, done) {
 					var previewFormat = '%-38s  %-30s  %-s';
 					console.log(sprintf(previewFormat, 'In-place content preview', 'Site', 'Page'));
 					type.inplacePreview.data.forEach(function (preview) {
-						console.log(sprintf(previewFormat, '', preview.siteName, preview.pageName));
+						console.log(sprintf(previewFormat, '', preview.repositoryName, preview.pageName));
 					});
 				}
 
@@ -6664,6 +6711,8 @@ module.exports.listAssets = function (argv, done) {
 	var ranking = argv.rankby;
 	var rankingApiName;
 
+	var maxLength = argv.length;
+
 	// wrap each search string with quotes
 	var defaultQuery = argv.search;
 	if (defaultQuery) {
@@ -6677,7 +6726,7 @@ module.exports.listAssets = function (argv, done) {
 	}
 	var defaultOperator = argv.searchoperator;
 
-	var validate = typeof argv.validate === 'boolean' ? argv.validate : argv.validate === 'true';
+	var validate = typeof argv.validate !== 'string' || argv.validate.toLowerCase() === 'false' ? '' : argv.validate;
 
 	const allowedProperties = ['id', 'name', 'type', 'language', 'slug', 'status', 'createdDate', 'createdBy', 'updatedDate', 'updatedBy', 'version', 'publishedVersion', 'size',
 		'references', 'referencedBy', 'referencedBySites'];
@@ -6737,12 +6786,18 @@ module.exports.listAssets = function (argv, done) {
 		// console.log(' - total asset GUIDs in file ' + assetsFile + ': ' + assetsInFile.length);
 	}
 
+	var exitCode;
+
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.error(result.statusMessage);
 			done();
 			return;
 		}
+
+		var validatedItems = [];
+		var typeNames = [];
+		var textFields = [];
 
 		var repositoryPromises = [];
 		if (repositoryName) {
@@ -6921,10 +6976,20 @@ module.exports.listAssets = function (argv, done) {
 				limit = result.limit || total;
 
 				console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
+				if (items.length === 0) {
+					exitCode = 0;
+					return Promise.reject();
+				}
+
+				items.forEach(function (item) {
+					if (item.type && !['Image', 'File', 'Video'].includes(item.type) && !typeNames.includes(item.type)) {
+						typeNames.push(item.type);
+					}
+				});
 
 				var expandPromises = [];
 				if (expand) {
-					expandPromises.push(_queryItemExpandResources(server, items, expand));
+					expandPromises.push(_readItems(server, items, expand, 'fetching items with expanded resources'));
 				}
 
 				return Promise.all(expandPromises);
@@ -6950,55 +7015,60 @@ module.exports.listAssets = function (argv, done) {
 					}
 				}
 
-				if (total > 0) {
-					_displayAssets(server, propertiesToShow, repository, collection, channel, channelToken, items, showURLS, rankingApiName);
-					console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
+				_displayAssets(server, propertiesToShow, repository, collection, channel, channelToken, items, showURLS, rankingApiName);
+				console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
 
-					var itemsWithForwardSlashSlug = [];
-					items.forEach(function (item) {
-						if (item.slug && item.slug.indexOf('/') >= 0) {
-							itemsWithForwardSlashSlug.push(item);
-						}
-					});
-					if (itemsWithForwardSlashSlug.length > 0) {
-						console.log(' - items with forward slash in slug:');
-						let format = '   %-38s %-38s %-10s %-38s %-s';
-						console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name', 'Slug'));
-						itemsWithForwardSlashSlug.forEach(function (item) {
-							console.log(sprintf(format, item.type, item.id, item.language, item.name, item.slug));
-						});
+				var itemsWithForwardSlashSlug = [];
+				items.forEach(function (item) {
+					if (item.slug && item.slug.indexOf('/') >= 0) {
+						itemsWithForwardSlashSlug.push(item);
 					}
+				});
+				if (itemsWithForwardSlashSlug.length > 0) {
+					console.log(' - items with forward slash in slug:');
+					let format = '   %-38s %-38s %-10s %-38s %-s';
+					console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name', 'Slug'));
+					itemsWithForwardSlashSlug.forEach(function (item) {
+						console.log(sprintf(format, item.type, item.id, item.language, item.name, item.slug));
+					});
+				}
 
-					var translationsInDraft = [];
-					items.forEach(function (item) {
-						if (item.translatable && !item.languageIsMaster && item.status === 'draft') {
-							translationsInDraft.push(item);
-						}
-					});
-					if (translationsInDraft.length > 0) {
-						console.log(' - non-master translatable items in draft:');
-						let format = '   %-38s %-38s %-10s %-s';
-						console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name'));
-						translationsInDraft.forEach(function (item) {
-							console.log(sprintf(format, item.type, item.id, item.language, item.name));
-						});
+				var translationsInDraft = [];
+				items.forEach(function (item) {
+					if (item.translatable && !item.languageIsMaster && item.status === 'draft') {
+						translationsInDraft.push(item);
 					}
+				});
+				if (translationsInDraft.length > 0) {
+					console.log(' - non-master translatable items in draft:');
+					let format = '   %-38s %-38s %-10s %-s';
+					console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name'));
+					translationsInDraft.forEach(function (item) {
+						console.log(sprintf(format, item.type, item.id, item.language, item.name));
+					});
 				}
 
 				var validatePromises = [];
-				if (validate && items.length > 0 && !assetsFile) {
-					var ids = [];
-					items.forEach(function (item) {
-						ids.push(item.id);
-					});
-					validatePromises.push(contentUtils.queryItemsWithIds(server, '', ids, 'typeCategory,language,name'));
+				if (validate && !assetsFile) {
+					if (validate.indexOf('reference') >= 0 || validate.indexOf('textlength') >= 0) {
+						let expand = validate.indexOf('reference') >= 0 ? 'relationships' : '';
+						let msg = validate.indexOf('reference') >= 0 ? 'fetching items with all fields and relationships' : 'fetching items with all fields';
+						validatePromises.push(_readItems(server, items, expand, msg));
+					} else {
+						var ids = [];
+						items.forEach(function (item) {
+							ids.push(item.id);
+						});
+						validatePromises.push(contentUtils.queryItemsWithIds(server, '', ids, 'typeCategory,language,name'));
+					}
 				}
 
 				return Promise.all(validatePromises);
 
 			})
 			.then(function (results) {
-				var validatedItems = [];
+				// console.log(JSON.stringify(results[0], null, 4));
+
 				if (assetsFile) {
 					// always validate existence
 					validatedItems = items;
@@ -7025,36 +7095,37 @@ module.exports.listAssets = function (argv, done) {
 						});
 						// console.log(JSON.stringify(notFound, null, 4));
 					}
-				}
-				if (validate && items.length > 0) {
-					if (!assetsFile) {
-						var notFound = [];
-						validatedItems = results[0];
-						if (validatedItems.length !== items.length) {
-							items.forEach(function (item) {
-								var found = false;
-								for (var i = 0; i < validatedItems.length; i++) {
-									if (item.id === validatedItems[i].id) {
-										found = true;
-										break;
-									}
-								}
-								if (!found) {
-									notFound.push(item);
-								}
-							});
-						}
-						if (notFound.length > 0) {
-							console.log(' - items not found:');
-							let format = '   %-38s %-38s %-s';
-							console.log(sprintf(format, 'Type', 'Id', 'Name'));
-							notFound.forEach(function (item) {
-								console.log(sprintf(format, item.type, item.id, item.name));
-							});
-							// console.log(JSON.stringify(notFound, null, 4));
-						}
-					}
+				} else if (validate) {
+					validatedItems = results && results[0] || [];
 
+					var notFound = [];
+					if (validatedItems.length !== items.length) {
+						items.forEach(function (item) {
+							var found = false;
+							for (var i = 0; i < validatedItems.length; i++) {
+								if (item.id === validatedItems[i].id) {
+									found = true;
+									break;
+								}
+							}
+							if (!found) {
+								notFound.push(item);
+							}
+						});
+					}
+					if (notFound.length > 0) {
+						console.log(' - items not found:');
+						let format = '   %-38s %-38s %-s';
+						console.log(sprintf(format, 'Type', 'Id', 'Name'));
+						notFound.forEach(function (item) {
+							console.log(sprintf(format, item.type, item.id, item.name));
+						});
+						// console.log(JSON.stringify(notFound, null, 4));
+					}
+				}
+
+				var nativeFilePromises = [];
+				if (validate && validate.indexOf('nativefile') >= 0) {
 					var digitalAssets = [];
 					validatedItems.forEach(function (item) {
 						if (item.typeCategory === 'DigitalAssetType') {
@@ -7062,22 +7133,88 @@ module.exports.listAssets = function (argv, done) {
 						}
 
 					});
-
 					console.log(' - digital items: ' + digitalAssets.length);
-					_validateDigitalAssetNativeFile(server, digitalAssets)
-						.then(function (result) {
-							var noNativeFileItems = result || [];
-							if (noNativeFileItems.length > 0) {
-								console.log(' - items without native file:');
-								let format = '   %-38s %-38s %-10s %-s';
-								console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name'));
-								noNativeFileItems.forEach(function (item) {
-									console.log(sprintf(format, item.type, item.id, item.language, item.name));
-								});
-							}
-							console.log(' - validation finished');
-						});
+					nativeFilePromises.push(_validateDigitalAssetNativeFile(server, digitalAssets));
+				}
 
+				return Promise.all(nativeFilePromises);
+
+			})
+			.then(function (results) {
+
+				if (validate && validate.indexOf('nativefile') >= 0) {
+					var noNativeFileItems = results && results[0] || [];
+					if (noNativeFileItems.length > 0) {
+						console.log(' - items without native file (' + noNativeFileItems.length + '):');
+						let format = '   %-38s %-38s %-10s %-s';
+						console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name'));
+						noNativeFileItems.forEach(function (item) {
+							console.log(sprintf(format, item.type, item.id, item.language, item.name));
+						});
+					}
+
+				}
+
+				/**
+			 * For now do not query types. All string type fields will br checked
+
+				let typePromises = [];
+				if (validate && validate.indexOf('textlength') >= 0) {
+					typePromises.push(_getTypesWithName(server, typeNames));
+				}
+				return Promise.all(typePromises);
+
+			})
+			.then(function (results) {
+
+				if (validate && validate.indexOf('textlength') >= 0) {
+					let types = results && results[0] || [];
+					types.forEach(function (type) {
+						let fields = type.fields || [];
+						fields.forEach(function (field) {
+							let name = type.name + '.' + field.name;
+							if (field.datatype === 'text' && !textFields.includes(name)) {
+								textFields.push(name);
+							}
+						});
+					});
+					// console.info(' - text fields: ' + textFields);
+				}
+				*/
+
+				if (validate && validate.indexOf('reference') >= 0) {
+					let missingRefItems = _validateItemReferences(validatedItems);
+					if (missingRefItems.length > 0) {
+						console.log(' - items whose reference items not recorded (' + missingRefItems.length + '):');
+						let format = '   %-38s %-48s %-38s %-s';
+						console.log(sprintf(format, 'Id', 'Name', 'Field', 'Reference Ids'));
+						missingRefItems.forEach(function (obj) {
+							console.log(sprintf(format, obj.item.id, obj.item.name, obj.field, obj.refNotRecorded));
+						});
+					} else {
+						console.log(' - item references are correct')
+					}
+				}
+
+				if (validate && validate.indexOf('textlength') >= 0) {
+					let exceedLengthItems = _validateItemTextlength(validatedItems, textFields, maxLength);
+					console.log(' - items whose text field values exceed ' + maxLength + ' (' + exceedLengthItems.length + '):');
+					if (exceedLengthItems.length > 0) {
+						let format = '   %-38s %-48s %-38s %-s';
+						console.log(sprintf(format, 'Id', 'Name', 'Field', 'Text Length'));
+						exceedLengthItems.forEach(function (obj) {
+							let name = obj.item.name;
+							if (name.length > 48) {
+								name = name.substring(0, 45) + '...';
+							}
+							console.log(sprintf(format, obj.item.id, name, obj.field, obj.length));
+						});
+					}
+				}
+
+
+				if (validate) {
+					console.log(' - validation finished');
 				}
 
 				// save to file
@@ -7091,12 +7228,16 @@ module.exports.listAssets = function (argv, done) {
 				if (error) {
 					console.error(error);
 				}
-				done();
+				if (exitCode === 0) {
+					done(true);
+				} else {
+					done(exitCode);
+				}
 			});
 	});
 };
 
-var _queryItemExpandResources = function (server, items, expand) {
+var _readItems = function (server, items, expand, msg) {
 	return new Promise(function (resolve, reject) {
 		var total = items.length;
 		var groups = [];
@@ -7127,7 +7268,7 @@ var _queryItemExpandResources = function (server, items, expand) {
 			return assetPromise.then(function (result) {
 				var assetPromises = [];
 				for (let i = param.start; i <= param.end; i++) {
-					assetPromises.push(serverRest.getItem({ server: server, id: items[i].id, expand: expand}));
+					assetPromises.push(serverRest.getItem({ server: server, id: items[i].id, expand: expand, hideError: false}));
 				}
 				return Promise.all(assetPromises)
 					.then(function (results) {
@@ -7136,7 +7277,7 @@ var _queryItemExpandResources = function (server, items, expand) {
 								expandedItems.push(results[i]);
 							}
 						}
-						process.stdout.write(' - fetching items with expanded resources ' + expandedItems.length + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						process.stdout.write(' - ' + msg +  ' ' + expandedItems.length + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 						readline.cursorTo(process.stdout, 0);
 						needNewLine = true;
 					})
@@ -7190,7 +7331,7 @@ var _validateDigitalAssetNativeFile = function (server, items) {
 				return Promise.all(assetPromises)
 					.then(function (results) {
 						if (console.showInfo()) {
-							process.stdout.write(' - validating digital item native files [' + param.start + ', ' + param.end + '] [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							process.stdout.write(' - validating digital item native files ' + (param.end + 1) + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 							readline.cursorTo(process.stdout, 0);
 							needNewLine = true;
 						}
@@ -7214,7 +7355,96 @@ var _validateDigitalAssetNativeFile = function (server, items) {
 	});
 };
 
-var _displayAssets = function (server, propertiesToShowOrig, repository, collection, channel, channelToken, items, showURLS, ranking) {
+var _validateItemReferences = function (queriedItems) {
+
+	var missingRefItems = [];
+	// find reference item Ids in item's fields
+	queriedItems.forEach(function (item) {
+		let references = [];
+		if (item.relationships && item.relationships.data && item.relationships.data.references && item.relationships.data.references.length > 0) {
+			item.relationships.data.references.forEach(function (ref) {
+				references.push(ref.id);
+			});
+		}
+		Object.keys(item.fields).forEach(function (key) {
+			let value = typeof item.fields[key] === 'string' ? item.fields[key] : '';
+			if (value && value.indexOf('CEC_DIGITAL_ASSET') >= 0) {
+				let refItemIds = _getDigitalAssetIds(value);
+				// console.log(' - item: ' + item.id + ' ' + item.name + ' field: ' + key + ' CEC_DIGITAL_ASSET Ids: ' + refItemIds);
+
+				let notRecorded = [];
+				refItemIds.forEach(function (id) {
+					if (!references.includes(id)) {
+						notRecorded.push(id);
+					}
+				});
+				if (notRecorded.length > 0) {
+					missingRefItems.push({
+						item: item,
+						field: key,
+						refNotRecorded: notRecorded
+					});
+				}
+			}
+		});
+	});
+	return missingRefItems;
+};
+
+var _validateItemTextlength = function (queriedItems, textFields, maxLength) {
+	var exceedLengthItems = [];
+	// find reference item Ids in item's fields
+	queriedItems.forEach(function (item) {
+		Object.keys(item.fields).forEach(function (key) {
+			let fieldName = item.type + '.' + key;
+			// if (textFields.includes(fieldName) && typeof item.fields[key] === 'string') {
+			if (typeof item.fields[key] === 'string') {
+				let value = item.fields[key];
+				// console.log(key + ' => ' + value + ' => ' + value.length);
+				if (value && (value.length > maxLength)) {
+					exceedLengthItems.push({
+						item: item,
+						field: key,
+						length: value.length
+					});
+				}
+			}
+		});
+	});
+
+	return exceedLengthItems;
+};
+
+var _getDigitalAssetIds = function (src) {
+	var regex = /\[!--\$\s*CEC_DIGITAL_ASSET\s*--\]\s*(.*?)\s*\[\/!--\$\s*CEC_DIGITAL_ASSET\s*--\]/g;
+
+	var m;
+	var values = [];
+	while ((m = regex.exec(src)) !== null) {
+		// This is necessary to avoid infinite loops with zero-width matches
+		if (m.index === regex.lastIndex) {
+			regex.lastIndex++;
+		}
+
+		// The result can be accessed through the `m`-variable.
+		m.forEach((match, groupIndex) => {
+			let id = match && !match.startsWith('[') ? match : '';
+			// handle customer data:
+			// [!--$CEC_DIGITAL_ASSET--]CONT9EBFEB3578E945B8B55A9EF75D4E8DE9,true[/!--$CEC_DIGITAL_ASSET--]
+			if (id && id.indexOf(',') > 0) {
+				id = id.substring(0, id.indexOf(','));
+			}
+			if (id && !values.includes(id)) {
+				values.push(id);
+			}
+		});
+	}
+
+	return values;
+};
+
+var _displayAssets = function (server, propertiesToShowOrig, repository, collection, channel, channelToken, origItems, showURLS, ranking) {
+	var items = process.shim ? structuredClone(origItems) : origItems;
 	var types = [];
 	var allIds = [];
 	var duplicateIds = [];
@@ -7343,7 +7573,7 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 					f = '%-30s ';
 				}
 				if (name === 'version') {
-					f = '%4s ';
+					f = '%-7s ';
 				}
 				if (name === 'publishedVersion') {
 					f = '%-16s ';
@@ -7378,13 +7608,28 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 			if (data) {
 				let labelFormat = firstIsType ? '   %-38s     %-s' : '     %-1s %-s';
 				let dataFormat =  firstIsType ? '   %-38s         %-s' : '     %-1s     %-s';
-				console.log(sprintf(labelFormat, '', label));
+
 				let objs = item.relationships.data[name] || [];
 				if (name === 'references' || name === 'referencedBy') {
+					let ids = [];
 					objs.forEach(function(obj) {
-						console.log(sprintf(dataFormat, '', obj.id));
+						if (ids.includes(obj.id)) {
+							console.error('ERROR: duplicate reference ' + obj.id);
+						}
+						ids.push(obj.id);
+					});
+					if (ids.length > 0) {
+						console.log(sprintf(labelFormat, '', label + ' (' + ids.length + ')'));
+					}
+					else {
+						console.log(sprintf(labelFormat, '', label));
+					}
+					ids = ids.sort();
+					ids.forEach(function(id) {
+						console.log(sprintf(dataFormat, '', id));
 					});
 				} else {
+					console.log(sprintf(labelFormat, '', label));
 					objs.forEach(function(obj) {
 						if (obj.site) {
 							console.log(sprintf(dataFormat, '', (obj.site + '/' + (obj.pageId || '') + '/' + (obj.component || ''))));
@@ -7858,7 +8103,7 @@ module.exports.describeAsset = function (argv, done) {
 					console.log(sprintf(format1, 'Master item Id', masterItemId));
 				}
 				console.log(sprintf(format1, 'Published', item.isPublished ? '√' : ''));
-				console.log(sprintf(format1, 'Repository', repository.name + ' (Id: ' + repository.id + ')'));
+				console.log(sprintf(format1, 'Repository', formatter.repositoryFormat(repository.name) + ' (Id: ' + repository.id + ')'));
 				console.log(sprintf(format1, 'Collections', ''));
 				if (collections.length > 0 && item.collections && item.collections.data && item.collections.data.length > 0) {
 					let itemCollections = item.collections.data;
@@ -7889,7 +8134,7 @@ module.exports.describeAsset = function (argv, done) {
 							}
 						}
 						var pubished = itemPublishedChannels.includes(channel.id) ? '   √' : '';
-						console.log(sprintf(format2, channel.name, channel.id, channelToken, pubished));
+						console.log(sprintf(format2, formatter.channelFormat(channel.name), channel.id, channelToken, pubished));
 					});
 				}
 
@@ -7924,7 +8169,7 @@ module.exports.describeAsset = function (argv, done) {
 				if (referenceItems.length > 0) {
 					console.log(sprintf(itemFormat, 'Id', 'Type', 'Name'));
 					referenceItems.forEach(function (refItem) {
-						console.log(sprintf(itemFormat, refItem.id, refItem.type, refItem.name));
+						console.log(sprintf(itemFormat, formatter.assetFormat(refItem.id), refItem.type, refItem.name));
 					});
 				}
 
@@ -7932,7 +8177,7 @@ module.exports.describeAsset = function (argv, done) {
 				if (referencedByItems.length > 0) {
 					console.log(sprintf(itemFormat, 'Id', 'Type', 'Name'));
 					referencedByItems.forEach(function (refItem) {
-						console.log(sprintf(itemFormat, refItem.id, refItem.type, refItem.name));
+						console.log(sprintf(itemFormat, formatter.assetFormat(refItem.id), refItem.type, refItem.name));
 					});
 				}
 
@@ -8623,6 +8868,681 @@ var _zipContent = function (contentpath, contentfilename) {
 };
 
 
+
+
+/**
+ * export repository
+ */
+module.exports.exportRepository = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			done();
+			return;
+		}
+
+		var repositoryName = argv.name,
+			jobName = argv.jobname || argv.name,
+			includeassets = true, // argv.includeassets,
+			query = argv.query || '',
+			includetaxonomies = argv.includetaxonomies,
+			includecollections = argv.includecollections,
+			includetypes = true, // argv.includetypes,
+			includechannels = argv.includechannels,
+			includecustomcomponents = argv.includecustomcomponents,
+			includelocalizationpolicy = includechannels,
+			options = argv.options;
+
+		// folder path on the server
+		var folder = argv.folder && argv.folder.toString();
+		if (folder === '/') {
+			folder = '';
+		} else if (folder && !serverUtils.replaceAll(folder, '/', '')) {
+			console.error('ERROR: invalid folder');
+			done();
+			return;
+		}
+
+		var loginPromise = serverUtils.loginToServer(server);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage);
+				done();
+				return;
+			}
+
+			var promises = [];
+			promises.push(serverRest.getRepositoryWithName({
+				server: server,
+				name: repositoryName,
+				fields: 'id'
+			}));
+
+			if (folder && folder.length > 0) {
+				// Find info about the folder specified
+				promises.push(serverRest.findFolderHierarchy({
+					server: server,
+					parentID: 'self',
+					folderPath: folder
+				}));
+			} else {
+				// If folder is not specified, then export repository to user home folder.
+				// Find user home folder info
+				promises.push(serverRest.getFile({
+					server: server,
+					id: 'self'
+				}));
+			}
+
+			Promise.all(promises)
+				.then(function (results) {
+					var repoInfo = results[0].data,
+						folderInfo = results[1],
+						folderId;
+
+					// Handle repository problem
+					if (!repoInfo || !repoInfo.id) {
+						console.error('ERROR: Repository ' + repositoryName + ' is not found');
+						done();
+						return;
+					}
+
+					// Handle export folder problem
+					if (!folderInfo.id) {
+						console.error('ERROR: Export folder is not found');
+						done();
+						return;
+					}
+
+					if (folderInfo.id === 'self') {
+						// Export repository to user home folder. Export API supports F:USER:<user-Id> format only.
+						folderId = 'F:USER:' + folderInfo.name;
+					} else {
+						folderId = folderInfo.id;
+					}
+
+					exportImportRest.exportRepository({
+						server: server,
+						name: jobName,
+						repositoryName: repositoryName,
+						repositoryId: repoInfo.id,
+						folderId: folderId,
+						includeassets: (includeassets === true) || (includeassets === 'true') || false,
+						query: query,
+						includetaxonomies: (includetaxonomies === true) || (includetaxonomies === 'true') || false,
+						includecollections: (includecollections === true) || (includecollections === 'true') || false,
+						includetypes: (includetypes === true) || (includetypes === 'true') || false,
+						includecustomcomponents: (includecustomcomponents === true) || (includecustomcomponents === 'true') || false,
+						includechannels: (includechannels === true) || (includechannels === 'true') || false,
+						includelocalizationpolicy: (includelocalizationpolicy === true) || (includelocalizationpolicy === 'true') || false,
+						options: options
+					}).then(function (data) {
+						exportserviceUtils.downloadReports({
+							reports: data.reports,
+							type: 'repository',
+							name: repositoryName,
+							server: server,
+							projectDir: projectDir
+						}).then(function () {
+
+							if (data.job && data.job.progress === 'succeeded' && argv.download && data.job.target && data.job.target.docs && data.job.target.docs.result) {
+								var exportFolderName = data.job.target.docs.result.folderName;
+
+								// Download option
+								// If no download path is specified, then save to src/repositoryExport/<repositoryName>
+								// If download path is specified, then save to the specified path.
+
+								// TODO: Use job name temporary. Might need to get the repository name.
+								var targetPath = argv.path ? path.normalize(argv.path) : path.join(projectDir, 'src', 'repositoryExport', data.job.name);
+
+								// Make relative path absolute
+								if (!path.isAbsolute(targetPath)) {
+									targetPath = path.join(projectDir, targetPath);
+								}
+
+								// Remove target path if exists.
+								if (fs.existsSync(targetPath)) {
+									// TODO: Is warning necessary before removing existing folder?
+									fileUtils.remove(targetPath);
+								}
+
+								// Create target path
+								fs.mkdirSync(targetPath, {
+									recursive: true
+								});
+
+								var folderId = data.job.target.docs.folderId;
+								var downloadArgv = {
+									parentId: folderId,
+									path: exportFolderName,
+									folder: targetPath
+								};
+
+								documentUtils.downloadFolder(downloadArgv, server, true, true, [], exportSiteFileGroupSize).then(function () {
+									console.info(' - Downloaded export repository files to ' + targetPath);
+									done(true);
+								});
+							} else if (data.err) {
+								done();
+							} else {
+								done(true);
+							}
+						});
+					});
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					done();
+				})
+		});
+	} catch (e) {
+		console.error(e);
+		done();
+	}
+};
+
+var _isTruthy = function(property) {
+	return property === true || property === 'true';
+}
+
+/**
+ * import repository
+ */
+module.exports.importRepository = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			done();
+			return;
+		}
+
+		var repositoryName = argv.name,
+			inputFolder = argv.folder,
+			uploadPath = argv.path ? path.normalize(argv.path) : path.join(projectDir, 'src', 'repositoryExport', repositoryName),
+			folderName = uploadPath.split(path.sep).pop(),
+			folderPathName = inputFolder || folderName,
+			jobName = argv.jobname || repositoryName,
+			repository = argv.repository,
+			updatepolicy = argv.assetpolicy || "createOrUpdate",
+			slugprefix = argv.slugprefix || '',
+			ignorewarnings = typeof argv.ignorewarnings === 'string' && argv.ignorewarnings.toLowerCase() === 'true',
+			includeassets = true, // argv.includeassets,
+			includetypes = true, // argv.includetypes,
+			includecustomcomponents = argv.includecustomcomponents,
+			includetaxonomies = argv.includetaxonomies,
+			includetaxonomymappings = argv.includetaxonomymappings,
+			includecollections = argv.includecollections,
+			includecollectionmappings = argv.includecollectionmappings,
+			includechannels = argv.includechannels,
+			includechannelmappings = argv.includechannelmappings,
+			options = argv.options,
+			importRepo;
+
+		var deleteExistingFolder = function () {
+			return new Promise(function (resolve, reject) {
+				var deleteArgv = {
+					path: folderName,
+					permanent: 'true'
+				};
+
+				documentUtils.deleteFolder(deleteArgv, server).then(function (result) {
+					console.info(' - importRepository deleteFolder ' + folderName);
+					resolve();
+				}).catch((error) => {
+					resolve();
+				})
+			});
+		}
+
+		var loginPromise = serverUtils.loginToServer(server);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage);
+				done();
+				return;
+			}
+
+			Promise.resolve()
+				.then(function () {
+					var repositoryPromises = [];
+
+					repositoryPromises.push(serverRest.getRepositoryWithName({
+						server: server,
+						name: repository,
+						fields: 'id'
+					}));
+
+					return Promise.all(repositoryPromises);
+				})
+				.then(function (repos) {
+					var repo = repos[0];
+					if (!repo || repo.err) {
+						return Promise.reject('failed to get repository ' + repository);
+					}
+					if (!repo.data || !repo.data.id) {
+						return Promise.reject('repository ' + repository + ' does not exist');
+					} else {
+						importRepo = repo.data;
+
+						var deletePromises = [];
+						if (!inputFolder) {
+							deletePromises.push(deleteExistingFolder());
+						}
+						return Promise.all(deletePromises);
+					}
+				})
+				.then(function () {
+					var uploadPromises = [];
+
+					if (!inputFolder) {
+
+						// Make relative path absolute
+						if (!path.isAbsolute(uploadPath)) {
+							uploadPath = path.join(projectDir, uploadPath);
+						}
+						console.log(' - ImportRepository: Upload site files from ' + uploadPath);
+						var uploadArgv = {
+							path: uploadPath
+						};
+						uploadPromises.push(documentUtils.uploadFolder(uploadArgv, server));
+					}
+
+					return Promise.all(uploadPromises);
+				})
+				.then(function () {
+					var findFolderPromises = [];
+
+					findFolderPromises.push(serverRest.findFolderHierarchy({
+						server: server,
+						parentID: 'self',
+						folderPath: folderPathName
+					}));
+
+					return Promise.all(findFolderPromises);
+				})
+				.then(function (folders) {
+					if (!folders[0] || !folders[0].id) {
+						return Promise.reject('import folder ' + folderPathName + ' not found');
+					} else {
+						var createArchivePromises = [];
+
+						createArchivePromises.push(exportImportRest.createArchive({
+							server: server,
+							folderId: folders[0].id,
+							archiveType: 'repository'
+						}));
+
+						return Promise.all(createArchivePromises);
+					}
+				})
+				.then(function (archives) {
+					var archivedata = archives[0];
+					console.info(' - Import repository archive id ' + archivedata.id);
+
+					var importRepositoryPromises = [];
+
+					if (archivedata.id) {
+						archivedata.entries.items.forEach((entry) => {
+							console.log(' - Import repository archive repository.name ' + entry.repository.name);
+
+							importRepositoryPromises.push(exportImportRest.importRepository({
+								server: server,
+								name: jobName,
+								archiveId: archivedata.id,
+								archiveRepoId: entry.repository.id,
+								repositoryId: importRepo.id,
+								includeassets: _isTruthy(includeassets),
+								includetypes: _isTruthy(includetypes),
+								includecustomcomponents: _isTruthy(includecustomcomponents),
+								includetaxonomies: _isTruthy(includetaxonomies),
+								includetaxonomymappings: _isTruthy(includetaxonomymappings),
+								includecollections: _isTruthy(includecollections),
+								includecollectionmappings: _isTruthy(includecollectionmappings),
+								includechannels: _isTruthy(includechannels),
+								includechannelmappings: _isTruthy(includechannelmappings),
+								options: options,
+								updatepolicy: updatepolicy,
+								slugprefix: slugprefix,
+								ignorewarnings: ignorewarnings
+							}));
+						});
+					}
+
+					return Promise.all(importRepositoryPromises);
+				})
+				.then(function (values) {
+					var data = values[0];
+					if (data) {
+						exportserviceUtils.downloadReports({
+							reports: data.reports,
+							type: 'repository',
+							name: repositoryName,
+							server: server,
+							projectDir: projectDir
+						}).then(function () {
+							if (data.err) {
+								done();
+							} else {
+								done(true);
+							}
+						});
+					} else {
+						done();
+					}
+				})
+				.catch(function (error) {
+					console.error('ImportRepository encountered: ' + error);
+					done();
+				});
+
+		}).catch(function (error) {
+			console.error('ImportRepository encountered: ' + error);
+			done();
+		})
+	} catch (e) {
+		console.error(e);
+		done();
+	}
+};
+
+var duration = function (beginTimeString, endTimeString) {
+	if (!beginTimeString || !endTimeString) {
+		return '';
+	}
+
+	var beginTime = new Date(Date.parse(beginTimeString)),
+		endTime = new Date(Date.parse(endTimeString));
+
+	return ((endTime.getTime() - beginTime.getTime()) / 1000).toFixed(0) + 's';
+}
+
+var _getFolder = function (folderId, server) {
+	return new Promise(function (resolve, reject) {
+		var url = '/documents/api/1.2/folders/' + folderId;
+		serverRest.executeGet({
+			server: server,
+			endpoint: url,
+			noMsg: true
+		}).then(function (body) {
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			resolve(data);
+		}).catch((siteError) => {
+			console.error('Failed to get folder details');
+			resolve();
+		});
+	});
+};
+
+/**
+ * describe export job
+ * Note: Called internally from site.js
+ */
+var _describeRepositoryExportJob = function (server, id, download, data, projectDir, done) {
+	exportImportRest.describeExportJob({
+		server: server,
+		id: id,
+		type: 'repository'
+	}).then(function (data) {
+		if (data.err) {
+			done();
+			return;
+		}
+
+		var jobFormat = '  %-28s  %-s',
+			job = data.job;
+
+		var promises = [];
+
+		if (job.sources.length > 0) {
+			// Support single site for now.
+			var source = job.sources.at(0);
+			var repositoryId = source.select.repository.id;
+
+			promises.push(serverRest.getRepository({
+				server: server,
+				id: repositoryId
+			}));
+		}
+		if (job.target.provider === 'docs') {
+			promises.push(_getFolder(job.target.docs.folderId, server));
+		}
+
+		Promise.all(promises).then(augmentedData => {
+			var repositoryName,
+				folderName;
+
+			if (augmentedData.length > 0) {
+				repositoryName = augmentedData.at(0).name;
+			}
+			if (augmentedData.length > 1) {
+				folderName = augmentedData.at(1).name;
+			}
+
+			console.log('');
+			console.log(sprintf(jobFormat, 'Id', job.id));
+			console.log(sprintf(jobFormat, 'Job Name', job.name));
+			job.sources.forEach((s) => {
+				if (s.select.type === 'repository') {
+					if (repositoryName) {
+						console.log(sprintf(jobFormat, 'Repository Name', repositoryName));
+					} else {
+						console.log(sprintf(jobFormat, 'Repository Id', s.select.site.id));
+					}
+					// TODO: Add assetOptions...
+				}
+			});
+			if (job.target.provider === 'docs') {
+				if (folderName) {
+					console.log(sprintf(jobFormat, 'Parent Folder', folderName));
+				} else {
+					console.log(sprintf(jobFormat, 'Parent Folder Id', job.target.docs.folderId));
+				}
+			}
+			if (job.useDocsCheckInFromOSS) {
+				console.log(sprintf(jobFormat, 'Use Docs Checkin from OSS', job.useDocsCheckInFromOSS));
+			}
+			if (job.progress) {
+				console.log(sprintf(jobFormat, 'Progress', job.progress));
+			}
+			console.log(sprintf(jobFormat, 'Created At', job.createdAt || ''));
+			if (job.completed) {
+				console.log(sprintf(jobFormat, 'Completed At', job.completedAt || ''));
+				console.log(sprintf(jobFormat, 'Duration', duration(job.createdAt, job.completedAt)));
+			}
+
+			if (download) {
+				var reportName = repositoryName || data.job.name;
+				exportserviceUtils.downloadReports({
+					reports: data.reports,
+					type: 'repository',
+					name: reportName,
+					server: server,
+					projectDir: projectDir
+				}).then(function () {
+					if (data.job.progress === 'succeeded' && data.job.target && data.job.target.docs && data.job.target.docs.result) {
+						var exportFolderName = data.job.target.docs.result.folderName;
+
+						// Download option
+						// If no download path is specified, then save to src/siteExport/<siteName>
+						// If download path is specified, then save to the specified path.
+
+						// TODO: Use job name temporary. Might need to get the site name.
+						var targetPath = path.join(projectDir, 'src', 'repositoryExport', data.job.name);
+
+						// Remove target path if exists.
+						if (fs.existsSync(targetPath)) {
+							// TODO: Is warning necessary before removing existing folder?
+							fileUtils.remove(targetPath);
+						}
+
+						// Create target path
+						fs.mkdirSync(targetPath, {
+							recursive: true
+						});
+
+						var folderId = data.job.target.docs.folderId;
+						var downloadArgv = {
+							parentId: folderId,
+							path: exportFolderName,
+							folder: targetPath
+						};
+
+						documentUtils.downloadFolder(downloadArgv, server, true, true, [], exportSiteFileGroupSize).then(function () {
+							console.info('Downloaded export site files to ' + targetPath);
+							done(true);
+						});
+					} else {
+						done(true);
+					}
+				});
+			} else {
+				done(true);
+			}
+		});
+	});
+};
+
+/**
+ * describe import job
+ */
+var _describeRepositoryImportJob = function (server, id, download, data, projectDir, done) {
+
+	exportImportRest.describeImportJob({
+		server: server,
+		id: id,
+		type: 'repository'
+	}).then(function (data) {
+		if (data.err) {
+			done();
+			return;
+		}
+
+		var jobFormat = '  %-28s  %-s',
+			v1Format = '    %-26s  %-s',
+			v2Format = '      %-24s  %-s',
+			v3Format = '        %-22s  %-s',
+			job = data.job;
+
+		var promises = [];
+
+		if (job.targets.length > 0) {
+			// Support single site for now.
+			var target = job.targets.at(0);
+
+			var repositoryId = target.apply[target.apply.policies].repository.id;
+
+			promises.push(serverRest.getRepository({
+				server: server,
+				id: repositoryId
+			}));
+		}
+
+		Promise.all(promises).then(augmentedData => {
+			var repositoryName;
+
+			if (augmentedData.length > 0) {
+				repositoryName = augmentedData.at(0).name;
+			}
+			console.log('');
+			console.log(sprintf(jobFormat, 'Id', job.id));
+			console.log(sprintf(jobFormat, 'Job Name', job.name));
+			if (job.source.archive) {
+				console.log(sprintf(jobFormat, 'Archive Id', job.source.archive.id));
+			}
+			if (repositoryName) {
+				console.log(sprintf(jobFormat, 'Target Asset Repository', repositoryName));
+			} else {
+				console.log(sprintf(jobFormat, 'Target Asset Repository Id', repositoryId));
+			}
+			console.log(sprintf(jobFormat, 'Progress', job.progress));
+			if (job.state) {
+				console.log(sprintf(jobFormat, 'State', job.state));
+			}
+			console.log(sprintf(jobFormat, 'Created At', job.createdAt));
+			if (job.completed) {
+				console.log(sprintf(jobFormat, 'Completed At', job.completedAt));
+				console.log(sprintf(jobFormat, 'Duration', duration(job.createdAt, job.completedAt)));
+			}
+
+			if (job.validationSummary && job.validationSummary.messagesByEntityTypes && job.validationSummary.messagesByEntityTypes.length > 0) {
+				console.log(sprintf(jobFormat, 'Validation', ''));
+
+				job.validationSummary.messagesByEntityTypes.forEach((entity) => {
+					if (entity.countsByLevel.error > 0) {
+						console.log(sprintf(v1Format, entity.entityType + ' error count', entity.countsByLevel.error));
+					}
+					if (entity.countsByLevel.warning > 0) {
+						console.log(sprintf(v1Format, entity.entityType + ' warning count', entity.countsByLevel.warning));
+					}
+					if (entity.countsByLevel.info > 0) {
+						console.log(sprintf(v1Format, entity.entityType + ' info count', entity.countsByLevel.info));
+					}
+				});
+
+				if (job.validationResults) {
+					job.validationResults.items.forEach((item) => {
+						console.log(sprintf(v2Format, item.entityType, item.entityName));
+						item.messages.items.forEach(function (message) {
+							console.log(sprintf(v3Format, message.level, message.text));
+						});
+					});
+				}
+			}
+
+			var checkDownload = function (dataForDownload) {
+				if (download) {
+					exportserviceUtils.downloadReports({
+						reports: dataForDownload.reports,
+						type: 'repository',
+						name: job.name,
+						server: server,
+						projectDir: projectDir
+					}).then(function () {
+						done(true);
+					});
+				} else {
+					done(true);
+				}
+			}
+
+			if (job.progress === 'processing' && !job.completed) {
+				exportImportRest.pollImportJobStatus({
+					server: server,
+					id: id,
+					type: 'repository'
+				}).then(function (polldata) {
+					checkDownload(polldata);
+				});
+			} else {
+				checkDownload(data);
+			}
+		});
+	});
+}
+
 //////////////////////////////////////////////////////////////////////////
 //    MS word support
 //////////////////////////////////////////////////////////////////////////
@@ -9047,5 +9967,7 @@ var _createItemFromWord = function (server, filePath, repository) {
 // export non "command line" utility functions
 module.exports.utils = {
 	getAllTypes: _getAllTypes,
-	renameAssetIds: _renameAssetIds
+	renameAssetIds: _renameAssetIds,
+	describeRepositoryImportJob: _describeRepositoryImportJob,
+	describeRepositoryExportJob: _describeRepositoryExportJob
 };

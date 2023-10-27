@@ -15,6 +15,7 @@ var path = require('path'),
 	childProcess = require('child_process'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip'),
+	contentUtils = require('./content.js').utils,
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	fileUtils = require('../test/server/fileUtils.js'),
@@ -1865,7 +1866,8 @@ module.exports.createTranslationJob = function (argv, done) {
 				if (site) {
 					_createTranslationJob(server, site, name, langs, exportType, connector, done);
 				} else {
-					_createAssetTranslationJob(server, repositoryName, name, langs, connector, argv.collection, argv.query, argv.assets, argv.sourcelanguage)
+					let skipDependencies = typeof argv.skipdependencies === 'string' && argv.skipdependencies.toLowerCase() === 'true';
+					_createAssetTranslationJob(server, repositoryName, name, langs, connector, argv.collection, argv.query, argv.assets, argv.sourcelanguage, skipDependencies, argv.jobsize)
 						.then(function (result) {
 							if (!result || result.err) {
 								done();
@@ -1885,14 +1887,14 @@ module.exports.createTranslationJob = function (argv, done) {
 
 };
 
-var _createAssetTranslationJob = function (server, repositoryName, name, langs, connector, collectionName, query, assetGUIDStr, sourcelanguage) {
+var _createAssetTranslationJob = function (server, repositoryName, name, langs, connector, collectionName, query, assetGUIDStr, sourcelanguage, skipDependencies, jobSize) {
 	return new Promise(function (resolve, reject) {
 		var repository;
 		var collection;
 		var allLangs = [];
 		var targetLanguages = [];
 		var assetGUIDs = assetGUIDStr ? assetGUIDStr.split(',') : [];
-		var validAssetGUIDs = [];
+		var jobs;
 
 		serverRest.getRepositoryWithName({
 			server: server,
@@ -1947,7 +1949,7 @@ var _createAssetTranslationJob = function (server, repositoryName, name, langs, 
 					console.error('ERROR: no target language');
 					return Promise.reject();
 				}
-				console.info(' - source languages: ' + sourcelanguage || repository.defaultLanguage);
+				console.info(' - source languages: ' + (sourcelanguage || repository.defaultLanguage));
 				console.info(' - target languages: ' + targetLanguages);
 
 				var queryCollectionPromises = [];
@@ -1985,90 +1987,71 @@ var _createAssetTranslationJob = function (server, repositoryName, name, langs, 
 				}
 
 				var queryItemPromises = [];
-				var q;
-				if (assetGUIDs && assetGUIDs.length > 0) {
-					q = '';
-					for (let i = 0; i < assetGUIDs.length; i++) {
-						if (q) {
-							q = q + ' or ';
-						}
-						q = q + 'id eq "' + assetGUIDs[i] + '"';
+				if (!collectionName) {
+					var q = q = 'repositoryId eq "' + repository.id + '" AND translatable eq "true"';
+					if (sourcelanguage) {
+						q = q + ' AND language eq "' + sourcelanguage + '"';
+					} else {
+						q = q + ' AND languageIsMaster eq "true"';
 					}
-					queryItemPromises.push(serverRest.queryItems({
-						server: server,
-						q: q
-					}));
-				}
-
-				return Promise.all(queryItemPromises);
-
-			})
-			.then(function (results) {
-				if (assetGUIDs && assetGUIDs.length > 0) {
-					if (!results || !results[0] || results[0].err) {
-						return Promise.reject();
+					if (query) {
+						q = '(' + q + ') AND (' + query + ')';
 					}
-					var items = results[0].data || [];
-					for (var j = 0; j < assetGUIDs.length; j++) {
-						var found = false;
-						for (var i = 0; i < items.length; i++) {
-							if (items[i].id === assetGUIDs[j]) {
-								found = true;
-								validAssetGUIDs.push(assetGUIDs[j]);
-								break;
-							}
-						}
-						if (!found) {
-							console.error('ERROR: item with GUID ' + assetGUIDs[j] + ' not found');
-						}
-					}
-				}
-
-				var queryItemPromises = [];
-				var q;
-				if (query) {
-					q = '(repositoryId eq "' + repository.id + '") AND (' + query + ')';
 					console.info(' - query: ' + q);
 
-					queryItemPromises.push(serverRest.queryItems({
-						server: server,
-						q: q
-					}));
+					if (assetGUIDs.length > 0) {
+						queryItemPromises.push(contentUtils.queryItemsWithIds(server, q, assetGUIDs));
+					} else {
+						queryItemPromises.push(serverRest.queryItems({server: server, q: q}));
+					}
 				}
 
 				return Promise.all(queryItemPromises);
+
 			})
 			.then(function (results) {
 				var guids = [];
-				if (query) {
+				if (!collectionName) {
 					if (!results || !results[0] || results[0].err) {
 						return Promise.reject();
 					}
-					var items = results[0].data || [];
-					console.info(' - total items from query: ' + items.length);
+					var items = assetGUIDs.length > 0 ? (results[0] || []) : (results[0].data || []);
 
-					// the copy items have to be in both query result and specified item list
-					for (var i = 0; i < items.length; i++) {
-						var add = true;
-						if (validAssetGUIDs.length > 0) {
-							add = false;
-							for (var j = 0; j < validAssetGUIDs.length; j++) {
-								if (items[i].id === validAssetGUIDs[j]) {
-									add = true;
+					if (assetGUIDs.length > 0) {
+						for (var j = 0; j < assetGUIDs.length; j++) {
+							var found = false;
+							for (var i = 0; i < items.length; i++) {
+								if (items[i].id === assetGUIDs[j]) {
+									found = true;
 									break;
 								}
 							}
-						}
-
-						if (add) {
-							guids.push(items[i].id);
+							if (!found) {
+								console.error('ERROR: item with GUID ' + assetGUIDs[j] + ' not found or not translatable');
+							}
 						}
 					}
-				} else {
-					guids = validAssetGUIDs;
+
+					console.info(' - total items to translate ' + items.length);
+
+					if (items.length === 0) {
+						console.error('ERROR: no asset to translate');
+						return Promise.reject();
+					}
+
+					items.forEach(function (item) {
+						guids.push(item.id);
+					});
+
 				}
 
-				return serverRest.createAssetTranslation({
+				jobs = 1;
+				if (jobSize) {
+					jobs = Math.ceil(guids.length / jobSize);
+					console.info(' - total jobs: ' + jobs);
+				}
+
+				return jobs === 1 ? serverRest.createAssetTranslation({
 					server: server,
 					name: name,
 					repositoryId: repository.id,
@@ -2076,15 +2059,17 @@ var _createAssetTranslationJob = function (server, repositoryName, name, langs, 
 					contentIds: guids,
 					sourceLanguage: sourcelanguage || repository.defaultLanguage,
 					targetLanguages: targetLanguages,
-					connectorId: connector ? connector.connectorId : ''
-				});
+					connectorId: connector ? connector.connectorId : '',
+					skipDependencies: skipDependencies
+				}) : _createAssetJobs(server, name, repository.id, guids, sourcelanguage || repository.defaultLanguage, targetLanguages, connector ? connector.connectorId : '', skipDependencies, jobSize)
 			})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
 				}
-
-				console.log(' - translation job ' + name + ' created');
+				if (jobs === 1) {
+					console.log(' - translation job ' + name + ' created');
+				}
 				return resolve({});
 			})
 			.catch((error) => {
@@ -2095,6 +2080,76 @@ var _createAssetTranslationJob = function (server, repositoryName, name, langs, 
 					err: 'err'
 				});
 			});
+	});
+};
+
+var _createAssetJobs = function (server, name, repositoryId, contentIds, sourceLanguage, targetLanguages, connectorId, skipDependencies, jobSize) {
+	return new Promise(function (resolve, reject) {
+		var total = contentIds.length;
+		var groups = [];
+		var limit = jobSize;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+
+		var idx = 1;
+		var err;
+		var doCreateJobs = groups.reduce(function (jobPromise, param) {
+			return jobPromise.then(function (result) {
+				var guids = [];
+				for (var i = param.start; i <= param.end; i++) {
+					guids.push(contentIds[i]);
+				}
+
+				let jobName = name + '_' + serverUtils.lpad((idx).toString(), '0', 2);
+				return serverRest.createAssetTranslation({
+					server: server,
+					name: jobName,
+					repositoryId: repositoryId,
+					contentIds: guids,
+					sourceLanguage: sourceLanguage,
+					targetLanguages: targetLanguages,
+					connectorId: connectorId,
+					skipDependencies: skipDependencies
+				}).then(function (result) {
+					if (!result || result.err) {
+						err = 'err';
+					} else {
+						console.log(' - translation job ' + jobName + ' created');
+					}
+					// next job
+					idx += 1;
+				});
+			});
+		},
+		// Start with a previousPromise value that is a resolved promise
+		Promise.resolve({}));
+
+		doCreateJobs.then(function (result) {
+			if (err) {
+				return resolve({
+					err: 'err'
+				});
+			} else {
+				return resolve({});
+			}
+		});
+
 	});
 };
 

@@ -983,8 +983,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					console.log('Repositories:');
 					var repoFormat = '  %-4s  %-36s  %-16s  %-42s  %-s';
 					if (process.shim) {
-						repoFormat = '  %-4s  %-59s  %-16s  %-200s  ';
-						console.log(sprintf('  %-4s  %-33s  %-21s  %-200s  %-s', 'Type', 'Name', 'Default Language', 'Channels'));
+						repoFormat = '  %-4s  %-54s  %-21s  %-88s  %-s';
+						console.log(sprintf('  %-4s  %-33s  %-21s  %-42s  %-s', 'Type', 'Name', 'Default Language', 'Channels', 'Content Types'));
 					} else {
 						console.log(sprintf(repoFormat, 'Type', 'Name', 'Default Language', 'Channels', 'Content Types'));
 					}
@@ -1230,8 +1230,10 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					var taxonomies = results && results.length > 0 && results[0] && results[0].length > 0 ? results[0] : [];
 					console.log('Taxonomies:');
 					var taxFormat = '  %-45s  %-32s  %-12s  %-14s  %-10s  %-8s  %-10s  %-s';
+					var secondRowTaxFormat = taxFormat;
 					if (process.shim) {
 						taxFormat = '  %-59s  %-32s  %-12s  %-14s  %-10s  %-8s  %-10s  %-s';
+						secondRowTaxFormat = '  %-36s  %-32s  %-12s  %-14s  %-10s  %-8s  %-10s  %-s';
 						let fmt = '  %-36s  %-32s  %-12s  %-14s  %-10s  %-8s  %-10s  %-s';
 						console.log(sprintf(fmt, 'Name', 'Id', 'Abbreviation', 'isPublishable', 'Status', 'Version', 'Published', 'Published Channels'));
 					} else {
@@ -1252,10 +1254,12 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 							var version = states[i].version ? '   ' + states[i].version : '';
 							var published = states[i].published ? '    √' : '';
 							var channelLabel = states[i].published ? channels.join(', ') : '';
+
 							if (name) {
-								name = formatter.taxonomyFormat(name);
+								console.log(sprintf(taxFormat, formatter.taxonomyFormat(name), id, abbr, publishable, states[i].status, version, published, channelLabel));
+							} else {
+								console.log(sprintf(secondRowTaxFormat, name, id, abbr, publishable, states[i].status, version, published, channelLabel));
 							}
-							console.log(sprintf(taxFormat, name, id, abbr, publishable, states[i].status, version, published, channelLabel));
 						}
 					});
 					if (taxonomies.length > 0) {
@@ -1385,7 +1389,7 @@ module.exports.listActivities = function (argv, done) {
 	}
 
 	var type = argv.type;
-	var objectType = type === 'site' ? 'Site' : (type === 'repository' ? 'Repository' : (type === 'channel' ? 'Channel' : type));
+	var objectType = type[0].toUpperCase() + type.slice(1).toLowerCase();
 	var category = argv.category;
 	var eventCategory;
 	if (category) {
@@ -1433,6 +1437,8 @@ module.exports.listActivities = function (argv, done) {
 				resourcePromises.push(serverRest.getRepositoryWithName({ server: server, name: name }));
 			} else if (type === 'channel') {
 				resourcePromises.push(serverRest.getChannelWithName({ server: server, name: name }));
+			} else if (type === 'taxonomy') {
+				resourcePromises.push(serverRest.getTaxonomyWithName({server: server, name: name}));
 			}
 		}
 		Promise.all(resourcePromises)
@@ -1463,7 +1469,7 @@ module.exports.listActivities = function (argv, done) {
 			})
 			.then(function (result) {
 				var acts = result || [];
-				// console.log(acts);
+				// console.log(JSON.stringify(acts, null, 4));
 
 				if (!name) {
 					// sort by name
@@ -1489,10 +1495,11 @@ module.exports.listActivities = function (argv, done) {
 								cats.push(event.event.categories[0].name);
 							}
 						}
+						var initiatedBy = event.initiatedBy;
 						var detail = event.activityDetails;
 						var msg = event.message && event.message.text || '';
 						var action = detail.action || detail.source || '';
-						var updatedBy = detail.updatedBy || '';
+						var updatedBy = detail.updatedBy || (initiatedBy && (initiatedBy.displayName || initiatedBy.name)) || '';
 						console.log(sprintf(format, detail.name, action.toLowerCase(), event.registeredAt, updatedBy, msg));
 					});
 					console.log('');
@@ -2493,34 +2500,45 @@ module.exports.executePost = function (argv, done) {
 		return;
 	}
 
-	var bodyPath = argv.body;
+	var bodyPath = argv.body ? argv.body.trim() : '';
 	var body;
 	if (bodyPath) {
+		if (bodyPath.indexOf('{') >= 0 || bodyPath.indexOf('[') >= 0) {
+			try {
+				body = JSON.parse(bodyPath)
+			} catch (e) {
+				console.error('ERROR: ' + bodyPath + ' is not valid JSON');
+				done();
+				return;
+			}
 
-		if (!path.isAbsolute(bodyPath)) {
-			bodyPath = path.join(projectDir, bodyPath);
-		}
-		bodyPath = path.resolve(bodyPath);
+		} else {
 
-		if (!fs.existsSync(bodyPath)) {
-			console.error('ERROR: file ' + bodyPath + ' does not exist');
-			done();
-			return;
-		}
+			if (!path.isAbsolute(bodyPath)) {
+				bodyPath = path.join(projectDir, bodyPath);
+			}
+			bodyPath = path.resolve(bodyPath);
 
-		if (!fs.statSync(bodyPath).isFile()) {
-			console.error('ERROR: ' + bodyPath + ' is not a file');
-			done();
-			return;
-		}
+			if (!fs.existsSync(bodyPath)) {
+				console.error('ERROR: file ' + bodyPath + ' does not exist');
+				done();
+				return;
+			}
+
+			if (!fs.statSync(bodyPath).isFile()) {
+				console.error('ERROR: ' + bodyPath + ' is not a file');
+				done();
+				return;
+			}
 
 
-		try {
-			body = JSON.parse(fs.readFileSync(bodyPath));
-		} catch (e) {
-			console.error('ERROR: file ' + bodyPath + ' is not a valid JSON file');
-			done();
-			return;
+			try {
+				body = JSON.parse(fs.readFileSync(bodyPath));
+			} catch (e) {
+				console.error('ERROR: file ' + bodyPath + ' is not a valid JSON file');
+				done();
+				return;
+			}
 		}
 	}
 
@@ -2603,34 +2621,45 @@ module.exports.executePut = function (argv, done) {
 		return;
 	}
 
-	var bodyPath = argv.body;
+	var bodyPath = argv.body ? argv.body.trim() : '';
 	var body;
 	if (bodyPath) {
+		if (bodyPath.indexOf('{') >= 0 || bodyPath.indexOf('[') >= 0) {
+			try {
+				body = JSON.parse(bodyPath)
+			} catch (e) {
+				console.error('ERROR: ' + bodyPath + ' is not valid JSON');
+				done();
+				return;
+			}
 
-		if (!path.isAbsolute(bodyPath)) {
-			bodyPath = path.join(projectDir, bodyPath);
-		}
-		bodyPath = path.resolve(bodyPath);
+		} else {
 
-		if (!fs.existsSync(bodyPath)) {
-			console.error('ERROR: file ' + bodyPath + ' does not exist');
-			done();
-			return;
-		}
+			if (!path.isAbsolute(bodyPath)) {
+				bodyPath = path.join(projectDir, bodyPath);
+			}
+			bodyPath = path.resolve(bodyPath);
 
-		if (!fs.statSync(bodyPath).isFile()) {
-			console.error('ERROR: ' + bodyPath + ' is not a file');
-			done();
-			return;
-		}
+			if (!fs.existsSync(bodyPath)) {
+				console.error('ERROR: file ' + bodyPath + ' does not exist');
+				done();
+				return;
+			}
+
+			if (!fs.statSync(bodyPath).isFile()) {
+				console.error('ERROR: ' + bodyPath + ' is not a file');
+				done();
+				return;
+			}
 
 
-		try {
-			body = JSON.parse(fs.readFileSync(bodyPath));
-		} catch (e) {
-			console.error('ERROR: file ' + bodyPath + ' is not a valid JSON file');
-			done();
-			return;
+			try {
+				body = JSON.parse(fs.readFileSync(bodyPath));
+			} catch (e) {
+				console.error('ERROR: file ' + bodyPath + ' is not a valid JSON file');
+				done();
+				return;
+			}
 		}
 	}
 
@@ -2702,34 +2731,45 @@ module.exports.executePatch = function (argv, done) {
 		return;
 	}
 
-	var bodyPath = argv.body;
+	var bodyPath = argv.body ? argv.body.trim() : '';
 	var body;
 	if (bodyPath) {
+		if (bodyPath.indexOf('{') >= 0 || bodyPath.indexOf('[') >= 0) {
+			try {
+				body = JSON.parse(bodyPath)
+			} catch (e) {
+				console.error('ERROR: ' + bodyPath + ' is not valid JSON');
+				done();
+				return;
+			}
 
-		if (!path.isAbsolute(bodyPath)) {
-			bodyPath = path.join(projectDir, bodyPath);
-		}
-		bodyPath = path.resolve(bodyPath);
+		} else {
 
-		if (!fs.existsSync(bodyPath)) {
-			console.error('ERROR: file ' + bodyPath + ' does not exist');
-			done();
-			return;
-		}
+			if (!path.isAbsolute(bodyPath)) {
+				bodyPath = path.join(projectDir, bodyPath);
+			}
+			bodyPath = path.resolve(bodyPath);
 
-		if (!fs.statSync(bodyPath).isFile()) {
-			console.error('ERROR: ' + bodyPath + ' is not a file');
-			done();
-			return;
-		}
+			if (!fs.existsSync(bodyPath)) {
+				console.error('ERROR: file ' + bodyPath + ' does not exist');
+				done();
+				return;
+			}
+
+			if (!fs.statSync(bodyPath).isFile()) {
+				console.error('ERROR: ' + bodyPath + ' is not a file');
+				done();
+				return;
+			}
 
 
-		try {
-			body = JSON.parse(fs.readFileSync(bodyPath));
-		} catch (e) {
-			console.error('ERROR: file ' + bodyPath + ' is not a valid JSON file');
-			done();
-			return;
+			try {
+				body = JSON.parse(fs.readFileSync(bodyPath));
+			} catch (e) {
+				console.error('ERROR: file ' + bodyPath + ' is not a valid JSON file');
+				done();
+				return;
+			}
 		}
 	}
 

@@ -26,6 +26,7 @@ var gulp = require('gulp'),
 	themelib = require('./theme.js'),
 	translationlib = require('./translation.js'),
 	recommendationlib = require('./recommendation.js'),
+	exportimportlib = require('./exportImport.js'),
 	fs = require('fs'),
 	path = require('path'),
 	childProcess = require('child_process'),
@@ -1880,6 +1881,30 @@ gulp.task('update-site', function (done) {
 });
 
 /**
+ * export repository
+ */
+gulp.task('export-repository', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.exportRepository(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * import repository
+ */
+gulp.task('import-repository', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.importRepository(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * export site
  */
 gulp.task('export-site', function (done) {
@@ -1909,7 +1934,7 @@ gulp.task('import-site', function (done) {
 gulp.task('unblock-import-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
-	sitelib.unblockImportJob(argv, function (success) {
+	exportimportlib.unblockImportJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1921,7 +1946,7 @@ gulp.task('unblock-import-job', function (done) {
 gulp.task('retry-import-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
-	sitelib.retryImportJob(argv, function (success) {
+	exportimportlib.retryImportJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1933,7 +1958,7 @@ gulp.task('retry-import-job', function (done) {
 gulp.task('cancel-export-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
-	sitelib.cancelExportJob(argv, function (success) {
+	exportimportlib.cancelExportJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1945,7 +1970,7 @@ gulp.task('cancel-export-job', function (done) {
 gulp.task('cancel-import-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
-	sitelib.cancelImportJob(argv, function (success) {
+	exportimportlib.cancelImportJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1957,7 +1982,7 @@ gulp.task('cancel-import-job', function (done) {
 gulp.task('delete-export-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
-	sitelib.deleteExportJob(argv, function (success) {
+	exportimportlib.deleteExportJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1969,7 +1994,7 @@ gulp.task('delete-export-job', function (done) {
 gulp.task('delete-import-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
-	sitelib.deleteImportJob(argv, function (success) {
+	exportimportlib.deleteImportJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1981,7 +2006,7 @@ gulp.task('delete-import-job', function (done) {
 gulp.task('list-export-jobs', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
-	sitelib.listExportJobs(argv, function (success) {
+	exportimportlib.listExportJobs(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1993,7 +2018,7 @@ gulp.task('list-export-jobs', function (done) {
 gulp.task('describe-export-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
-	sitelib.describeExportJob(argv, function (success) {
+	exportimportlib.describeExportJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -2005,7 +2030,7 @@ gulp.task('describe-export-job', function (done) {
 gulp.task('list-import-jobs', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
-	sitelib.listImportJobs(argv, function (success) {
+	exportimportlib.listImportJobs(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -2017,7 +2042,7 @@ gulp.task('list-import-jobs', function (done) {
 gulp.task('describe-import-job', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
-	sitelib.describeImportJob(argv, function (success) {
+	exportimportlib.describeImportJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -2830,6 +2855,30 @@ gulp.task('remove-member-from-group', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	grouplib.removeMemberFromGroup(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * List groups
+ */
+gulp.task('list-groups', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	grouplib.listGroups(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * List users
+ */
+gulp.task('list-users', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	grouplib.listUsers(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
