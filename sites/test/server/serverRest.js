@@ -10,6 +10,10 @@ var os = require('os'),
 
 var console = require('./logger.js').console;
 
+if (process.shim) {
+	process.stdout.write = console.log;
+}
+
 ///////////////////////////////////////////////////////////
 //                 Documents Management APIs
 ///////////////////////////////////////////////////////////
@@ -1105,6 +1109,21 @@ module.exports.getUser = function (args) {
 	return _getUser(args.server, args.name);
 };
 
+/**
+ * Get user info on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of user.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getAllUsers = function (args) {
+	var url = args.group ? '/osn/social/api/v1/groups/' + args.group + '/memberships' : '/osn/social/api/v1/people';
+	var fields, q, orderBy;
+	var showProgress = true;
+	var limit = 400;
+	return _getAllResources(args.server, url, 'users', fields, q, orderBy, limit, showProgress);
+};
+
 var _getFolderUsers = function (server, folderId) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/documents/api/1.2/shares/' + folderId + '/items';
@@ -1712,7 +1731,7 @@ var _scrollItems = function (server, url) {
 	});
 };
 var _scrollAllItems = function (useDelivery, server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, defaultQuery, defaultOperator, rankBy) {
-	var SCROLL_SIZE = 4000;
+	var SCROLL_SIZE = 1000;
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items';
 		if (useDelivery) {
@@ -1807,7 +1826,7 @@ module.exports.queryItems = function (args) {
 	var showTotal = args.showTotal === undefined ? true : args.showTotal;
 	return new Promise(function (resolve, reject) {
 		// orderBy is required to make pagination / scroll work
-		var orderBy = args.orderBy || 'id';
+		var orderBy = args.orderBy ? args.orderBy : (args.rankBy ? '' : 'id');
 		// find out the total first
 		_queryAllItems(args.useDelivery, args.server, args.q, args.fields, orderBy, 1, 0, args.channelToken,
 			args.includeAdditionalData, args.aggregationResults, args.defaultQuery, args.defaultOperator, args.rankBy)
@@ -1818,6 +1837,15 @@ module.exports.queryItems = function (args) {
 				}
 
 				var totalCount = result.limit;
+				if (process.shim) {
+					// place a limit when running in the browser - add localStorage override in case of feedback
+					var userQueryLimit = window.localStorage && window.localStorage.getItem('powershellQueryLimit');
+					var queryLimit = (userQueryLimit && !isNaN(userQueryLimit)) ? userQueryLimit : 10000;
+					if (totalCount > queryLimit) {
+						console.info(' - total items: ' + totalCount);
+						return reject("[-] Query results limited to " + queryLimit + " items in the powershell, please further restrict your query.");
+					}
+				}
 				if (showTotal) {
 					console.info(' - total items: ' + totalCount);
 				}
@@ -3147,23 +3175,23 @@ module.exports.getAllActivities = function (args) {
 	}
 
 	console.info(' - activity query: ' + q);
-	endpoint = endpoint + '?q=' + q + '&expand=activityDetails';
+	endpoint = endpoint + '?q=' + q + '&expand=activityDetails,initiatedBy';
 	return _getAllResources(args.server, endpoint, 'activities');
 };
 
 // CAAS query maximum limit for resources other than assets
 const MAX_LIMIT = 200;
 
-var _getResources = function (server, endpoint, type, fields, offset, q, orderBy) {
+var _getResources = function (server, endpoint, type, fields, offset, q, orderBy, limit) {
 	return new Promise(function (resolve, reject) {
 		var request = require('./requestUtils.js').request;
 
 		var url = server.url + endpoint;
 
 		if (url.indexOf('?') > 0) {
-			url = url + '&links=none&limit=' + MAX_LIMIT;
+			url = url + '&links=none&limit=' + limit;
 		} else {
-			url = url + '?links=none&limit=' + MAX_LIMIT;
+			url = url + '?links=none&limit=' + limit;
 		}
 
 		if (offset) {
@@ -3194,7 +3222,7 @@ var _getResources = function (server, endpoint, type, fields, offset, q, orderBy
 			var result = {};
 
 			if (error) {
-				console.error('ERROR: failed to get ' + type + ':');
+				console.error('ERROR: failed to get ' + type + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: error
@@ -3211,7 +3239,7 @@ var _getResources = function (server, endpoint, type, fields, offset, q, orderBy
 				resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.error('ERROR: failed to get ' + type + '  : ' + msg);
+				console.error('ERROR: failed to get ' + type + '  : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -3223,31 +3251,43 @@ var _getResources = function (server, endpoint, type, fields, offset, q, orderBy
 
 
 // get all resources with pagination
-var _getAllResources = function (server, endpoint, type, fields, q, orderBy) {
+var _getAllResources = function (server, endpoint, type, fields, q, orderBy, limit, showProgress) {
 	return new Promise(function (resolve, reject) {
+		let limitToUse = limit ? limit : MAX_LIMIT;
 		var groups = [];
-		// 1000 * 500 = 500,000 should be enough
+		// 1000 * 100 = 100,000 should be enough
 		for (var i = 1; i < 1000; i++) {
-			groups.push(MAX_LIMIT * i);
+			groups.push(limitToUse * i);
 		}
 
 		var resources = [];
 
+		var startTime = new Date();
+		var needNewLine = false;
 		var doGetResources = groups.reduce(function (resPromise, offset) {
 			return resPromise.then(function (result) {
 				if (result && result.items && result.items.length > 0) {
 					resources = resources.concat(result.items);
+					if (console.showInfo && showProgress) {
+						process.stdout.write(' - querying ' + type +  ' ' + resources.length +
+							' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						readline.cursorTo(process.stdout, 0);
+						needNewLine = true;
+					}
 				}
 				if (result && result.hasMore) {
-					return _getResources(server, endpoint, type, fields, offset, q, orderBy);
+					return _getResources(server, endpoint, type, fields, offset, q, orderBy, limitToUse);
 				}
 			});
 		},
 		// Start with a previousPromise value that is a resolved promise
-		_getResources(server, endpoint, type, fields, 0, q, orderBy));
+		_getResources(server, endpoint, type, fields, 0, q, orderBy, limitToUse));
 
 		doGetResources.then(function (result) {
 			// console.log(resources.length);
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
 			resolve(resources);
 		});
 	});
@@ -7921,201 +7961,43 @@ var _getGroups = function (server, count, offset) {
  */
 module.exports.getGroups = function (args) {
 	return new Promise(function (resolve, reject) {
-		var count = 1000;
-		var offset = 0;
+
 		var items = [];
-		//
-		// Currently support up to 12000 groups
-		//
-		console.info(' - querying groups ...');
-		_getGroups(args.server, count, offset)
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
+		var groups = [];
+		var limit = 1000;
+		// 1000 * 100 should be enough
+		for (var i = 1; i < 100; i++) {
+			groups.push(limit * i);
+		}
+
+		var startTime = new Date();
+		var needNewLine = false;
+		var doGetGroups = groups.reduce(function (groupPromise, offset) {
+			return groupPromise.then(function (result) {
+				if (result && result.items && result.items.length > 0) {
 					items = items.concat(result.items);
 				}
-				if (!result.hasMore) {
-					return resolve(items);
+				if (items.length > 0 && console.showInfo) {
+					process.stdout.write(' - querying groups ' + items.length +
+							' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+					readline.cursorTo(process.stdout, 0);
+					needNewLine = true;
 				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
+				if (result && result.hasMore) {
+					return _getGroups(args.server, limit, offset);
 				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items)
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.info(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (result && result.items) {
-					items = items.concat(result.items);
-				}
-				// console.log(' - total groups: ' + items.length);
-				return resolve(items);
 			});
+		},
+		// Start with a previousPromise value that is a resolved promise
+		_getGroups(args.server, limit, 0));
+
+		doGetGroups.then(function (result) {
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
+			resolve(items);
+		});
+
 	});
 };
 
@@ -9369,7 +9251,7 @@ module.exports.getTranslationJobs = function (args) {
 	});
 };
 
-var _createAssetTranslation = function (server, name, repositoryId, collectionId, contentIds, sourceLanguage, targetLanguages, connectorId) {
+var _createAssetTranslation = function (server, name, repositoryId, collectionId, contentIds, sourceLanguage, targetLanguages, connectorId, skipDependencies) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -9386,7 +9268,8 @@ var _createAssetTranslation = function (server, name, repositoryId, collectionId
 						contentIds: contentIds,
 						sourceLanguage: sourceLanguage,
 						targetLanguages: targetLanguages,
-						connectorId: connectorId
+						connectorId: connectorId,
+						skipDependencies: skipDependencies
 					}
 				};
 				if (collectionId) {
@@ -9428,7 +9311,7 @@ var _createAssetTranslation = function (server, name, repositoryId, collectionId
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						var statusUrl = response.location;
 						if (statusUrl) {
-							console.log(' - create translation job submitted, status: ' + serverUtils.replaceAll(statusUrl, server.url, ''));
+							console.log(' - create translation job submitted, name: ' + name + ' status: ' + serverUtils.replaceAll(statusUrl, server.url, ''));
 							var needNewLine = false;
 							var startTime = new Date();
 							var inter = setInterval(function () {
@@ -9488,7 +9371,7 @@ var _createAssetTranslation = function (server, name, repositoryId, collectionId
  */
 module.exports.createAssetTranslation = function (args) {
 	return _createAssetTranslation(args.server, args.name, args.repositoryId, args.collectionId, args.contentIds,
-		args.sourceLanguage, args.targetLanguages, args.connectorId);
+		args.sourceLanguage, args.targetLanguages, args.connectorId, args.skipDependencies);
 };
 /**
  * Publish items in a channel on server at a later date
