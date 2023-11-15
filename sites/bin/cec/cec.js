@@ -356,7 +356,7 @@ var getImportSitePolicies = function () {
 };
 
 var getImportSiteAssetPolicies = function () {
-	const policies = ['createOrUpdate', 'createOrUpdateIfOutdated', 'duplicate'];
+	const policies = ['createOrUpdate', 'createOrUpdateIfOutdated', 'duplicate', 'override'];
 	return policies;
 };
 
@@ -371,13 +371,13 @@ var getListAssetProperties = function () {
 	return properties;
 };
 
-var getListAssetExpand = function () {
-	const expandValues = ['relationships'];
-	return expandValues;
+var getAssetValidateNames = function () {
+	const validateNames = ['nativefile', 'reference', 'textlength'];
+	return validateNames;
 };
 
 var getActivityObjectTypes = function () {
-	const types = ['site', 'channel', 'repository'];
+	const types = ['site', 'channel', 'repository', 'taxonomy'];
 	return types;
 };
 
@@ -558,7 +558,7 @@ const controlComponent = {
 	usage: {
 		'short': 'Performs action <action> on components on OCM server.',
 		'long': (function () {
-			let desc = 'Perform <action> on components on OCM server. Specify the components with -c <components>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on components on OCM server. Specify the components with -c <components>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are:\n\n';
 			return getComponentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -974,7 +974,7 @@ const shareTemplate = {
 		'short': 'Shares template with users and groups on OCM server.',
 		'long': (function () {
 			let desc = 'Shares template with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'The valid roles are\n\n';
+				'The valid roles are:\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1012,7 +1012,7 @@ const updateTemplate = {
 		'long': (function () {
 			let desc = 'Performs action <action> on a local or server template. ';
 			desc += '<rename-asset-id> action is for local template only. '
-			desc = desc + 'Optionally specify -c for other local content.  The valid actions are\n\n';
+			desc = desc + 'Optionally specify -c for other local content.  The valid actions are:\n\n';
 			return updateTemplateActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1186,7 +1186,7 @@ const controlContent = {
 	usage: {
 		'short': 'Performs action <action> on channel items on OCM server.',
 		'long': (function () {
-			let desc = 'Performs action <action> on channel items on OCM server. Specify the channel with -c <channel>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Performs action <action> on channel items on OCM server. Specify the channel with -c <channel>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are:\n\n';
 			desc = getContentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			desc += os.EOL + 'To publish large number of assets, specify <batchsize> to generate script to publish the assets in batches. By default the script will not be executed by this command, specify <execute> to execute the script after it is generated.';
 			return desc;
@@ -1357,7 +1357,7 @@ const downloadTaxonomy = {
 		'short': 'Downloads a taxonomy from OCM server.',
 		'long': (function () {
 			let desc = 'Downloads a taxonomy from OCM server. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'Specify the status of the taxonomy with -t and the valid values are\n\n';
+				'Specify the status of the taxonomy with -t and the valid values are:\n\n';
 			return getTaxonomyStatus().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1396,7 +1396,7 @@ const transferCategoryProperty = {
 		'short': 'Transfers category properties from one OCM server to another.',
 		'long': (function () {
 			let desc = 'Transfers category properties of a taxonomy from one OCM server to another. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. ';
-			desc += os.EOL + 'The taxonomy on the two servers should be in sync before use this command. And only the following properties will be updated on the destination server' + os.EOL + os.EOL;
+			desc += os.EOL + 'The taxonomy on the two servers should be in sync before use this command. And only the following properties will be updated on the destination server:' + os.EOL + os.EOL;
 			desc = getCategoryPropertyNames().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 		})()
@@ -1433,7 +1433,7 @@ const controlTaxonomy = {
 	usage: {
 		'short': 'Performs action on taxonomy on OCM server.',
 		'long': (function () {
-			let desc = 'Perform <action> on taxonomy on OCM server. Specify the taxonomy with -n <name> or -i <id>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on taxonomy on OCM server. Specify the taxonomy with -n <name> or -i <id>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are:\n\n';
 			return getTaxonomyActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1489,7 +1489,7 @@ const shareTaxonomy = {
 	usage: {
 		'short': 'Shares taxonomy with users and groups on OCM server.',
 		'long': (function () {
-			let desc = 'Shares taxonomy with users and groups on OCM server and assign a role. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are' + os.EOL + os.EOL;
+			let desc = 'Shares taxonomy with users and groups on OCM server and assign a role. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are:' + os.EOL + os.EOL;
 			return getTaxonomyRoles().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
 		})()
 	},
@@ -1575,7 +1575,7 @@ const controlTheme = {
 	usage: {
 		'short': 'Performs action <action> on theme on OCM server.',
 		'long': (function () {
-			let desc = 'Perform <action> on theme on OCM server. Specify the theme with -t <theme>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on theme on OCM server. Specify the theme with -t <theme>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are:\n\n';
 			return getThemeActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1646,7 +1646,7 @@ const listResources = {
 	usage: {
 		'short': 'Lists local or server resources.',
 		'long': (function () {
-			let desc = 'Lists local or server resources such components and templates. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -t <types> to list specific types of resources on the OCM server. ' +
+			let desc = 'Lists local or server resources such as components and templates. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -t <types> to list specific types of resources on the OCM server. ' +
 				os.EOL + os.EOL + 'Valid values for <types> on the server are: ' + os.EOL + os.EOL;
 			return getResourceTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1686,6 +1686,7 @@ const listActivities = {
 		['cec list-activities -t site -n BlogSite -c publishing', 'List the publishing activities for site BlgoSite'],
 		['cec list-activities -t site -a 2023-01-01', 'List all site activities created in 2023'],
 		['cec list-activities -t site -a 2022-01-01 -b 2022-12-31', 'List all site activities created in 2022'],
+		['cec list-activities -t taxonomy -n Taxonomy1', 'List all activities for taxonomy Taxonomy1'],
 	]
 };
 
@@ -1773,9 +1774,9 @@ const controlSite = {
 	usage: {
 		'short': 'Performs action <action> on site on OCM server.',
 		'long': (function () {
-			let desc = 'Perform <action> on site on OCM server. Specify the site with -s <site>. Specify the server with -r <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on site on OCM server. Specify the site with -s <site>. Specify the server with -r <server> or use the one specified in cec.properties file. The valid actions are:\n\n';
 			desc = getSiteActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + 'Optionally to publish only the specified site settings files, the valid site settings files are' + os.EOL + os.EOL;
+			desc = desc + os.EOL + 'Optionally specify <settingsfiles> to publish only the specified site settings files, the valid site settings files are:' + os.EOL + os.EOL;
 			desc = getSiteSettingsFiles().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
 			return desc;
 		})()
@@ -1881,7 +1882,7 @@ const shareSite = {
 		'short': 'Shares site with users and groups on OCM server.',
 		'long': (function () {
 			let desc = 'Shares site with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'The valid roles are\n\n';
+				'The valid roles are:\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1991,7 +1992,7 @@ const setSiteSecurity = {
 			let desc = 'Makes the site publicly available to anyone, restrict the site to registered users, or restrict the site to specific users.  ' +
 				'Specify the server with -r <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -a <access> to set who can access the site. ' +
-				'The valid group names are\n\n';
+				'The valid group names are:\n\n';
 			return getSiteAccessNames().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -2043,14 +2044,77 @@ const updateSite = {
 	]
 };
 
+const exportRepository = {
+	command: 'export-repository <name>',
+	alias: 'er',
+	name: 'export-repository',
+	usage: {
+		'short': 'Exports the repository <name>.',
+		'long': (function () {
+			let desc = 'Exports the repository on OCM server to a folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			desc = desc + 'Specify the folder with -f <folder> and specify the job name with -j <job-name>. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec export-repository Repo1',
+			'Export Repo1 including assets and types to home folder on the OCM server'],
+		['cec export-repository Repo1 -v -c -l -x',
+			'Export Repo1 including assets, types, custom components, channels, collections and taxonomies to home folder on the OCM server'],
+		['cec export-repository Repo1 -q \'channels co "RCHANNEL23B5221484BB46FAB4"\'',
+			'Export Repo1 including assets returned by the query specified to home folder on the OCM server'],
+		['cec export-repository Repo1 -o \'{"includeAssets":true,"assetOptions":...\'',
+			'Export Repo1 using the options specified to home folder on the OCM server'],
+		['cec export-repository Repo1 -f Export -j Repo1ExportJob -a -t',
+			'Export Repo1 and include assets as Repo1ExportJob to Export folder on the OCM server'],
+		['cec export-repository Repo1 -d',
+			'Export Repo1 to home folder on the OCM server and download the export folder to src/repositoryExport/Repo1'],
+		['cec export-repository Repo1 -d -p /dev/folder',
+			'Export Repo1 to home folder on the OCM server and download the export folder to /dev/folder']
+	]
+};
+
+const importRepository = {
+	command: 'import-repository <name>',
+	alias: 'ir',
+	name: 'import-repository',
+	usage: {
+		'short': 'Imports the repository <name>.',
+		'long': (function () {
+			let desc = 'Import repository to OCM server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			desc = desc + os.EOL + 'The valid policies for <assetpolicy> are:' + os.EOL + os.EOL;
+			desc = getImportSiteAssetPolicies().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+		})()
+	},
+	example: [
+		['cec import-repository Repo1 -r Repo1',
+			'Import Repo1 including assets and types in src/repositoryExport/Repo1 to Repo1 on the OCM server'],
+		['cec import-repository Repo1 -r Repo1 -v -c -b -l -m -x -y',
+			'Import Repo1 including assets, types, custom components, channels, channel mappings, collections, collection mappings, taxonomies and taxonomy mappings to Repo1 on the OCM server'],
+		['cec import-repository Repo1 -r Repo2 -v -e duplicate -u u2',
+			'Import Repo1 including assets, types and custom components using duplicate asset policy and slug prefix u2 to Repo2 on the OCM server'],
+		['cec import-repository Repo1 -r Repo1 -p /dev/folder',
+			'Import Repo1 in /dev/folder to Repo1 on the OCM server'],
+		['cec import-repository Repo1 -r Repo1 -o \'{"assetOptions":{"updatePolicy"...\'',
+			'Import Repo1 to Repo1 on the OCM server using the specified options'],
+		['cec import-repository Repo1 -j Repo1ImportJob -r Repo1',
+			'Import Repo1 to the OCM server with Repo1ImportJob as job name'],
+		['cec import-repository Repo1 -f Repo1_72D365DB55C94BF1BB023299B4AB64 -r Repo1',
+			'Import from the given folder on the OCM server'],
+		['cec import-repository Repo1 -r Repo1 -g',
+			'Import Repo1 in src/repositoryExport/Repo1 to Repo1 on the OCM server and ignore all validation warnings']
+	]
+};
+
 const exportSite = {
 	command: 'export-site <name>',
 	alias: 'es',
 	name: 'export-site',
 	usage: {
-		'short': 'Export Enterprise Site <name>.',
+		'short': 'Exports the site <name>.',
 		'long': (function () {
-			let desc = 'Export Enterprise Site on OCM server to a folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Exports the site on OCM server to a folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'Specify the folder with -f <folder> and specify the job name with -j <job-name>. ';
 			return desc;
 		})()
@@ -2068,7 +2132,7 @@ const importSite = {
 	alias: 'ips',
 	name: 'import-site',
 	usage: {
-		'short': 'Import Enterprise Site <name>.',
+		'short': 'Imports the site <name>.',
 		'long': (function () {
 			let desc = 'Import site to OCM server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			desc = desc + ' The valid policies for <sitepolicy> are:\n\n';
@@ -2525,7 +2589,7 @@ const createRepository = {
 				'Optionally specify -t <contenttypes> to set the content types. ' +
 				'Optionally specify -c <channels> to set the publishing channels. ' +
 				'Optionally specify -l <defaultlanguage> to set the default language. ' +
-				'Optionally specify -p <type> to set the repository type. The valid repository types are\n\n';
+				'Optionally specify -p <type> to set the repository type. The valid repository types are:\n\n';
 			desc = getRepositoryTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 		})()
@@ -2545,7 +2609,7 @@ const controlRepository = {
 		'short': 'Performs action <action> on repositories on OCM server.',
 		'long': (function () {
 			let desc = 'Performs action <action> on repositories on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'The valid actions are\n\n';
+				'The valid actions are:\n\n';
 			return getRepositoryActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -2578,9 +2642,9 @@ const shareRepository = {
 			let desc = 'Shares repository with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t to also share the content types in the repository with the users. ' +
 				'Optionally specify -y <typerole> to share the types with different role. ' +
-				'The valid roles for a repository are' + os.EOL + os.EOL;
+				'The valid roles for a repository are:' + os.EOL + os.EOL;
 			desc = getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + 'or an editorial role. The valid roles for a type are ' + os.EOL + os.EOL;
+			desc = desc + os.EOL + 'or an editorial role. The valid roles for a type are: ' + os.EOL + os.EOL;
 			desc = getContentTypeRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 		})()
@@ -2639,9 +2703,9 @@ const setEditorialPermission = {
 		'short': 'Grants repository members Editorial Permissions on assets.',
 		'long': (function () {
 			let desc = 'Grants repository members Editorial Permissions on assets on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'The valid permission for assets are' + os.EOL + os.EOL;
+				'The valid permission for assets are:' + os.EOL + os.EOL;
 			desc = getAssetEditorialPermissions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + 'The valid permissions for taxonomies are ' + os.EOL + os.EOL;
+			desc = desc + os.EOL + 'The valid permissions for taxonomies are: ' + os.EOL + os.EOL;
 			desc = getTaxonomyEditorialPermissions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 
@@ -2726,9 +2790,9 @@ const setEditorialRole = {
 		'short': 'Sets Editorial Permissions for editorial role.',
 		'long': (function () {
 			let desc = 'Sets Editorial Permissions for editorial role on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'The valid permission for assets are' + os.EOL + os.EOL;
+				'The valid permission for assets are:' + os.EOL + os.EOL;
 			desc = getAssetEditorialPermissions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + 'The valid permissions for taxonomies are ' + os.EOL + os.EOL;
+			desc = desc + os.EOL + 'The valid permissions for taxonomies are: ' + os.EOL + os.EOL;
 			desc = getTaxonomyEditorialPermissions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 
@@ -2791,7 +2855,7 @@ const shareType = {
 		'short': 'Shares type with users and groups on OCM server.',
 		'long': (function () {
 			let desc = 'Shares type with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'The valid roles are\n\n';
+				'The valid roles are:\n\n';
 			return getContentTypeRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -2884,7 +2948,7 @@ const updateType = {
 		'short': 'Performs action <action> on a type',
 		'long': (function () {
 			let desc = 'Performs action <action> on a type in a local template or on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
-			desc = desc + 'The valid actions are\n\n';
+			desc = desc + 'The valid actions are:\n\n';
 			return updateTypeActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -3006,9 +3070,9 @@ const controlCollection = {
 		'short': 'Performs action on collections on OCM server.',
 		'long': (function () {
 			let desc = 'Performs action on collections on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'The valid actions are\n\n';
+				'The valid actions are:\n\n';
 			desc = getCollectionActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + 'The valid roles for a collection are ' + os.EOL + os.EOL;
+			desc = desc + os.EOL + 'The valid roles for a collection are: ' + os.EOL + os.EOL;
 			desc = getCollectionRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 		})()
@@ -3051,7 +3115,7 @@ const shareChannel = {
 		'short': 'Shares channel with users and groups on OCM server.',
 		'long': (function () {
 			let desc = 'Shares channel with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'The valid roles are\n\n';
+				'The valid roles are:\n\n';
 			return getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -3184,6 +3248,8 @@ const listAssets = {
 			let desc = 'Lists assets on OCM server. Optionally specify -c <channel>, -r <repository>, -l <collection> or -q <query> to query assets. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc += 'Optionally specify -p to select to show the properties of assets. The supported properties are:' + os.EOL + os.EOL;
 			desc = getListAssetProperties().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
+			desc += os.EOL + 'Optionally specify -v to validate the existence of each item and other resources. The supported resources are:' + os.EOL + os.EOL;
+			desc = getAssetValidateNames().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
 			return desc;
 		})()
 	},
@@ -3194,12 +3260,14 @@ const listAssets = {
 		['cec list-assets -r Repo1', 'List all assets from repository Repo1'],
 		['cec list-assets -r Repo1 -o "name:asc"', 'List all assets from repository Repo1 and order them by name'],
 		['cec list-assets -c Channel1', 'List all assets from channel Channel1'],
-		['cec list-assets -c Channel1 -v', 'Query all items from channel Channel1 and validate existence'],
 		['cec list-assets -r Repo1 -l Collection1', 'List all assets from collection Collection1 and repository Repo1'],
 		['cec list-assets -q \'fields.category eq "RECIPE"\'', 'List all assets matching the query'],
 		['cec list-assets -q \'fields.category eq "RECIPE"\' -k ranking1', 'List all assets matching the query and order them by relevance'],
 		['cec list-assets -r Repo1 -e coffee,tea', 'List all assets from repository Repo1 where the values coffee or tea matches to asset name, description or any user-defined fields.'],
-		['cec list-assets -r Repo1 -e coffee,tea -t and', 'List all assets from repository Repo1 where the values coffee and tea matches to asset name, description or any user-defined fields.']
+		['cec list-assets -r Repo1 -e coffee,tea -t and', 'List all assets from repository Repo1 where the values coffee and tea matches to asset name, description or any user-defined fields.'],
+		['cec list-assets -c Channel1 -v', 'Query all items from channel Channel1 and validate their existence'],
+		['cec list-assets -r Repo1 -v reference', 'List all assets in repository Repo1 and validate their reference items are correctly recorded'],
+		['cec list-assets -r Repo1 -q \'typeCategory eq "DigitalAssetType"\' -v nativefile', 'List all digital assets in repository Repo1 and validate their asset native files']
 	]
 };
 
@@ -3337,10 +3405,12 @@ const createTranslationJob = {
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT'],
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT, -t siteItems'],
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT -c Lingotek'],
-		['cec create-translation-job job1 -p Repo1 -o collection1 -l all -r SampleServer1'],
-		['cec create-translation-job job1 -p Repo1 -a GUID1,GUID2 -l all -r SampleServer1'],
-		['cec create-translation-job job1 -p Repo1 -q \'type eq "BlogType"\' -l all -c Lingotek -r SampleServer1'],
-		['cec create-translation-job job1 -p Repo1 -q \'language eq "en"\' -n en -l de-DE -c Lingotek -r SampleServer1']
+		['cec create-translation-job job1 -p Repo1 -l all -r SampleServer1', 'Translate all assets in repository Repo1'],
+		// ['cec create-translation-job job1 -p Repo1 -l all -j 500 -x -r SampleServer1', 'Translate all assets in repository Repo1, each job contains up to 500 assets and does not include dependencies'],
+		['cec create-translation-job job1 -p Repo1 -o collection1 -l all -r SampleServer1', 'Translate all assets in repository Repo1 and collection collection1'],
+		['cec create-translation-job job1 -p Repo1 -a GUID1,GUID2 -l all -r SampleServer1', 'Translate asset GUID1 and GUID and all their dependencies'],
+		['cec create-translation-job job1 -p Repo1 -q \'type eq "BlogType"\' -x -l all -c Lingotek -r SampleServer1', 'Translate all assets of type "BlogType" in repository Repo1 without their dependencies'],
+		['cec create-translation-job job1 -p Repo1 -q \'language eq "en"\' -n en -l de-DE -c Lingotek -r SampleServer1', 'Translate all assets in language "en" in repository Repo1']
 	]
 };
 
@@ -3514,7 +3584,7 @@ const copyFolder = {
 	usage: {
 		'short': 'Copies folder on OCM server.',
 		'long': (function () {
-			let desc = 'Copies folder on OCM server. If no target folder is specified, the folder will copied to the same folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Copies folder on OCM server. If no target folder is specified, the folder will be copied to the same folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -3535,7 +3605,7 @@ const shareFolder = {
 	usage: {
 		'short': 'Shares folder with users and groups on OCM server.',
 		'long': (function () {
-			let desc = 'Shares folder with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
+			let desc = 'Shares folder with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are:\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -3754,7 +3824,7 @@ const copyFile = {
 	usage: {
 		'short': 'Copies file on OCM server.',
 		'long': (function () {
-			let desc = 'Copies file on OCM server. If no target folder is specified, the file will copied to the same folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Copies file on OCM server. If no target folder is specified, the file will be copied to the same folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -3833,7 +3903,7 @@ const emptyTrash = {
 		'short': 'Deletes content in Trash on OCM server.',
 		'long': (function () {
 			let desc = 'Deletes content in Trash on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
-			desc = desc + ' The valid values for <type> are' + os.EOL + os.EOL;
+			desc = desc + ' The valid values for <type> are:' + os.EOL + os.EOL;
 			desc = getTrashTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 		})()
@@ -3889,7 +3959,7 @@ const controlRecommendation = {
 	usage: {
 		'short': 'Performs action on recommendations on OCM server.',
 		'long': (function () {
-			let desc = 'Perform action on recommendations on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform action on recommendations on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are:\n\n';
 			return getRecommendationActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -3944,7 +4014,7 @@ const listPublishingJobs = {
 	usage: {
 		'short': 'Lists publishing jobs.',
 		'long': (function () {
-			let desc = 'List publishing jobs on OCM server. Specify the job type with -t <type>. The valid types are' + os.EOL + os.EOL;
+			let desc = 'List publishing jobs on OCM server. Specify the job type with -t <type>. The valid types are:' + os.EOL + os.EOL;
 			desc = getPublishingJobTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 		})()
@@ -4042,7 +4112,7 @@ const configProperties = {
 		'short': 'Config properties for OCM server.',
 		'long': (function () {
 			let desc = 'Configs properties for OCM server in cec.properties file. ' +
-				'The valid property names are ' + os.EOL + os.EOL;
+				'The valid property names are: ' + os.EOL + os.EOL;
 			desc = getPropertyNames().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			desc = desc + os.EOL + 'The valid values for env are:\n\n';
 			desc = getServerTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc) +
@@ -4142,7 +4212,7 @@ const syncServer = {
 			let desc = 'Starts a sync server in the current folder to sync changes notified by web hook from <server> to <destination> server. Specify the source server with -s <server> and the destination server with -d <destination>. ' +
 				'Optionally specify -p <port> to set the port, default port is 8086. ' +
 				'To run the sync server over HTTPS, specify the key file with -k <key> and the certificate file with -c <certificate>. ' +
-				'Set authorization option with -a and the valid values are \n\n';
+				'Set authorization option with -a and the valid values are: \n\n';
 			desc = getSyncServerAuths().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			desc = desc + os.EOL + 'All webhook events are saved in file event.json, when the sync server is started, by default the events that were processed 7 days ago will be deleted. Use -n to set the number of days to keep the processed events.'
 			return desc;
@@ -4170,7 +4240,7 @@ const webhookServer = {
 		'long': (function () {
 			let desc = 'Starts a server in the current folder to handle events notified by web hook from <server>. ' +
 				'Optionally specify -p <port> to set the port, default port is 8087. ' +
-				'The supported event types are \n\n';
+				'The supported event types are: \n\n';
 			return getWebhookTypesDesc().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 
 		})()
@@ -4213,7 +4283,7 @@ const createGroup = {
 		'short': 'Creates an OCM group on OCM server.',
 		'long': (function () {
 			let desc = 'Creates an OCM group on OCM server. Specify the server with -s <server>. ' +
-				'Set the group type with -t <type>. The valid group types are\n\n';
+				'Set the group type with -t <type>. The valid group types are:\n\n';
 			return getGroupTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -4250,7 +4320,7 @@ const addMemberToGroup = {
 		'short': 'Adds users and groups to an OCM group on OCM server.',
 		'long': (function () {
 			let desc = 'Adds users and groups to an OCM group and assign a role on OCM server. Specify the server with -s <server>. ' +
-				'The valid roles are\n\n';
+				'The valid roles are:\n\n';
 			return getGroupMemberRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -4274,6 +4344,41 @@ const removeMemberFromGroup = {
 	example: [
 		['cec remove-member-from-group Group1 -m user1,user2,Group2,Group3'],
 		['cec remove-member-from-group Group1 -m user1,user2,Group2,Group3 -s SampleServer ']
+	]
+};
+
+const listGroups = {
+	command: 'list-groups',
+	alias: 'lg',
+	name: 'list-groups',
+	usage: {
+		'short': 'Lists groups on OCM server.',
+		'long': (function () {
+			let desc = 'Lists groups on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-groups'],
+		['cec list-groups -s SampleServer ']
+	]
+};
+
+const listUsers = {
+	command: 'list-users',
+	alias: 'lu',
+	name: 'list-users',
+	usage: {
+		'short': 'Lists users on OCM server.',
+		'long': (function () {
+			let desc = 'Lists users on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-users', 'List all users'],
+		['cec list-users -g Group1', 'List all direct and indirect users of group Group1'],
+		['cec list-users -s SampleServer ']
 	]
 };
 
@@ -4309,6 +4414,7 @@ const executePost = {
 	},
 	example: [
 		['cec exeo "/content/management/api/v1.1/channels" -b channel.json -f result.json -s SampleServer ', 'Create a channel and save the result to result.json'],
+		['cec exeo "/content/management/api/v1.1/channels" -b \'{"name":"Channel1"}\' -s SampleServer ', 'Create a channel with name Channel1'],
 		['cec exeo "/sites/management/api/v1/components/name:Comp1/export" -s SampleServer ', 'Export component Comp1'],
 		['cec exeo "/sites/management/api/v1/components/name:Comp1/hardDelete" -s SampleServer ', 'Permanently delete component Comp1'],
 		['cec exeo "/sites/management/api/v1/templates/name:BlogTemplate/export" -a -s SampleServer ', 'Export template BlogTemplate asynchronously'],
@@ -4330,7 +4436,8 @@ const executePut = {
 	example: [
 		['cec exeu "/content/management/api/v1.1/channels/{id}/channelSecret" -f result.json', 'Refresh secret for a channel'],
 		['cec exeu "/content/management/api/v1.1/localizationPolicies/{id}" -b policy.json -f result.json -s SampleServer ', 'Update a localization policy and save the result to result.json'],
-		['cec exeu "/documents/api/1.2/files/{fileId}" -b file.json -f result.json -s SampleServer ', 'Change the name of a file']
+		['cec exeu "/documents/api/1.2/files/{fileId}" -b file.json -f result.json -s SampleServer ', 'Change the name of a file'],
+		['cec exeu "/documents/api/1.2/folders/{folderId}" -b \'{"name":"Folder1","description":"Folder1 desc"}\'', 'Change the name and description of a folder']
 	]
 };
 
@@ -4347,6 +4454,7 @@ const executePatch = {
 	},
 	example: [
 		['cec exea "/sites/management/api/v1/components/name:Comp1" -b comp.json -f result.json', 'Update fields of a component'],
+		['cec exea "/sites/management/api/v1/components/name:Comp1" -b \'{"description":"Comp1 desc"}\'', 'Update component\'s description'],
 		['cec exea "/sites/management/api/v1/sites/name:Site1" -b site.json -f result.json', 'Update fields of a site such as name (rename)']
 	]
 };
@@ -4501,9 +4609,11 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(refreshPrerenderCache) + os.EOL +
 	_getCmdHelp(migrateSite) + os.EOL;
 
-_usage = _usage + os.EOL + 'Site Export and Import' + os.EOL +
+_usage = _usage + os.EOL + 'Export and Import' + os.EOL +
 	_getCmdHelp(exportSite) + os.EOL +
 	_getCmdHelp(importSite) + os.EOL +
+	// _getCmdHelp(exportRepository) + os.EOL +
+	// _getCmdHelp(importRepository) + os.EOL +
 	_getCmdHelp(unblockImportJob) + os.EOL +
 	_getCmdHelp(retryImportJob) + os.EOL +
 	_getCmdHelp(cancelExportJob) + os.EOL +
@@ -4613,11 +4723,13 @@ _usage = _usage + os.EOL + 'Jobs' + os.EOL +
 	_getCmdHelp(downloadJobLog) + os.EOL;
 // _getCmdHelp(updateRenditionJob) + os.EOL;
 
-_usage = _usage + os.EOL + 'Groups' + os.EOL +
+_usage = _usage + os.EOL + 'Users and Groups' + os.EOL +
 	_getCmdHelp(createGroup) + os.EOL +
 	_getCmdHelp(deleteGroup) + os.EOL +
 	_getCmdHelp(addMemberToGroup) + os.EOL +
-	_getCmdHelp(removeMemberFromGroup) + os.EOL;
+	_getCmdHelp(removeMemberFromGroup) + os.EOL +
+	_getCmdHelp(listGroups) + os.EOL +
+	_getCmdHelp(listUsers) + os.EOL;
 
 _usage = _usage + os.EOL + 'Environment' + os.EOL +
 	_getCmdHelp(setLoggerLevel) + os.EOL +
@@ -4981,7 +5093,7 @@ const argv = yargs.usage(_usage)
 			})
 				.option('includeunpublishedassets', {
 					alias: 'i',
-					description: 'flag to indicate to include unpublished content items and digital assets in your template'
+					description: 'The flag to indicate to include unpublished content items and digital assets in your template'
 				})
 				.option('enterprisetemplate', {
 					alias: 'e',
@@ -5181,7 +5293,7 @@ const argv = yargs.usage(_usage)
 			})
 				.option('permanent', {
 					alias: 'p',
-					description: 'flag to indicate to permanently delete the template'
+					description: 'The flag to indicate to permanently delete the template'
 				})
 				.example(...deleteTemplate.example[0])
 				.example(...deleteTemplate.example[1])
@@ -6570,6 +6682,7 @@ const argv = yargs.usage(_usage)
 				.example(...listActivities.example[3])
 				.example(...listActivities.example[4])
 				.example(...listActivities.example[5])
+				.example(...listActivities.example[6])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listActivities.command} | cec ${listActivities.command.replace(listActivities.name, listActivities.alias)}\n\n${listActivities.usage.long}`);
@@ -7248,31 +7361,198 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${setSiteSecurity.command} | cec ${setSiteSecurity.command.replace(setSiteSecurity.name, setSiteSecurity.alias)}\n\n${setSiteSecurity.usage.long}`);
 		})
+	.command([exportRepository.command, exportRepository.alias], false,
+		(yargs) => {
+			yargs
+				.option('query', {
+					alias: 'q',
+					description: 'The query to fetch the assets'
+				})
+				.option('includecustomcomponents', {
+					alias: 'v',
+					description: 'Include custom components in the repository'
+				})
+				.option('includechannels', {
+					alias: 'c',
+					description: 'Include channels and localization policies in the repository'
+				})
+				.option('includecollections', {
+					alias: 'l',
+					description: 'Include collections in the repository'
+				})
+				.option('includetaxonomies', {
+					alias: 'x',
+					description: 'Include taxonomies in the repository'
+				})
+				.option('options', {
+					alias: 'o',
+					description: 'The stringified JSON of options'
+				})
+				.option('folder', {
+					alias: 'f',
+					description: 'The folder to export the repository to'
+				})
+				.option('download', {
+					alias: 'd',
+					description: 'The flag to indicate to download files of the exported repository to local folder'
+				})
+				.option('path', {
+					alias: 'p',
+					description: 'The path of the local folder for download'
+				})
+				.option('jobname', {
+					alias: 'j',
+					description: 'The job name',
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.options) {
+						if (argv.options && (argv.query || argv.includecustomcomponents || argv.includechannels || argv.includecollections || argv.includetaxonomies)) {
+							throw new Error('options must not be specified along with other include or query arguments');
+						}
+						try {
+							JSON.parse(argv.options);
+						} catch (pe) {
+							throw new Error('options does not contain proper JSON object');
+						}
+					}
+					if (argv.path && !argv.download) {
+						throw new Error('download must be true if path is specified');
+					}
+					return true;
+				})
+				.example(...exportRepository.example[0])
+				.example(...exportRepository.example[1])
+				.example(...exportRepository.example[2])
+				.example(...exportRepository.example[3])
+				.example(...exportRepository.example[4])
+				.example(...exportRepository.example[5])
+				.example(...exportRepository.example[6])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${exportRepository.command} | cec ${exportRepository.command.replace(exportRepository.name, exportRepository.alias)}\n\n${exportRepository.usage.long}`);
+		})
+	.command([importRepository.command, importRepository.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+				alias: 'r',
+				description: 'The repository name',
+				demandOption: true
+			})
+				.option('includecustomcomponents', {
+					alias: 'v',
+					description: 'Include custom components in the repository'
+				})
+				.option('includechannels', {
+					alias: 'c',
+					description: 'Include channels and localization policies in the repository'
+				})
+				.option('includechannelmappings', {
+					alias: 'b',
+					description: 'Include channel mappings in the repository'
+				})
+				.option('includecollections', {
+					alias: 'l',
+					description: 'Include collections in the repository'
+				})
+				.option('includecollectionmappings', {
+					alias: 'm',
+					description: 'Include collection mappings in the repository'
+				})
+				.option('includetaxonomies', {
+					alias: 'x',
+					description: 'Include taxonomies in the repository'
+				})
+				.option('includetaxonomymappings', {
+					alias: 'y',
+					description: 'Include taxonomy mappings in the repository'
+				})
+				.option('options', {
+					alias: 'o',
+					description: 'The stringified JSON of options'
+				})
+				.option('assetpolicy', {
+					alias: 'e',
+					description: 'The asset policy [' + getImportSiteAssetPolicies().join(' | ') + ']'
+				})
+				.option('slugprefix', {
+					alias: 'u',
+					description: 'The slug prefix'
+				})
+				.option('ignorewarnings', {
+					alias: 'g',
+					description: 'The flag to indicate to ignore all validation warnings'
+				})
+				.option('folder', {
+					alias: 'f',
+					description: 'The folder to import the repository from'
+				})
+				.option('path', {
+					alias: 'p',
+					description: 'The path of the local folder for upload'
+				})
+				.option('jobname', {
+					alias: 'j',
+					description: 'The job name',
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.options) {
+						if (argv.options && (argv.includecustomcomponents || argv.includechannels || argv.includechannelmappings
+							|| argv.includecollections || argv.includecollectionmappings || argv.includetaxonomies || argv.includetaxonomymappings   )) {
+							throw new Error('options must not be specified along with other include arguments');
+						}
+						try {
+							JSON.parse(argv.options);
+						} catch (pe) {
+							throw new Error('options does not contain proper JSON object');
+						}
+					}
+					return true;
+				})
+				.example(...importRepository.example[0])
+				.example(...importRepository.example[1])
+				.example(...importRepository.example[2])
+				.example(...importRepository.example[3])
+				.example(...importRepository.example[4])
+				.example(...importRepository.example[5])
+				.example(...importRepository.example[6])
+				.example(...importRepository.example[7])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${importRepository.command} | cec ${importRepository.command.replace(importRepository.name, importRepository.alias)}\n\n${importRepository.usage.long}`);
+		})
 	.command([exportSite.command, exportSite.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
 				alias: 'f',
-				description: '<folder> Folder to export the site to'
+				description: 'The folder to export the site to'
 			})
 				.option('jobname', {
 					alias: 'j',
-					description: 'job name',
+					description: 'The job name',
 				})
 				.option('includeunpublishedassets', {
 					alias: 'i',
-					description: 'flag to indicate to include unpublished content items and digital assets in the site'
+					description: 'Include unpublished content items and digital assets in the site'
 				})
 				.option('download', {
 					alias: 'd',
-					description: 'flag to indicate to download files of the exported site to local folder'
+					description: 'The flag to indicate to download files of the exported site to local folder'
 				})
 				.option('path', {
 					alias: 'p',
-					description: 'path of the local folder for download'
+					description: 'The path of the local folder for download'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCM server'
+					description: 'The registered OCM server'
 				})
 				.example(...exportSite.example[0])
 				.example(...exportSite.example[1])
@@ -7286,48 +7566,48 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('repository', {
 				alias: 'r',
-				description: 'Repository name',
+				description: 'The repository name',
 				demandOption: true
 			})
 				.option('localizationPolicy', {
 					alias: 'l',
-					description: 'Localization policy, required for duplicating a site'
+					description: 'The localization policy, required for duplicating a site'
 				})
 				.option('sitePrefix', {
 					alias: 'x',
-					description: 'Site prefix'
+					description: 'The site prefix'
 				})
 				.option('jobname', {
 					alias: 'j',
-					description: 'job name',
+					description: 'The job name',
 				})
 				.option('path', {
 					alias: 'p',
-					description: 'path of the local folder for upload'
+					description: 'The path of the local folder for upload'
 				})
 				.option('sitepolicy', {
 					alias: 'i',
-					description: 'Site policy [' + getImportSitePolicies().join(' | ') + ']'
+					description: 'The site policy [' + getImportSitePolicies().join(' | ') + ']'
 				})
 				.option('assetpolicy', {
 					alias: 'a',
-					description: 'Site policy [' + getImportSiteAssetPolicies().join(' | ') + ']'
+					description: 'The site policy [' + getImportSiteAssetPolicies().join(' | ') + ']'
 				})
 				.option('newsite', {
 					alias: 'n',
-					description: 'New site name to use when using duplicateSite as policies'
+					description: 'The new site name to use when using duplicateSite as policies'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCM server'
+					description: 'The registered OCM server'
 				})
 				.option('folder', {
 					alias: 'f',
-					description: '<folder> Folder to import the site from'
+					description: 'The folder to import the site from'
 				})
 				.option('ignorewarnings', {
 					alias: 'g',
-					description: 'Ignore all validation warnings'
+					description: 'The flag to indicate to ignore all validation warnings'
 				})
 				.check((argv) => {
 					if (!argv.repository) {
@@ -7473,7 +7753,7 @@ const argv = yargs.usage(_usage)
 			})
 				.option('download', {
 					alias: 'd',
-					description: 'flag to indicate to download files of the exported site to local folder'
+					description: 'The flag to indicate to download files of the exported site to local folder'
 				})
 				.example(...describeExportJob.example[0])
 				.example(...describeExportJob.example[1])
@@ -7504,7 +7784,7 @@ const argv = yargs.usage(_usage)
 			})
 				.option('download', {
 					alias: 'd',
-					description: 'flag to indicate to download the import report to local folder'
+					description: 'The flag to indicate to download the import report to local folder'
 				})
 				.example(...describeImportJob.example[0])
 				.example(...describeImportJob.example[1])
@@ -9095,6 +9375,10 @@ const argv = yargs.usage(_usage)
 					alias: 'v',
 					description: 'Validate the existence of each item'
 				})
+				.option('length', {
+					alias: 'g',
+					description: 'The text length the asset fields do not exceed'
+				})
 				.option('properties', {
 					alias: 'p',
 					description: 'The comma separated list of asset properties to show',
@@ -9125,6 +9409,14 @@ const argv = yargs.usage(_usage)
 					if (argv.searchoperator && argv.searchoperator !== 'or' && argv.searchoperator !== 'and') {
 						throw new Error(os.EOL + 'The value for <searchoperator> should be either "or" or "and"');
 					}
+					if (argv.length !== undefined) {
+						if (!Number.isInteger(argv.length) || argv.length <= 0) {
+							throw new Error(os.EOL + 'Value for length should be an integer greater than 0');
+						}
+					}
+					if (argv.validate && argv.validate.indexOf('textlength') >= 0 && argv.length === undefined) {
+						throw new Error(os.EOL + 'Please specify <length>');
+					}
 
 					return true;
 				})
@@ -9140,6 +9432,8 @@ const argv = yargs.usage(_usage)
 				.example(...listAssets.example[9])
 				.example(...listAssets.example[10])
 				.example(...listAssets.example[11])
+				.example(...listAssets.example[12])
+				.example(...listAssets.example[13])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listAssets.command} | cec ${listAssets.command.replace(listAssets.name, listAssets.alias)}\n\n${listAssets.usage.long}`);
@@ -9316,12 +9610,21 @@ const argv = yargs.usage(_usage)
 				})
 				.option('sourcelanguage', {
 					alias: 'n',
-					description: 'Source language. For use with assets job only.'
+					description: 'Source language. For use with assets job only'
 				})
 				.option('languages', {
 					alias: 'l',
 					description: 'The comma separated list of languages used to create the translation job',
 					demandOption: true
+				})
+				.option('skipdependencies', {
+					alias: 'x',
+					description: 'Do not translate asset dependencies'
+				})
+				.option('jobsize', {
+					alias: 'j',
+					description: 'The number of assets in a job',
+					hidden: true
 				})
 				.option('connector', {
 					alias: 'c',
@@ -9345,11 +9648,14 @@ const argv = yargs.usage(_usage)
 					if (argv.site && argv.sourcelanguage) {
 						throw new Error(os.EOL + 'sourcelanguage can be specified for assets job only');
 					}
-					if (argv.repository && !argv.collection && !argv.assets && !argv.query) {
-						throw new Error(os.EOL + 'Please specify collection, query or assets');
-					}
 					if (argv.collection && (argv.assets || argv.query)) {
 						throw new Error(os.EOL + 'Collection and assets are mutually exclusive and only one of them should be provided');
+					}
+					if (argv.jobsize !== undefined && (!Number.isInteger(argv.jobsize) || argv.jobsize <= 0)) {
+						throw new Error(os.EOL + 'Value for <jobsize> should be an integer greater than 0');
+					}
+					if (argv.collection && argv.jobsize) {
+						throw new Error(os.EOL + 'The <jobsize> is not applicable when <collection> is specified');
 					}
 					if (argv.type && !getTranslationJobExportTypes().includes(argv.type)) {
 						throw new Error(`${os.EOL}${argv.type} is not a valid value for <type>`);
@@ -9365,6 +9671,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTranslationJob.example[6])
 				.example(...createTranslationJob.example[7])
 				.example(...createTranslationJob.example[8])
+				.example(...createTranslationJob.example[9])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTranslationJob.command} | cec ${createTranslationJob.command.replace(createTranslationJob.name, createTranslationJob.alias)}\n\n${createTranslationJob.usage.long}`);
@@ -9996,6 +10303,35 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${removeMemberFromGroup.command} | cec ${removeMemberFromGroup.command.replace(removeMemberFromGroup.name, removeMemberFromGroup.alias)}\n\n${removeMemberFromGroup.usage.long}`);
 		})
+	.command([listGroups.command, listGroups.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...listGroups.example[0])
+				.example(...listGroups.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listGroups.command} | cec ${listGroups.command.replace(listGroups.name, listGroups.alias)}\n\n${listGroups.usage.long}`);
+		})
+	.command([listUsers.command, listUsers.alias], false,
+		(yargs) => {
+			yargs.option('group', {
+				alias: 'g',
+				description: 'The group'
+			})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...listUsers.example[0])
+				.example(...listUsers.example[1])
+				.example(...listUsers.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listUsers.command} | cec ${listUsers.command.replace(listUsers.name, listUsers.alias)}\n\n${listUsers.usage.long}`);
+		})
 	.command([downloadRecommendation.command, downloadRecommendation.alias], false,
 		(yargs) => {
 			yargs.option('repository', {
@@ -10358,7 +10694,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('body', {
 				alias: 'b',
-				description: 'The JSON file for the request payload'
+				description: 'The JSON file or stringified JSON for the request payload'
 			})
 				.option('file', {
 					alias: 'f',
@@ -10377,6 +10713,7 @@ const argv = yargs.usage(_usage)
 				.example(...executePost.example[2])
 				.example(...executePost.example[3])
 				.example(...executePost.example[4])
+				.example(...executePost.example[5])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${executePost.command} | cec ${executePost.command.replace(executePost.name, executePost.alias)}\n\n${executePost.usage.long}`);
@@ -10385,7 +10722,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('body', {
 				alias: 'b',
-				description: 'The JSON file for the request payload'
+				description: 'The JSON file or stringified JSON for the request payload'
 			})
 				.option('file', {
 					alias: 'f',
@@ -10398,6 +10735,7 @@ const argv = yargs.usage(_usage)
 				.example(...executePut.example[0])
 				.example(...executePut.example[1])
 				.example(...executePut.example[2])
+				.example(...executePut.example[3])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${executePut.command} | cec ${executePut.command.replace(executePut.name, executePut.alias)}\n\n${executePut.usage.long}`);
@@ -10406,7 +10744,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('body', {
 				alias: 'b',
-				description: 'The JSON file for the request payload'
+				description: 'The JSON file or stringified JSON for the request payload'
 			})
 				.option('file', {
 					alias: 'f',
@@ -10418,6 +10756,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...executePatch.example[0])
 				.example(...executePatch.example[1])
+				.example(...executePatch.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${executePatch.command} | cec ${executePatch.command.replace(executePatch.name, executePatch.alias)}\n\n${executePatch.usage.long}`);
@@ -10650,7 +10989,7 @@ const argv = yargs.usage(_usage)
 		description: 'Show Help'
 	})
 	.strict()
-	.wrap(process.shim ? 480 : yargs.terminalWidth())
+	.wrap(process.shim ? 800 : yargs.terminalWidth())
 	.fail((msg, err, yargs) => {
 		yargs.showHelp('log');
 		if (msg.indexOf('Not enough non-option arguments') < 0) {
@@ -12304,14 +12643,17 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.searchoperator) {
 		listAssetsArgs.push(...['--searchoperator', argv.searchoperator]);
 	}
-	if (argv.expand) {
-		listAssetsArgs.push(...['--expand', argv.expand]);
+	if (argv.validate) {
+		listAssetsArgs.push(...['--validate', argv.validate]);
 	}
 	if (argv.rankby) {
 		listAssetsArgs.push(...['--rankby', argv.rankby]);
 	}
 	if (argv.urls) {
 		listAssetsArgs.push(...['--urls', argv.urls]);
+	}
+	if (argv.length) {
+		listAssetsArgs.push(...['--length', argv.length]);
 	}
 	if (argv.properties) {
 		listAssetsArgs.push(...['--properties', argv.properties]);
@@ -12855,6 +13197,116 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		updateSiteArgs.push(...['--compilationjob', argv.compilationjob]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, updateSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === exportRepository.name || argv._[0] === exportRepository.alias) {
+	_displayCommand(exportRepository.name);
+	let exportRepositoryArgs = ['run', '-s', exportRepository.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.query && typeof argv.query !== 'boolean') {
+		exportRepositoryArgs.push(...['--query', argv.query]);
+	}
+	if (argv.includecustomcomponents) {
+		exportRepositoryArgs.push(...['--includecustomcomponents', argv.includecustomcomponents]);
+	}
+	if (argv.includechannels) {
+		exportRepositoryArgs.push(...['--includechannels', argv.includechannels]);
+	}
+	if (argv.includecollections) {
+		exportRepositoryArgs.push(...['--includecollections', argv.includecollections]);
+	}
+	if (argv.includetaxonomies) {
+		exportRepositoryArgs.push(...['--includetaxonomies', argv.includetaxonomies]);
+	}
+	if (argv.options && typeof argv.options !== 'boolean') {
+		var parsedoptions = JSON.parse(argv.options);
+		exportRepositoryArgs.push(...['--options', JSON.stringify(parsedoptions)]);
+	}
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		exportRepositoryArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.download) {
+		exportRepositoryArgs.push(...['--download', argv.download]);
+	}
+	if (argv.path && typeof argv.path !== 'boolean') {
+		exportRepositoryArgs.push(...['--path', argv.path]);
+	}
+	if (argv.jobname && typeof argv.jobname !== 'boolean') {
+		exportRepositoryArgs.push(...['--jobname', argv.jobname]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		exportRepositoryArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, exportRepositoryArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === importRepository.name || argv._[0] === importRepository.alias) {
+	_displayCommand(importRepository.name);
+	let importRepositoryArgs = ['run', '-s', importRepository.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.repository && typeof argv.repository !== 'boolean') {
+		importRepositoryArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.includecustomcomponents) {
+		importRepositoryArgs.push(...['--includecustomcomponents', argv.includecustomcomponents]);
+	}
+	if (argv.includetaxonomies) {
+		importRepositoryArgs.push(...['--includetaxonomies', argv.includetaxonomies]);
+	}
+	if (argv.includetaxonomymappings) {
+		importRepositoryArgs.push(...['--includetaxonomymappings', argv.includetaxonomymappings]);
+	}
+	if (argv.includecollections) {
+		importRepositoryArgs.push(...['--includecollections', argv.includecollections]);
+	}
+	if (argv.includecollectionmappings) {
+		importRepositoryArgs.push(...['--includecollectionmappings', argv.includecollectionmappings]);
+	}
+	if (argv.includechannels) {
+		importRepositoryArgs.push(...['--includechannels', argv.includechannels]);
+	}
+	if (argv.includechannelmappings) {
+		importRepositoryArgs.push(...['--includechannelmappings', argv.includechannelmappings]);
+	}
+	if (argv.options && typeof argv.options !== 'boolean') {
+		parsedoptions = JSON.parse(argv.options);
+		importRepositoryArgs.push(...['--options', JSON.stringify(parsedoptions)]);
+	}
+	if (argv.includes && argv.includes !== 'boolean') {
+		importRepositoryArgs.push(...['--includes', argv.includes]);
+	}
+	if (argv.assetpolicy && argv.assetpolicy !== 'boolean') {
+		importRepositoryArgs.push(...['--assetpolicy', argv.assetpolicy]);
+	}
+	if (argv.slugprefix && typeof argv.slugprefix !== 'boolean') {
+		importRepositoryArgs.push(...['--slugprefix', argv.slugprefix]);
+	}
+	if (argv.ignorewarnings) {
+		importRepositoryArgs.push(...['--ignorewarnings', argv.ignorewarnings]);
+	}
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		importRepositoryArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.path && typeof argv.path !== 'boolean') {
+		importRepositoryArgs.push(...['--path', argv.path]);
+	}
+	if (argv.jobname && typeof argv.jobname !== 'boolean') {
+		importRepositoryArgs.push(...['--jobname', argv.jobname]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		importRepositoryArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, importRepositoryArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -14227,6 +14679,12 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.assets) {
 		createTranslationJobArgs.push(...['--assets', argv.assets]);
 	}
+	if (argv.skipdependencies) {
+		createTranslationJobArgs.push(...['--skipdependencies', argv.skipdependencies]);
+	}
+	if (argv.jobsize) {
+		createTranslationJobArgs.push(...['--jobsize', argv.jobsize]);
+	}
 	if (argv.connector) {
 		createTranslationJobArgs.push(...['--connector', argv.connector]);
 	}
@@ -15149,6 +15607,37 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		removeMemberFromGroupArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, removeMemberFromGroupArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+} else if (argv._[0] === listGroups.name || argv._[0] === listGroups.alias) {
+	_displayCommand(listGroups.name);
+	let listGroupsArgs = ['run', '-s', listGroups.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listGroupsArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, listGroupsArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+} else if (argv._[0] === listUsers.name || argv._[0] === listUsers.alias) {
+	_displayCommand(listUsers.name);
+	let listUsersArgs = ['run', '-s', listUsers.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+
+	if (argv.group) {
+		listUsersArgs.push(...['--group', argv.group]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listUsersArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, listUsersArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

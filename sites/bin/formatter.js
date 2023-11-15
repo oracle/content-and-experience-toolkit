@@ -17,7 +17,11 @@ function assetFormat(name) {
 }
 
 function componentFormat(name) {
-	return process.shim ? `[!--dscp--]${name}[/!--dscp--]` : name;
+	if (name === 'scs-contentitem') {
+		return name;
+	} else {
+		return process.shim ? `[!--dscp--]${name}[/!--dscp--]` : name;
+	}
 }
 
 function repositoryFormat(name) {

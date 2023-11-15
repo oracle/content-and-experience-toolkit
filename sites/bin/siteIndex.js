@@ -22,6 +22,11 @@ var projectDir,
 //
 
 var verifyRun = function (argv) {
+
+	if (process.shim) {
+		return true;
+	}
+
 	projectDir = argv.projectDir;
 
 	var srcfolder = serverUtils.getSourceFolder(projectDir);

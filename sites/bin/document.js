@@ -2596,7 +2596,7 @@ var _deleteFolder = function (argv, server, noMsg) {
 
 	var showDetail = noMsg ? false : true;
 
-	var permanent = typeof argv.permanent === 'string' && argv.permanent.toLowerCase() === 'true';
+	var permanent = (typeof argv.permanent === 'string' && argv.permanent.toLowerCase() === 'true') || (typeof argv.permanent === 'boolean' && argv.permanent);
 
 	var inputPath = argv.path === '/' ? '' : serverUtils.trimString(argv.path, '/');
 	var resourceFolder = false;
@@ -2772,7 +2772,7 @@ module.exports.deleteFile = function (argv, done) {
 
 var _deleteFile = function (argv, server, toReject, showMsg) {
 
-	var permanent = typeof argv.permanent === 'string' && argv.permanent.toLowerCase() === 'true';
+	var permanent = (typeof argv.permanent === 'string' && argv.permanent.toLowerCase() === 'true') || (typeof argv.permanent === 'boolean' && argv.permanent);
 
 	var filePath = argv.file;
 	var fileName = filePath;

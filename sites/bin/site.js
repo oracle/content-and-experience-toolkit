@@ -20,6 +20,8 @@ var gulp = require('gulp'),
 	siteUpdateLib = require('./siteUpdate.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
+	exportImportRest = require('../test/server/exportImportRest.js'),
+	exportserviceUtils = require('./exportserviceutils.js').utils,
 	fileUtils = require('../test/server/fileUtils.js'),
 	serverUtils = require('../test/server/serverUtils.js'),
 	formatter = require('./formatter.js');
@@ -28,7 +30,7 @@ var console = require('../test/server/logger.js').console;
 
 var cecDir = path.join(__dirname, ".."),
 	themesDataDir = path.join(cecDir, 'data', 'themes'),
-	exportSiteFileGroupSize = 3;
+	exportSiteFileGroupSize = 1;
 
 var projectDir,
 	documentsSrcDir,
@@ -54,138 +56,6 @@ var verifyRun = function (argv) {
 	templatesSrcDir = path.join(srcfolder, 'templates');
 
 	return true;
-};
-
-var _executeGetExportService = function (args) {
-	var server = args.server,
-		url = args.endpoint,
-		noMsg = args.noMsg;
-
-	// Note: Export service on dev instances requires additional header
-	var addheaders;
-	if (server.env === 'dev_ec') {
-		addheaders = { 'IDCS_REMOTE_USER': server.username };
-	}
-
-	return serverRest.executeGet({
-		server: server,
-		endpoint: url,
-		noMsg: noMsg,
-		headers: addheaders
-	});
-};
-
-var _downloadReport = function (url, siteName, server) {
-	return new Promise(function (resolve, reject) {
-		console.info(' - Download reports from ' + url);
-		var targetStem,
-			namePrefix;
-
-		if (url.indexOf('/system/export/api/v1/exports/') !== -1) {
-			targetStem = 'siteExport';
-			namePrefix = 'Export_';
-		} else if (url.indexOf('/system/export/api/v1/imports/') !== -1) {
-			targetStem = 'siteImport';
-			namePrefix = 'Import_';
-		}
-
-		var targetPath = path.join(projectDir, 'src', targetStem);
-		// Create target path
-		fs.mkdirSync(targetPath, {
-			recursive: true
-		});
-
-		targetPath = path.join(targetPath, namePrefix + siteName + '_Report.zip');
-		console.info(' - Save reports to ' + targetPath);
-		// Note: Export service on dev instances requires additional header
-		var addheaders;
-		if (server.env === 'dev_ec') {
-			addheaders = { 'IDCS_REMOTE_USER': server.username };
-		}
-
-		var downloadArgs = {
-			server: server,
-			url: url,
-			saveTo: targetPath,
-			headers: addheaders
-		}
-		serverRest.downloadByURLSave(downloadArgs).then(function () {
-			resolve();
-		}).catch((error) => {
-			console.error('Failed to download reports');
-			resolve();
-		});
-	});
-}
-var _downloadReports = function (reports, siteName, server) {
-	var downloadPromises = [];
-	(reports || []).forEach(function (report) {
-		downloadPromises.push(_downloadReport(report, siteName, server));
-	});
-
-	return Promise.all(downloadPromises);
-};
-
-var _getSiteForExportJob = function (id, server) {
-	return new Promise(function (resolve, reject) {
-		var url = '/system/export/api/v1/exports/' + id;
-		url += '?fields=sources.select.type,sources.select.site.id';
-
-		_executeGetExportService({
-			server: server,
-			endpoint: url,
-			noMsg: true
-		}).then(function (body) {
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			// Support single site for now
-			var source = data.sources.at(0);
-			sitesRest.getSite({
-				server: server,
-				id: source.select.site.id,
-				showInfo: false
-			}).then(site => {
-				resolve(site);
-			}).catch((siteError) => {
-				console.error('Failed to get site details');
-				resolve();
-			});
-
-		}).catch((jobError) => {
-			console.error('Failed to get job details');
-			resolve();
-		})
-	});
-};
-
-var _getSiteForImportJob = function (id, server) {
-	return new Promise(function (resolve, reject) {
-		var url = '/system/export/api/v1/imports/' + id;
-		url += '?fields=targets.select.type,targets.select.site.id,targets.select.site.name';
-
-		_executeGetExportService({
-			server: server,
-			endpoint: url,
-			noMsg: true
-		}).then(function (body) {
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			// Support single site for now
-			var target = data.targets.at(0);
-			resolve(target.select.site);
-		}).catch((jobError) => {
-			console.error('Failed to get job details');
-			resolve();
-		})
-	});
 };
 
 var _getFolder = function (folderId, server) {
@@ -5759,7 +5629,7 @@ module.exports.deleteSite = function (argv, done) {
 
 	var name = argv.name;
 
-	var permanent = typeof argv.permanent === 'string' && argv.permanent.toLowerCase() === 'true';
+	var permanent = (typeof argv.permanent === 'string' && argv.permanent.toLowerCase() === 'true') || (typeof argv.permanent === 'boolean' && argv.permanent);
 
 	var serverName = argv.server;
 	var server = serverUtils.verifyServer(serverName, projectDir);
@@ -5916,7 +5786,7 @@ module.exports.exportSite = function (argv, done) {
 						folderId = folderInfo.id;
 					}
 
-					sitesRest.exportSite({
+					exportImportRest.exportSite({
 						server: server,
 						name: jobName,
 						siteName: siteName,
@@ -5924,8 +5794,13 @@ module.exports.exportSite = function (argv, done) {
 						folderId: folderId,
 						includeunpublishedassets: (includeunpublishedassets === true) || (includeunpublishedassets === 'true') || false
 					}).then(function (data) {
-						_downloadReports(data.reports, siteName, server).then(function () {
-
+						exportserviceUtils.downloadReports({
+							reports: data.reports,
+							type: 'site',
+							name: siteName,
+							server: server,
+							projectDir: projectDir
+						}).then(function () {
 							if (data.job && data.job.progress === 'succeeded' && argv.download && data.job.target && data.job.target.docs && data.job.target.docs.result) {
 								var exportFolderName = data.job.target.docs.result.folderName;
 
@@ -6141,9 +6016,10 @@ module.exports.importSite = function (argv, done) {
 					} else {
 						var createArchivePromises = [];
 
-						createArchivePromises.push(sitesRest.createArchive({
+						createArchivePromises.push(exportImportRest.createArchive({
 							server: server,
-							folderId: folders[0].id
+							folderId: folders[0].id,
+							archiveType: 'site'
 						}));
 
 						return Promise.all(createArchivePromises);
@@ -6157,27 +6033,30 @@ module.exports.importSite = function (argv, done) {
 
 					if (archivedata.id) {
 						archivedata.entries.items.forEach((entry) => {
-							var siteId = entry.site.id;
+							// TODO: Bypass empty entry returned by the API.
+							if (entry.site) {
+								var siteId = entry.site.id;
 
-							// TODO: Irrelevant in multiple sites case
-							if (entry.site.name !== siteName) {
-								console.warn('WARNING: Given site name is not the same as the is site name in the site folder');
-								console.warn('         site name in command: ' + siteName);
-								console.warn('         site name in folder ' + entry.site.name);
+								// TODO: Irrelevant in multiple sites case
+								if (entry.site.name !== siteName) {
+									console.warn('WARNING: Given site name is not the same as the is site name in the site folder');
+									console.warn('         site name in command: ' + siteName);
+									console.warn('         site name in folder ' + entry.site.name);
+								}
+								importSitePromises.push(exportImportRest.importSite({
+									server: server,
+									name: jobName,
+									archiveId: archivedata.id,
+									siteId: siteId,
+									repositoryId: importRepo.id,
+									localizationPolicyId: importL10P && importL10P.id,
+									sitePrefix: sitePrefix,
+									policies: policies,
+									newsite: argv.newsite,
+									assetspolicy: assetspolicy,
+									ignorewarnings: ignorewarnings
+								}));
 							}
-							importSitePromises.push(sitesRest.importSite({
-								server: server,
-								name: jobName,
-								archiveId: archivedata.id,
-								siteId: siteId,
-								repositoryId: importRepo.id,
-								localizationPolicyId: importL10P && importL10P.id,
-								sitePrefix: sitePrefix,
-								policies: policies,
-								newsite: argv.newsite,
-								assetspolicy: assetspolicy,
-								ignorewarnings: ignorewarnings
-							}));
 						});
 					}
 
@@ -6190,7 +6069,13 @@ module.exports.importSite = function (argv, done) {
 						// console.info('');
 						// console.info('   ImportSite job ' + JSON.stringify(data.job));
 						// console.info('');
-						_downloadReports(data.reports, argv.newsite || siteName, server).then(function () {
+						exportserviceUtils.downloadReports({
+							reports: data.reports,
+							type: 'site',
+							name: argv.newsite || siteName,
+							server: server,
+							projectDir: projectDir
+						}).then(function () {
 							if (data.err) {
 								done();
 							} else {
@@ -6202,12 +6087,12 @@ module.exports.importSite = function (argv, done) {
 					}
 				})
 				.catch(function (error) {
-					console.error('ImportSite encountered: ' + error);
+					console.error('ImportSite 1 encountered: ' + error);
 					done();
 				});
 
 		}).catch(function (error) {
-			console.error('ImportSite encountered: ' + error);
+			console.error('ImportSite 2 encountered: ' + error);
 			done();
 		})
 	} catch (e) {
@@ -6217,9 +6102,9 @@ module.exports.importSite = function (argv, done) {
 };
 
 /**
- * unblock import job
+ * describe site export job
  */
-module.exports.unblockImportJob = function (argv, done) {
+module.exports.describeSiteExportJob = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
@@ -6243,437 +6128,10 @@ module.exports.unblockImportJob = function (argv, done) {
 				return;
 			}
 
-			var ignorewarnings = typeof argv.ignorewarnings === 'string' && argv.ignorewarnings.toLowerCase() === 'true',
-				url = '/system/export/api/v1/imports/' + argv.id + '/unblock',
-				body = {
-					"action": "ignoreCurrentValidationWarnings",
-					"ignoreCurrentValidationWarnings": {
-						"reportETag": "",
-						"import": {
-							"policies": {
-								"ignoreAllValidationWarnings": ignorewarnings
-							}
-						}
-					}
-				}
-
-			// Note: Export service on dev instances requires additional header
-			var headers;
-			if (server.env === 'dev_ec') {
-				headers = { 'IDCS_REMOTE_USER': server.username };
-			}
-
-			serverRest.executePost({
+			exportImportRest.describeExportJob({
 				server: server,
-				endpoint: url,
-				body: body,
-				noMsg: true,
-				responseStatus: true,
-				headers: headers
-			}).then(function (data) {
-				if (data) {
-					console.info('Failed to unblock import job ' + argv.id + ' : ' + (data['o:errorCode'] ? data.title : data.statusMessage));
-				} else {
-					console.info('Unblocked import job ' + argv.id);
-					console.info('To monitor the job progress and download the report, run the following command:');
-					console.info('cec describe-import-job ' + argv.id + ' -d -s ' + serverName);
-				}
-
-				done(true);
-			});
-		});
-	} catch (e) {
-		console.error(e);
-		done();
-	}
-};
-
-/**
- * retry import job
- */
-module.exports.retryImportJob = function (argv, done) {
-	'use strict';
-
-	if (!verifyRun(argv)) {
-		done();
-		return;
-	}
-
-	try {
-		var serverName = argv.server;
-		var server = serverUtils.verifyServer(serverName, projectDir);
-		if (!server || !server.valid) {
-			done();
-			return;
-		}
-
-		var loginPromise = serverUtils.loginToServer(server);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.error(result.statusMessage);
-				done();
-				return;
-			}
-
-			var url = '/system/export/api/v1/imports/' + argv.id + '/retry';
-
-			// Note: Export service on dev instances requires additional header
-			var headers;
-			if (server.env === 'dev_ec') {
-				headers = { 'IDCS_REMOTE_USER': server.username };
-			}
-
-			serverRest.executePost({
-				server: server,
-				endpoint: url,
-				noMsg: true,
-				responseStatus: true,
-				headers: headers
-			}).then(function (data) {
-				if (data) {
-					console.info('Failed to retry import job ' + argv.id + ' : ' + (data['o:errorCode'] ? data.title : data.statusMessage));
-				} else {
-					console.info('Retry import job ' + argv.id);
-					console.info('To monitor the job progress and download the report, run the following command:');
-					console.info('cec describe-import-job ' + argv.id + ' -d -s ' + serverName);
-				}
-
-				done(true);
-			});
-		});
-	} catch (e) {
-		console.error(e);
-		done();
-	}
-};
-
-/**
- * cancel export job
- */
-module.exports.cancelExportJob = function (argv, done) {
-	'use strict';
-
-	if (!verifyRun(argv)) {
-		done();
-		return;
-	}
-
-	try {
-		var serverName = argv.server;
-		var server = serverUtils.verifyServer(serverName, projectDir);
-		if (!server || !server.valid) {
-			done();
-			return;
-		}
-
-		var loginPromise = serverUtils.loginToServer(server);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.error(result.statusMessage);
-				done();
-				return;
-			}
-
-			var url = '/system/export/api/v1/exports/' + argv.id + '/cancel';
-
-			// Note: Export service on dev instances requires additional header
-			var headers;
-			if (server.env === 'dev_ec') {
-				headers = { 'IDCS_REMOTE_USER': server.username };
-			}
-
-			serverRest.executePost({
-				server: server,
-				endpoint: url,
-				noMsg: true,
-				responseStatus: true,
-				headers: headers
-			}).then(function (data) {
-				if (data) {
-					console.info('Failed to cancel export job ' + argv.id + ' : ' + (data['o:errorCode'] ? data.title : data.statusMessage));
-				} else {
-					console.info('Canceled export job ' + argv.id);
-				}
-
-				done(true);
-			});
-		});
-	} catch (e) {
-		console.error(e);
-		done();
-	}
-};
-
-/**
- * cancel import job
- */
-module.exports.cancelImportJob = function (argv, done) {
-	'use strict';
-
-	if (!verifyRun(argv)) {
-		done();
-		return;
-	}
-
-	try {
-		var serverName = argv.server;
-		var server = serverUtils.verifyServer(serverName, projectDir);
-		if (!server || !server.valid) {
-			done();
-			return;
-		}
-
-		var loginPromise = serverUtils.loginToServer(server);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.error(result.statusMessage);
-				done();
-				return;
-			}
-
-			var url = '/system/export/api/v1/imports/' + argv.id + '/cancel';
-
-			// Note: Export service on dev instances requires additional header
-			var headers;
-			if (server.env === 'dev_ec') {
-				headers = { 'IDCS_REMOTE_USER': server.username };
-			}
-
-			serverRest.executePost({
-				server: server,
-				endpoint: url,
-				noMsg: true,
-				responseStatus: true,
-				headers: headers
-			}).then(function (data) {
-				if (data) {
-					console.info('Failed to cancel import job ' + argv.id + ' : ' + (data['o:errorCode'] ? data.title : data.statusMessage));
-				} else {
-					console.info('Canceled import job ' + argv.id);
-				}
-
-				done(true);
-			});
-		});
-	} catch (e) {
-		console.error(e);
-		done();
-	}
-};
-
-/**
- * delete export job
- */
-module.exports.deleteExportJob = function (argv, done) {
-	'use strict';
-
-	if (!verifyRun(argv)) {
-		done();
-		return;
-	}
-
-	try {
-		var serverName = argv.server;
-		var server = serverUtils.verifyServer(serverName, projectDir);
-		if (!server || !server.valid) {
-			done();
-			return;
-		}
-
-		var loginPromise = serverUtils.loginToServer(server);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.error(result.statusMessage);
-				done();
-				return;
-			}
-
-			var url = '/system/export/api/v1/exports/' + argv.id;
-
-			// Note: Export service on dev instances requires additional header
-			var headers;
-			if (server.env === 'dev_ec') {
-				headers = { 'IDCS_REMOTE_USER': server.username };
-			}
-
-			serverRest.executeDelete({
-				server: server,
-				endpoint: url,
-				headers: headers
-			}).then(function (data) {
-				if (data.err) {
-					console.info('Failed to delete export job ' + argv.id + ' : ' + (data.data['o:errorCode'] ? data.data.title : data.data));
-				} else {
-					console.info('Deleted export job ' + argv.id);
-				}
-
-				done(true);
-			});
-		});
-	} catch (e) {
-		console.error(e);
-		done();
-	}
-};
-
-/**
- * delete import job
- */
-module.exports.deleteImportJob = function (argv, done) {
-	'use strict';
-
-	if (!verifyRun(argv)) {
-		done();
-		return;
-	}
-
-	try {
-		var serverName = argv.server;
-		var server = serverUtils.verifyServer(serverName, projectDir);
-		if (!server || !server.valid) {
-			done();
-			return;
-		}
-
-		var loginPromise = serverUtils.loginToServer(server);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.error(result.statusMessage);
-				done();
-				return;
-			}
-
-			var url = '/system/export/api/v1/imports/' + argv.id;
-
-			// Note: Export service on dev instances requires additional header
-			var headers;
-			if (server.env === 'dev_ec') {
-				headers = { 'IDCS_REMOTE_USER': server.username };
-			}
-
-			serverRest.executeDelete({
-				server: server,
-				endpoint: url,
-				headers: headers
-			}).then(function (data) {
-				if (data.err) {
-					console.info('Failed to delete import job ' + argv.id + ' : ' + (data.data['o:errorCode'] ? data.data.title : data.data));
-				} else {
-					console.info('Deleted import job ' + argv.id);
-				}
-
-				done(true);
-			});
-		});
-	} catch (e) {
-		console.error(e);
-		done();
-	}
-};
-
-/**
- * list export jobs
- */
-module.exports.listExportJobs = function (argv, done) {
-	'use strict';
-
-	if (!verifyRun(argv)) {
-		done();
-		return;
-	}
-
-	try {
-		var serverName = argv.server;
-		var server = serverUtils.verifyServer(serverName, projectDir);
-		if (!server || !server.valid) {
-			done();
-			return;
-		}
-
-		var loginPromise = serverUtils.loginToServer(server);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.error(result.statusMessage);
-				done();
-				return;
-			}
-			var url = '/system/export/api/v1/exports';
-			url += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,completed';
-
-			_executeGetExportService({
-				server: server,
-				endpoint: url,
-				noMsg: true
-			}).then(function (body) {
-				var data;
-				try {
-					data = JSON.parse(body);
-				} catch (e) {
-					data = body;
-				}
-				if (!data.err && data.items) {
-
-					var sitePromises = [];
-					data.items.forEach(job => {
-						sitePromises.push(_getSiteForExportJob(job.id, server));
-					});
-
-					Promise.all(sitePromises).then(sites => {
-						data.items.forEach(function (job, index) {
-							job.augmentedSiteName = sites.at(index).name;
-						});
-						var format = '%-28s  %-34s  %-12s  %-12s  %-26s  %-14s  %-28s';
-						console.log('Site export jobs:');
-						console.log(sprintf(format, 'Site Name', 'Id', 'Completed', 'Progress', 'Created At', 'Duration', 'Job Name'));
-						data.items.forEach(function (job) {
-							if (job.completed) {
-								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, job.createdAt || '', duration(job.createdAt, job.completedAt), job.name));
-							} else {
-								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, job.createdAt || '', '', job.name));
-							}
-						});
-					});
-				}
-
-				done(true);
-			});
-		});
-	} catch (e) {
-		console.error(e);
-		done();
-	}
-};
-
-/**
- * describe export job
- */
-module.exports.describeExportJob = function (argv, done) {
-	'use strict';
-
-	if (!verifyRun(argv)) {
-		done();
-		return;
-	}
-
-	try {
-		var serverName = argv.server;
-		var server = serverUtils.verifyServer(serverName, projectDir);
-		if (!server || !server.valid) {
-			done();
-			return;
-		}
-
-		var loginPromise = serverUtils.loginToServer(server);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.error(result.statusMessage);
-				done();
-				return;
-			}
-
-			sitesRest.describeExportJob({
-				server: server,
-				id: argv.id
+				id: argv.id,
+				type: 'site'
 			}).then(function (data) {
 				if (data.err) {
 					done();
@@ -6744,7 +6202,13 @@ module.exports.describeExportJob = function (argv, done) {
 
 					if (argv.download) {
 						var reportName = siteName || data.job.name;
-						_downloadReports(data.reports, reportName, server).then(function () {
+						exportserviceUtils.downloadReports({
+							reports: data.reports,
+							type: 'site',
+							name: reportName,
+							server: server,
+							projectDir: projectDir
+						}).then(function () {
 
 							if (data.job.progress === 'succeeded' && data.job.target && data.job.target.docs && data.job.target.docs.result) {
 								var exportFolderName = data.job.target.docs.result.folderName;
@@ -6795,9 +6259,9 @@ module.exports.describeExportJob = function (argv, done) {
 };
 
 /**
- * list import jobs
+ * describe site import job
  */
-module.exports.listImportJobs = function (argv, done) {
+module.exports.describeSiteImportJob = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
@@ -6821,86 +6285,10 @@ module.exports.listImportJobs = function (argv, done) {
 				return;
 			}
 
-			var url = '/system/export/api/v1/imports';
-
-			url += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,state,completed';
-
-			_executeGetExportService({
+			exportImportRest.describeImportJob({
 				server: server,
-				endpoint: url,
-				noMsg: true
-			}).then(function (body) {
-				var data;
-				try {
-					data = JSON.parse(body);
-				} catch (e) {
-					data = body;
-				}
-				if (!data.err && data.items) {
-					var sitePromises = [];
-					data.items.forEach(job => {
-						sitePromises.push(_getSiteForImportJob(job.id, server));
-					});
-
-					Promise.all(sitePromises).then(sites => {
-						if (Array.isArray(sites)) {
-							data.items.forEach(function (job, index) {
-								job.augmentedSiteName = sites.at(index) && sites.at(index).name;
-							});
-						}
-						var format = '%-28s  %-34s  %-12s  %-12s  %-22s  %-26s  %-14s  %-28s';
-						console.log('Site import jobs:');
-						console.log(sprintf(format, 'Site Name', 'Id', 'Completed', 'Progress', 'State', 'Created At', 'Duration', 'Job Name'));
-						data.items.forEach(function (job) {
-							var state = job.state || '';
-							if (job.completed) {
-								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, state, job.createdAt || '', duration(job.createdAt, job.completedAt), job.name));
-							} else {
-								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, state, job.createdAt || '', '', job.name));
-							}
-						});
-					});
-				}
-
-				done(true);
-			});
-		});
-	} catch (e) {
-		console.error(e);
-		done();
-	}
-};
-
-/**
- * describe import job
- */
-module.exports.describeImportJob = function (argv, done) {
-	'use strict';
-
-	if (!verifyRun(argv)) {
-		done();
-		return;
-	}
-
-	try {
-		var serverName = argv.server;
-		var server = serverUtils.verifyServer(serverName, projectDir);
-		if (!server || !server.valid) {
-			done();
-			return;
-		}
-
-		var loginPromise = serverUtils.loginToServer(server);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.error(result.statusMessage);
-				done();
-				return;
-			}
-
-			sitesRest.describeImportJob({
-				server: server,
-				id: argv.id
+				id: argv.id,
+				type: 'site'
 			}).then(function (data) {
 				if (data.err) {
 					done();
@@ -6989,34 +6377,42 @@ module.exports.describeImportJob = function (argv, done) {
 						console.log(sprintf(jobFormat, 'Duration', duration(job.createdAt, job.completedAt)));
 					}
 
-					console.log(sprintf(jobFormat, 'Validation', ''));
-					if (job.validationSummary) {
+					if (job.validationSummary && job.validationSummary.messagesByEntityTypes && job.validationSummary.messagesByEntityTypes.length > 0) {
+						console.log(sprintf(jobFormat, 'Validation', ''));
+
 						job.validationSummary.messagesByEntityTypes.forEach((entity) => {
 							if (entity.countsByLevel.error > 0) {
-								console.log(sprintf(v1Format, 'error count', entity.countsByLevel.error));
+								console.log(sprintf(v1Format, entity.entityType + ' error count', entity.countsByLevel.error));
 							}
 							if (entity.countsByLevel.warning > 0) {
-								console.log(sprintf(v1Format, 'warning count', entity.countsByLevel.warning));
+								console.log(sprintf(v1Format, entity.entityType + ' warning count', entity.countsByLevel.warning));
 							}
 							if (entity.countsByLevel.info > 0) {
-								console.log(sprintf(v1Format, 'info count', entity.countsByLevel.info));
+								console.log(sprintf(v1Format, entity.entityType + ' info count', entity.countsByLevel.info));
 							}
-						})
+						});
+
+						if (job.validationResults) {
+							job.validationResults.items.forEach((item) => {
+								console.log(sprintf(v2Format, item.entityType, item.entityName));
+								item.messages.items.forEach(function (message) {
+									console.log(sprintf(v3Format, message.level, message.text));
+								});
+							});
+						}
 					}
 
-					if (job.validationResults) {
-						job.validationResults.items.forEach((item) => {
-							console.log(sprintf(v2Format, item.entityType, item.entityName));
-							item.messages.items.forEach(function (message) {
-								console.log(sprintf(v3Format, message.level, message.text));
-							});
-						});
-					}
 
 					var checkDownload = function (dataForDownload) {
 						if (argv.download) {
 							var siteName = dataForDownload.job.targets[0].select.site.name;
-							_downloadReports(dataForDownload.reports, siteName, server).then(function () {
+							exportserviceUtils.downloadReports({
+								reports: dataForDownload.reports,
+								type: 'site',
+								name: siteName,
+								server: server,
+								projectDir: projectDir
+							}).then(function () {
 								done(true);
 							});
 						} else {
@@ -7025,9 +6421,10 @@ module.exports.describeImportJob = function (argv, done) {
 					}
 
 					if (job.progress === 'processing' && !job.completed) {
-						sitesRest.pollImportJobStatus({
+						exportImportRest.pollImportJobStatus({
 							server: server,
-							id: argv.id
+							id: argv.id,
+							type: 'site'
 						}).then(function (polldata) {
 							checkDownload(polldata);
 						});
@@ -7973,8 +7370,8 @@ module.exports.describeSite = function (argv, done) {
 				console.log(sprintf(format1, 'Created', site.createdAt + ' by ' + createdBy));
 				console.log(sprintf(format1, 'Updated', site.lastModifiedAt + ' by ' + lastModifiedBy));
 				console.log(sprintf(format1, 'Type', (site.isEnterprise ? 'Enterprise' : 'Standard')));
-				console.log(sprintf(format1, 'Template', site.templateName));
-				console.log(sprintf(format1, 'Theme', site.themeName));
+				console.log(sprintf(format1, 'Template', formatter.templateFormat(site.templateName)));
+				console.log(sprintf(format1, 'Theme', formatter.themeFormat(site.themeName)));
 				console.log(sprintf(format1, 'Published', site.publishStatus !== 'unpublished' && site.publishedAt ? '√ (published at ' + site.publishedAt + ')' : ''));
 				console.log(sprintf(format1, 'Online', site.runtimeStatus === 'online' && site.onlineAt ? '√ (online since ' + site.onlineAt + ')' : ''));
 
@@ -7989,7 +7386,7 @@ module.exports.describeSite = function (argv, done) {
 					}
 					console.log(sprintf(format1, 'Site prefix', site.sitePrefix));
 					console.log(sprintf(format1, 'Default language', site.defaultLanguage));
-					console.log(sprintf(format1, 'Repository', site.repository ? site.repository.name : ''));
+					console.log(sprintf(format1, 'Repository', site.repository ? formatter.repositoryFormat(site.repository.name) : ''));
 					console.log(sprintf(format1, 'Site channel token', channelToken));
 					if (site.siteCategory && site.siteCategory.id) {
 						console.log(sprintf(format1, 'Site Security category', site.siteCategory.namePath));
@@ -8112,7 +7509,7 @@ module.exports.describeSite = function (argv, done) {
 						let comps = [];
 						componentsUsed.forEach(function (comp) {
 							if (comp.scsPageID && comp.scsPageID === componentsUsedPageIds[i] && !comps.includes(comp.scsComponentName)) {
-								comps.push(comp.scsComponentName);
+								comps.push(formatter.componentFormat(comp.scsComponentName));
 							}
 						});
 						comps.sort();
@@ -8135,7 +7532,7 @@ module.exports.describeSite = function (argv, done) {
 						let items = [];
 						contentItemsUsed.forEach(function (item) {
 							if (item.scsPageID && item.scsPageID === assetsUsedPageIds[i] && !items.includes(item.scsContentItemID)) {
-								items.push(item.scsContentItemID);
+								items.push(formatter.assetFormat(item.scsContentItemID));
 							}
 						});
 						items.sort();

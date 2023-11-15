@@ -3,7 +3,9 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
-var serverUtils = require('../test/server/serverUtils.js'),
+
+var sprintf = require('sprintf-js').sprintf,
+	serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js');
 
 var console = require('../test/server/logger.js').console;
@@ -412,6 +414,161 @@ module.exports.removeMemberFromGroup = function (argv, done) {
 				done(success);
 			})
 			.catch((error) => {
+				done();
+			});
+	});
+
+};
+
+module.exports.listGroups = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		serverRest.getGroups({
+			server: server
+		})
+			.then(function (result) {
+				var groups = result || [];
+				// console.log(groups);
+
+				if (groups.length > 0) {
+					console.log('');
+
+					// sort by name
+					var byName = groups.slice(0);
+					byName.sort(function (a, b) {
+						var x = a.name.toLowerCase();
+						var y = b.name.toLowerCase();
+						return (x < y ? -1 : x > y ? 1 : 0);
+					});
+					groups = byName;
+
+					let format = '  %-3s  %-10s  %-60s  %-14s  %-24s  %-s';
+					console.log(sprintf(format, 'IAM', 'Id', 'Name', 'Type', 'Created on', 'Created by'));
+
+					groups.forEach(function(group) {
+						let isIAM = group.groupOriginType === 'IDP' ? ' √' : '';
+						console.log(sprintf(format, isIAM, group.id, group.name, group.groupType, group.createdDateInISO8601Format, (group.createdByUserDisplayName || group.createdByUserName)));
+					});
+					console.log('');
+				}
+				console.log(' - total groups: ' + groups.length);
+				if (groups.length > 0) {
+					console.info(' - use command cec execute-get \'/osn/social/api/v1/groups/<id>\' to get the details of a group');
+					// console.info(' - use command cec execute-get \'/osn/social/api/v1/groups/<groupid>/memberships\' to get the members of a group');
+				}
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+
+};
+
+module.exports.listUsers = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var groupName = argv.group;
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var groupPromises = [];
+		if (groupName) {
+			groupPromises.push(serverRest.getGroup({server: server, name: groupName}));
+		}
+
+		Promise.all(groupPromises)
+			.then(function (results) {
+
+				var group;
+				if (groupName) {
+					if (!results || !results[0] || results[0].err || !results[0].id) {
+						console.error('ERROR: group ' + groupName + ' does not exist');
+						return Promise.reject();
+					}
+					group = results[0];
+					console.info(' - verify group (Name: ' + group.name + ' Id: ' + group.id + ')');
+				}
+
+				return serverRest.getAllUsers({server: server, group: group && group.id});
+
+			})
+			.then(function (result) {
+
+				var users = result || [];
+
+				if (users.length > 0) {
+					console.log('');
+
+					// sort by name
+					var byName = users.slice(0);
+					byName.sort(function (a, b) {
+						var x = a.name.toLowerCase();
+						var y = b.name.toLowerCase();
+						return (x < y ? -1 : x > y ? 1 : 0);
+					});
+					users = byName;
+
+					let format = '  %-10s  %-40s  %-40s  %-24s  %-s';
+					console.log(sprintf(format, 'Id', 'Name', 'Display name', 'Created on', 'Created by'));
+
+					users.forEach(function(user) {
+
+						console.log(sprintf(format,  user.id, user.name, user.displayName, user.createdDateInISO8601Format, (user.createdByUserDisplayName || user.createdByUserName)));
+					});
+					console.log('');
+				}
+				console.log(' - total users: ' + users.length);
+				if (users.length > 0) {
+					console.info(' - use command cec execute-get \'/osn/social/api/v1/people/<id>\' to get the details of a user');
+				}
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
 				done();
 			});
 	});

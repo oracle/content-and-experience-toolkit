@@ -15,7 +15,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	os = require('os'),
 	readline = require('readline'),
 	sprintf = require('sprintf-js').sprintf,
-	zip = require('gulp-zip');
+	zip = require('gulp-zip'),
+	formatter = require('./formatter.js');
 
 var console = require('../test/server/logger.js').console;
 
@@ -1988,7 +1989,7 @@ module.exports.describeComponent = function (argv, done) {
 							console.log(sprintf(format2, 'Site', 'Pages'));
 							titleShown = true;
 						}
-						console.log(sprintf(format2, siteName, pages));
+						console.log(sprintf(format2, formatter.siteFormat(siteName), pages));
 					}
 				});
 

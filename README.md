@@ -14,6 +14,21 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 23.10.1
+
+**Added**
+- `cec list-groups` - Lists the groups on an OCM server
+- `cec list-users` - Lists the users on an OCM server
+
+**Updated**
+- `cec list-activities` - Now lists taxonomy activities on an OCM server
+- `cec list-assets` - Added validate option to check asset references, nativefiles and field text lengths
+- `cec execute-post` - Now allows stringified JSON for the request payload
+- `cec execute-put` - Now allows stringified JSON for the request payload
+- `cec execute-patch` - Now allows stringified JSON for the request payload
+- `cec describe-repository` - Now includes collection information and total number of items
+- `cec create-translation-job` - Added option `--skipdependencies`
+
 
 # New in Release 23.9.2
 
