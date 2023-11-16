@@ -981,6 +981,10 @@ var _getTemplateComponents = function (templateName, includeThemeComps) {
 		return comps;
 	}
 
+	if (!fs.existsSync(path.join(tempSrcDir, 'pages'))){
+		fs.mkdirSync(path.join(tempSrcDir, 'pages'));
+	}
+
 	var pages = fs.readdirSync(path.join(tempSrcDir, 'pages'));
 
 	var processInstances = function (componentInstances) {
