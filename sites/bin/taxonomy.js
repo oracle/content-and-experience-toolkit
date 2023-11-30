@@ -9,6 +9,7 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	path = require('path'),
 	os = require('os'),
 	readline = require('readline'),
+	formatter = require('./formatter.js'),
 	sprintf = require('sprintf-js').sprintf;
 
 var console = require('../test/server/logger.js').console;
@@ -1695,7 +1696,7 @@ module.exports.describeTaxonomy = function (argv, done) {
 					console.log('Categories:');
 					console.log('');
 					var ident = '  ';
-					_displayCategories(tax.id, categories, ident, duplicatedAPINames);
+					_displayCategories(tax.id, categories, ident, duplicatedAPINames, tax.name);
 
 					console.log('');
 					console.log(' - total categories: ' + categories.length);
@@ -1721,17 +1722,17 @@ module.exports.describeTaxonomy = function (argv, done) {
 
 };
 
-var _displayCategories = function (parentId, categories, ident, duplicatedAPINames) {
+var _displayCategories = function (parentId, categories, ident, duplicatedAPINames, taxononyName) {
 
 	var i;
 	for (i = 0; i < categories.length; i++) {
 		var cat = categories[i];
 		if (parentId === cat.parentId) {
 			var label = duplicatedAPINames.includes(cat.apiName) ? ' !!! DUPLICATED !!!' : '';
-			console.log(ident + cat.name + '  (' + cat.apiName + ')' + label);
+			console.log(ident + cat.name + '  (' + formatter.categoryFormat(cat.apiName, taxononyName) + ')' + label);
 
 			if (cat.children && cat.children.count > 0) {
-				_displayCategories(cat.id, categories, ident + '    ', duplicatedAPINames);
+				_displayCategories(cat.id, categories, ident + '    ', duplicatedAPINames, taxononyName);
 			}
 		}
 	}

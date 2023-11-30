@@ -4643,7 +4643,7 @@ module.exports.controlSite = function (argv, done) {
 		var detailPageAssets = argv.detailpageassets;
 
 		var metadataName = argv.name;
-		var metadataValue = argv.value ? argv.value : '';
+		var metadataValue = argv.value ? argv.value.toString() : '';
 
 		var expireDate = argv.expiredate;
 
@@ -4955,6 +4955,10 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 
 					actionPromise = _setSiteMetadata(server, site.id, site.name, metadataName, metadataValue);
 
+				} else if (action === 'set-custom-property' || action === 'remove-custom-property') {
+
+					actionPromise = _updateCustomSiteProperty(server, site.id, site.name, metadataName, metadataValue, action);
+
 				} else if (action === 'expire') {
 					actionPromise = sitesRest.setSiteExpirationDate({
 						server: server,
@@ -4985,6 +4989,9 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 					} else {
 						console.log(' - clear site metadata ' + metadataName);
 					}
+				} else if (action === 'set-custom-property' || action === 'remove-custom-property') {
+					// no need extra output
+
 				} else if (action === 'expire') {
 					console.log(' - site expires at ' + result.expiresAt);
 				} else if (action === 'publish' || action === 'publish-internal') {
@@ -5047,6 +5054,119 @@ var _setSiteMetadata = function (server, siteId, siteName, metadataName, metadat
 				}
 
 				return resolve({});
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
+};
+
+var _updateCustomSiteProperty = function (server, siteId, siteName, name, value, action) {
+	var _displayCustomProperties = function (properties) {
+		let format = '   %-36s  %-s';
+		Object.keys(properties).sort().forEach(function (name) {
+			console.log(sprintf(format, name, properties[name]));
+		});
+	};
+	return new Promise(function (resolve, reject) {
+		var siteinfoFileId;
+		// get siteinfo.json
+		serverRest.findFile({
+			server: server,
+			parentID: siteId,
+			filename: 'siteinfo.json',
+			itemtype: 'file'
+		})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+				siteinfoFileId = result.id;
+				return serverRest.readFile({
+					server: server,
+					fFileGUID: siteinfoFileId
+				});
+
+			})
+			.then(function (result) {
+				var siteinfoJson = result;
+				if (!siteinfoJson || !siteinfoJson.properties || !siteinfoJson.properties.siteName) {
+					console.error('ERROR: siteinfo.json is invalid');
+					return Promise.reject();
+				}
+				var customProperties = siteinfoJson.properties.customProperties || {};
+				// console.log(customProperties);
+
+				if (action === 'set-custom-property' && customProperties[name] && customProperties[name] === value) {
+					console.info(' - custom site property ' + name + ' already exists with value "' + value + '"');
+					_displayCustomProperties(customProperties);
+					return resolve({});
+				} else if (action === 'remove-custom-property' && !customProperties.hasOwnProperty(name)) {
+					console.info(' - custom site property ' + name + ' does not exist');
+					_displayCustomProperties(customProperties);
+					return resolve({});
+				} else {
+					if (action === 'set-custom-property') {
+						// add or update value
+						customProperties[name] = value;
+					} else {
+						// remove
+						delete customProperties[name];
+					}
+					if (siteinfoJson.properties.hasOwnProperty('customProperties')) {
+						siteinfoJson.properties.customProperties = customProperties;
+					} else {
+						siteinfoJson.properties['customProperties'] = customProperties;
+					}
+					//
+					// update siteinfo.json
+					//
+					let buildfolder = serverUtils.getBuildFolder(projectDir);
+					if (!fs.existsSync(buildfolder)) {
+						fs.mkdirSync(buildfolder);
+					}
+					let sitesBuildDir = path.join(buildfolder, 'sites');
+					if (!fs.existsSync(sitesBuildDir)) {
+						fs.mkdirSync(sitesBuildDir);
+					}
+					let fileName = 'siteinfo.json';
+					let filePath = path.join(sitesBuildDir, fileName);
+					fs.writeFileSync(filePath, JSON.stringify(siteinfoJson, null, 4));
+					serverRest.createFile({
+						server: server,
+						parentID: siteId,
+						filename: fileName,
+						contents: fs.createReadStream(filePath)
+					}).then(function (result) {
+						if (!result || result.err || !result.id) {
+							console.error('ERROR: failed to update custom site property in siteinfo.json');
+							return resolve({
+								err: 'err'
+							});
+						} else {
+							// read siteinfo again
+							serverRest.readFile({
+								server: server,
+								fFileGUID: siteinfoFileId
+							}).then(function (result) {
+								customProperties = result && result.properties && result.properties.customProperties || {};
+								if (action === 'set-custom-property') {
+									console.log(' - custom site property ' + name + ' saved:');
+								} else {
+									console.log(' - custom site property ' + name + ' removed:');
+								}
+								_displayCustomProperties(customProperties);
+								return resolve({});
+							});
+						}
+					});
+				}
+
 			})
 			.catch((error) => {
 				if (error) {
@@ -5697,6 +5817,143 @@ module.exports.deleteSite = function (argv, done) {
 };
 
 /**
+ * Validate input for replicate site
+ */
+module.exports.validateReplicateSiteInput = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var destServerName = argv.destination;
+	var destServer = serverUtils.verifyServer(destServerName, projectDir);
+	if (!destServer || !destServer.valid) {
+		done();
+		return;
+	}
+
+	if (server.url === destServer.url) {
+		console.error('ERROR: source and destination server are the same');
+		done();
+		return;
+	}
+
+	try {
+		var siteName = argv.name;
+
+		sitesRest.resourceExist({
+			server: server,
+			type: 'sites',
+			name: siteName,
+			showInfo: false
+		}).then(function(siteInfo) {
+			if (!siteInfo.id) {
+				console.error('ERROR: Site ' + siteName + ' is not found');
+				done();
+				return;
+			}
+
+			sitesRest.resourceExist({
+				server: destServer,
+				type: 'sites',
+				name: siteName,
+				expand: 'repository',
+				showInfo: false
+			}).then(function(destSiteInfo) {
+				if (destSiteInfo.id) {
+					console.log('INFO: site ' + siteName + ' exists on destination server. Set sitepolicy to updateSite.');
+					argv.sitepolicy = 'updateSite';
+				} else {
+					console.log('INFO: site ' + siteName + ' does not exist on destination server. Set sitepolicy to createSite.');
+					argv.sitepolicy = 'createSite';
+				}
+
+				if (siteInfo.isEnterprise) {
+					var requiredArgMissing = false,
+						repository = argv.repository,
+						localizationPolicy = argv.localizationPolicy;
+
+					if (!repository) {
+						console.error('ERROR: repository not specified for enterprise site');
+						requiredArgMissing = true;
+					}
+					if (!localizationPolicy) {
+						console.error('ERROR: localization policy not specified for enterprise site');
+						requiredArgMissing = true;
+					}
+					if (requiredArgMissing) {
+						done();
+						return;
+					}
+
+					var promises = [];
+					promises.push(serverRest.getRepositoryWithName({
+						server: destServer,
+						name: repository,
+						fields: 'id'
+					}));
+					promises.push(serverRest.getLocalizationPolicWithName({
+						server: destServer,
+						name: localizationPolicy,
+						fields: 'id'
+					}));
+
+					Promise.all(promises).then(function (results) {
+						var requiredMissing = false,
+							repo = results[0],
+							l10n = results[1][0];
+
+						if (!repo || repo.err) {
+							console.error('ERROR: failed to get repository ' + repository);
+							requiredMissing = true;
+						} else if (!repo.data || !repo.data.id) {
+							console.error('ERROR: repository ' + repository + ' does not exist');
+							requiredMissing = true;
+						} else if (!repo.data.notReadyEnabled) {
+							console.error('ERROR: notReadyEnabled property must be set to true in repository ' + repository);
+							requiredMissing = true;
+						}
+
+						if (destSiteInfo.id && destSiteInfo.repository.id && destSiteInfo.repository.id !== repo.data.id) {
+							console.error('ERROR: site ' + siteName + ' is associated with a different repository - ' + destSiteInfo.repository.name);
+							requiredMissing = true;
+						}
+
+						if (!l10n || l10n.err) {
+							console.error('ERROR: failed to get localizationPolicy ' + localizationPolicy);
+							requiredMissing = true;
+						} else if (!l10n.id) {
+							console.error('ERROR: localizationPolicy ' + localizationPolicy + ' does not exist');
+							requiredMissing = true;
+						}
+						if (requiredMissing) {
+							done();
+							return;
+						}
+
+						done(true);
+					});
+				} else {
+					done(true);
+				}
+			});
+		});
+	} catch (e) {
+		console.error(e);
+		done();
+	}
+};
+
+/**
  * export site
  */
 module.exports.exportSite = function (argv, done) {
@@ -5794,6 +6051,20 @@ module.exports.exportSite = function (argv, done) {
 						folderId: folderId,
 						includeunpublishedassets: (includeunpublishedassets === true) || (includeunpublishedassets === 'true') || false
 					}).then(function (data) {
+						if (process.shim) {
+							// link to download if in the powershell
+							if (data && data.reports) {
+								var id = (data.reports[0] || '').replace(/.*exports\//, '').replace(/\/reports.*/, '');
+								console.log(' - [!--downloadExportReport--]' + id + '[/!--downloadExportReport--]', '');
+							}
+							if (data.err) {
+								done();
+							} else {
+								done(true);
+							}
+							return;
+						}
+
 						exportserviceUtils.downloadReports({
 							reports: data.reports,
 							type: 'site',
@@ -5848,7 +6119,9 @@ module.exports.exportSite = function (argv, done) {
 				})
 				.catch((error) => {
 					if (error) {
-						console.error(error);
+						console.error('ExportSite encountered error: ' + error);
+					} else {
+						console.error('ExportSite encountered error shown in the above');
 					}
 					done();
 				})
@@ -5931,36 +6204,39 @@ module.exports.importSite = function (argv, done) {
 				.then(function () {
 					var repositoryPromises = [];
 
-					repositoryPromises.push(serverRest.getRepositoryWithName({
-						server: server,
-						name: repository,
-						fields: 'id'
-					}));
+					if (repository) {
+						repositoryPromises.push(serverRest.getRepositoryWithName({
+							server: server,
+							name: repository,
+							fields: 'id'
+						}));
+					}
 
 					return Promise.all(repositoryPromises);
 				})
 				.then(function (repos) {
-					var repo = repos[0];
-					if (!repo || repo.err) {
-						return Promise.reject('failed to get repository ' + repository);
-					}
-					if (!repo.data || !repo.data.id) {
-						return Promise.reject('repository ' + repository + ' does not exist');
-					} else {
-						importRepo = repo.data;
+					var l10NPolicyPromises = [];
 
-						var l10NPolicyPromises = [];
-
-						if (localizationPolicy) {
-							l10NPolicyPromises.push(serverRest.getLocalizationPolicWithName({
-								server: server,
-								name: localizationPolicy,
-								fields: 'id'
-							}));
+					if (repository) {
+						var repo = repos[0];
+						if (!repo || repo.err) {
+							return Promise.reject('failed to get repository ' + repository);
 						}
+						if (!repo.data || !repo.data.id) {
+							return Promise.reject('repository ' + repository + ' does not exist');
+						} else {
+							importRepo = repo.data;
 
-						return Promise.all(l10NPolicyPromises);
+							if (localizationPolicy) {
+								l10NPolicyPromises.push(serverRest.getLocalizationPolicWithName({
+									server: server,
+									name: localizationPolicy,
+									fields: 'id'
+								}));
+							}
+						}
 					}
+					return Promise.all(l10NPolicyPromises);
 				})
 				.then(function (l10Ps) {
 					if (localizationPolicy) {
@@ -6032,9 +6308,22 @@ module.exports.importSite = function (argv, done) {
 					var importSitePromises = [];
 
 					if (archivedata.id) {
+						var repoRequired = false,
+							lpRequired = false;
 						archivedata.entries.items.forEach((entry) => {
-							// TODO: Bypass empty entry returned by the API.
-							if (entry.site) {
+
+							if (entry.entityType === 'site') {
+								if (entry.site.isEnterprise) {
+									if (!repository) {
+										repoRequired = true;
+										return;
+									}
+									if (policies === 'duplicateSite' && (!localizationPolicy || !sitePrefix)) {
+										lpRequired = true;
+										return;
+									}
+								}
+
 								var siteId = entry.site.id;
 
 								// TODO: Irrelevant in multiple sites case
@@ -6048,7 +6337,7 @@ module.exports.importSite = function (argv, done) {
 									name: jobName,
 									archiveId: archivedata.id,
 									siteId: siteId,
-									repositoryId: importRepo.id,
+									repositoryId: importRepo && importRepo.id,
 									localizationPolicyId: importL10P && importL10P.id,
 									sitePrefix: sitePrefix,
 									policies: policies,
@@ -6058,12 +6347,35 @@ module.exports.importSite = function (argv, done) {
 								}));
 							}
 						});
+
+						if (repoRequired) {
+							return Promise.reject('repository not specified for enterprise site');
+						}
+						if (lpRequired) {
+							return Promise.reject('localization policy or site prefix not specified for duplicating enterprise site');
+						}
 					}
 
 					return Promise.all(importSitePromises);
 				})
 				.then(function (values) {
 					var data = values[0];
+
+					// don't try to save the report if running in powershell
+					if (process.shim) {
+						// link to download if in the powershell
+						if (data && data.reports) {
+							var id = (data.reports[0] || '').replace(/.*imports\//, '').replace(/\/reports.*/, '');
+							console.log(' - [!--downloadImportReport--]' + id + '[/!--downloadImportReport--]', '');
+						}
+						if (data && data.err) {
+							done();
+						} else {
+							done(true);
+						}
+						return;
+					}
+
 					if (data) {
 						// TODO: Comment out before removal
 						// console.info('');
@@ -6087,12 +6399,16 @@ module.exports.importSite = function (argv, done) {
 					}
 				})
 				.catch(function (error) {
-					console.error('ImportSite 1 encountered: ' + error);
+					if (error) {
+						console.error('ERROR: ImportSite encountered error: ' + error);
+					} else {
+						console.error('ERROR: ImportSite encountered error shown in the above');
+					}
 					done();
 				});
 
 		}).catch(function (error) {
-			console.error('ImportSite 2 encountered: ' + error);
+			console.error('ERROR: ImportSite while logging in encountered: ' + error);
 			done();
 		})
 	} catch (e) {
@@ -6174,7 +6490,7 @@ module.exports.describeSiteExportJob = function (argv, done) {
 					job.sources.forEach((s) => {
 						if (s.select.type === 'site') {
 							if (siteName) {
-								console.log(sprintf(jobFormat, 'Site Name', siteName));
+								console.log(sprintf(jobFormat, 'Site Name', formatter.siteFormat(siteName)));
 							} else {
 								console.log(sprintf(jobFormat, 'Site Id', s.select.site.id));
 							}
@@ -6200,7 +6516,10 @@ module.exports.describeSiteExportJob = function (argv, done) {
 						console.log(sprintf(jobFormat, 'Duration', duration(job.createdAt, job.completedAt)));
 					}
 
-					if (argv.download) {
+					if (process.shim) {
+						console.log(sprintf(jobFormat, '[!--downloadExportReport--]' + argv.id + '[/!--downloadExportReport--]', ''));
+						done(true);
+					} else if (argv.download) {
 						var reportName = siteName || data.job.name;
 						exportserviceUtils.downloadReports({
 							reports: data.reports,
@@ -6239,7 +6558,7 @@ module.exports.describeSiteExportJob = function (argv, done) {
 								};
 
 								documentUtils.downloadFolder(downloadArgv, server, true, true, [], exportSiteFileGroupSize).then(function () {
-									console.info('Downloaded export site files to ' + targetPath);
+									console.info(os.EOL + 'Downloaded export site files to ' + targetPath);
 									done(true);
 								});
 							} else {
@@ -6301,7 +6620,8 @@ module.exports.describeSiteImportJob = function (argv, done) {
 					v1Format = '    %-26s  %-s',
 					v2Format = '      %-24s  %-s',
 					v3Format = '        %-22s  %-s',
-					job = data.job;
+					job = data.job,
+					repositoryId;
 
 				var promises = [];
 
@@ -6309,9 +6629,12 @@ module.exports.describeSiteImportJob = function (argv, done) {
 					// Support single site for now.
 					var target = job.targets.at(0);
 
-					var repositoryId = target.apply[target.apply.policies].site.repository.id;
-
-					promises.push(_getRepository(repositoryId, server));
+					if (target.apply[target.apply.policies]) {
+						repositoryId = target.apply[target.apply.policies].site.repository && target.apply[target.apply.policies].site.repository.id;
+						if (repositoryId) {
+							promises.push(_getRepository(repositoryId, server));
+						}
+					}
 				}
 
 				Promise.all(promises).then(augmentedData => {
@@ -6331,39 +6654,47 @@ module.exports.describeSiteImportJob = function (argv, done) {
 						switch (t.apply.policies) {
 						case 'createSite':
 							console.log(sprintf(jobFormat, 'Import Policy', 'Create Site from Archive'));
-							console.log(sprintf(jobFormat, 'Assets policy', t.apply.createSite.assetsPolicy));
-							if (repositoryName) {
-								console.log(sprintf(jobFormat, 'Target Asset Repository', repositoryName));
-							} else {
-								console.log(sprintf(jobFormat, 'Target Asset Repository Id', t.apply.createSite.site.repository.id));
+							if (repositoryId) {
+								console.log(sprintf(jobFormat, 'Assets policy', t.apply.createSite.assetsPolicy));
+								if (repositoryName) {
+									console.log(sprintf(jobFormat, 'Target Asset Repository', repositoryName));
+								} else {
+									console.log(sprintf(jobFormat, 'Target Asset Repository Id', t.apply.createSite.site.repository.id));
+								}
 							}
 							break;
 						case 'updateSite':
 							console.log(sprintf(jobFormat, 'Import Policy', 'Update Site from Archive'));
-							console.log(sprintf(jobFormat, 'Assets policy', t.apply.updateSite.assetsPolicy));
-							if (repositoryName) {
-								console.log(sprintf(jobFormat, 'Target Asset Repository', repositoryName));
-							} else {
-								console.log(sprintf(jobFormat, 'Target Asset Repository Id', t.apply.updateSite.site.repository.id));
+							if (repositoryId) {
+								console.log(sprintf(jobFormat, 'Assets policy', t.apply.updateSite.assetsPolicy));
+								if (repositoryName) {
+									console.log(sprintf(jobFormat, 'Target Asset Repository', repositoryName));
+								} else {
+									console.log(sprintf(jobFormat, 'Target Asset Repository Id', t.apply.updateSite.site.repository.id));
+								}
 							}
 							break;
 						case 'duplicateSite':
 							console.log(sprintf(jobFormat, 'Import Policy', 'Duplicate Site from Archive'));
-							console.log(sprintf(jobFormat, 'Assets policy', t.apply.duplicateSite.assetsPolicy));
-							if (repositoryName) {
-								console.log(sprintf(jobFormat, 'Target Asset Repository', repositoryName));
-							} else {
-								console.log(sprintf(jobFormat, 'Target Asset Repository Id', t.apply.duplicateSite.site.repository.id));
+							if (repositoryId) {
+								console.log(sprintf(jobFormat, 'Assets policy', t.apply.duplicateSite.assetsPolicy));
+								if (repositoryName) {
+									console.log(sprintf(jobFormat, 'Target Asset Repository', repositoryName));
+								} else {
+									console.log(sprintf(jobFormat, 'Target Asset Repository Id', t.apply.duplicateSite.site.repository.id));
+								}
 							}
 							break;
 						default:
 						}
 
 						if (t.select.type === 'site') {
-							console.log(sprintf(jobFormat, 'Site Name', t.select.site.name));
-							console.log(sprintf(jobFormat, 'Publishing Channel', t.select.site.channel.name));
-							console.log(sprintf(jobFormat, 'Localization Policy', t.select.site.channel.localizationPolicy.name));
-							console.log(sprintf(jobFormat, 'Default Language', t.select.site.defaultLanguage));
+							console.log(sprintf(jobFormat, 'Site Name', formatter.siteFormat(t.select.site.name)));
+							if (t.select.site.isEnterprise) {
+								console.log(sprintf(jobFormat, 'Publishing Channel', t.select.site.channel.name));
+								console.log(sprintf(jobFormat, 'Localization Policy', t.select.site.channel.localizationPolicy.name));
+								console.log(sprintf(jobFormat, 'Default Language', t.select.site.defaultLanguage));
+							}
 						}
 					});
 
@@ -6404,7 +6735,10 @@ module.exports.describeSiteImportJob = function (argv, done) {
 
 
 					var checkDownload = function (dataForDownload) {
-						if (argv.download) {
+						if (process.shim) {
+							console.log(sprintf(jobFormat, '[!--downloadImportReport--]' + argv.id + '[/!--downloadImportReport--]', ''));
+							done(true);
+						} else if (argv.download) {
 							var siteName = dataForDownload.job.targets[0].select.site.name;
 							exportserviceUtils.downloadReports({
 								reports: dataForDownload.reports,
@@ -7482,6 +7816,18 @@ module.exports.describeSite = function (argv, done) {
 					console.log(sprintf(format1, 'Mobile User-Agent', siteMetadata.scsMobileUserAgents));
 				}
 
+				if (siteinfoJson && siteinfoJson.customProperties) {
+					// console.log(siteinfoJson.customProperties);
+					console.log(sprintf(format1, 'Custom site properties', ''));
+					let propFormat = '  %-36s  %-s';
+					let names = Object.keys(siteinfoJson.customProperties);
+					names = names.sort();
+					names.forEach(function (name) {
+						let value = siteinfoJson.customProperties[name];
+						console.log(sprintf(propFormat, name, value));
+					});
+				}
+
 				if (siteInfo && siteInfo.JobID) {
 					// console.log(siteInfo);
 					console.log(sprintf(format1, 'Job action', siteInfo.JobAction));
@@ -7492,7 +7838,7 @@ module.exports.describeSite = function (argv, done) {
 					console.log(sprintf(format1, 'Job message', siteInfo.JobMessage));
 				}
 
-				let format2 = '  %-12s  %-s';
+				let format2 = '  %-36s  %-s';
 
 				console.log(sprintf(format1, 'Components used', ''));
 				if (componentsUsed.length > 0) {
@@ -7558,6 +7904,7 @@ module.exports.describeSite = function (argv, done) {
 							}
 						});
 						types.sort();
+						types = types.map((type) => { return formatter.typeFormat(type);});
 						console.log(sprintf(format2, typesUsedPageIds[i], types.join(', ')));
 					}
 				}

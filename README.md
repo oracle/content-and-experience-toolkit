@@ -14,6 +14,26 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+
+# New in Release 23.11.1
+
+**Added**
+- `cec replicate-site` - Replicates a site from one OCM server to another
+- `cec replicate-repository` - Replicates a repository from one OCM server to another
+- `cec export-repository` - Exports a repository on an OCM server to a folder
+- `cec import-repository` - Imports a repository to an OCM server from a folder
+- `cec describe-collection` - Lists the properties of a collection on an OCM server
+- `cec describe-translation-job` - Lists the properties of a translation job on an OCM server
+- `cec describe-localization-policy` - Lists the properties of a localization policy on an OCM server
+
+**Updated**
+- `cec control-site` - Add new action `set-custom-property`
+- `cec control-site` - Add new action `remove-custom-property`
+- `cec list-translation-jobs` - Added new options `type, status, repository, namefilter, orderby`
+- `cec list-assets` - Supports new property `repository`
+- `cec describe-site` - Now displays custom site properties
+
+
 # New in Release 23.10.1
 
 **Added**

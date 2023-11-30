@@ -23,11 +23,6 @@ const _isWindows = /^win/.test(process.platform) ? true : false;
 if (_isWindows && cwd.endsWith(':\\')) {
 	cwd = cwd.substring(0, cwd.length - 1);
 }
-// overriding console underbrowser
-if (process.shim) {
-	// eslint-disable-next-line no-global-assign
-	console = require('../../test/server/loggerforWeb').console;
-}
 
 // console.log("Current working directory is: " + cwd);
 
@@ -157,13 +152,26 @@ var getSiteMapChangefreqValues = function () {
 	return values;
 };
 
+var getTranslationJobTypes = function () {
+	const values = ['assets', 'sites'];
+	return values;
+};
+var getTranslationJobStatus = function () {
+	const values = ['READY', 'INPROGRESS', 'TRANSLATED', 'FAILED'];
+	return values;
+};
+var getTranslationJobOrders = function () {
+	const values = ['name', 'connectorName', 'updatedDate'];
+	return values;
+};
+
 var getTranslationJobExportTypes = function () {
 	const values = ['siteAll', 'siteItems', 'siteAssets'];
 	return values;
 };
 
 var getSiteActions = function () {
-	const actions = ['publish', 'unpublish', 'bring-online', 'take-offline', 'set-theme', 'set-metadata', 'expire'];
+	const actions = ['publish', 'unpublish', 'bring-online', 'take-offline', 'set-theme', 'set-metadata', 'set-custom-property', 'remove-custom-property', 'expire'];
 	return actions;
 };
 
@@ -356,9 +364,25 @@ var getImportSitePolicies = function () {
 };
 
 var getImportSiteAssetPolicies = function () {
-	const policies = ['createOrUpdate', 'createOrUpdateIfOutdated', 'duplicate', 'override'];
+	const policies = ['createOrUpdate', 'createOrUpdateIfOutdated', 'duplicate'];
 	return policies;
 };
+
+var getReplicateSiteAssetPolicies = function () {
+	const policies = ['createOrUpdate', 'createOrUpdateIfOutdated'];
+	return policies;
+};
+
+var getImportRepositoryAssetPolicies = function () {
+	const policies = ['createOrUpdate', 'createOrUpdateIfOutdated', 'duplicate'];
+	return policies;
+};
+
+var getReplicateRepositoryAssetPolicies = function () {
+	const policies = ['createOrUpdate', 'createOrUpdateIfOutdated'];
+	return policies;
+};
+
 
 var getLoggerLevels = function () {
 	const types = ['error', 'warn', 'info', 'debug'];
@@ -367,7 +391,7 @@ var getLoggerLevels = function () {
 
 var getListAssetProperties = function () {
 	const properties = ['id', 'name', 'type', 'language', 'slug', 'status', 'createdDate', 'createdBy', 'updatedDate', 'updatedBy', 'version', 'publishedVersion', 'size',
-		'references', 'referencedBy', 'referencedBySites'];
+		'repository', 'references', 'referencedBy', 'referencedBySites'];
 	return properties;
 };
 
@@ -1799,6 +1823,8 @@ const controlSite = {
 		['cec control-site take-offline -s Site1 -r SampleServer1', 'Take site Site1 offline on the registered server SampleServer1'],
 		['cec control-site set-theme -s Site1 -e Theme2', 'Change site Site1 to use theme Theme2'],
 		['cec control-site set-metadata -s Site1 -n scsCompileStatus -v \'{"jobId":"job604911","status":"COMPILED","progress":100,"compiledAt":"2022-05-05T08:33:20.203Z"}\'', 'Update compile status for site Site1'],
+		['cec control-site set-custom-property -s Site1 -n Property1 -v "Value 1"', 'Add custom site property Property1 with value "Value 1"'],
+		['cec control-site remove-custom-property -s Site1 -n Property1', 'Remove custom site property Property1'],
 		['cec control-site expire -s Site1 -x "2023-01-01T00:00:00.000Z"', 'Set the site expiration date']
 	]
 };
@@ -2044,12 +2070,33 @@ const updateSite = {
 	]
 };
 
+const replicateRepository = {
+	command: 'replicate-repository <name>',
+	alias: 'rpr',
+	name: 'replicate-repository',
+	usage: {
+		'short': 'Replicates a repository.',
+		'long': (function () {
+			let desc = 'Replicates a repository from one OCM server to another. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			desc = desc + os.EOL + 'The valid policies for <assetpolicy> are:' + os.EOL + os.EOL;
+			desc = getReplicateRepositoryAssetPolicies().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+		})()
+	},
+	example: [
+		['cec replicate-repository Repo1 -s srcServer -d destServer -r Repo1', 'Replicate Repo1 to the destServer OCM with createOrUpdateIfOutdated asset policy.'],
+		['cec replicate-repository Repo1 -s srcServer -d destServer -r Repo1 -x -y', 'Replicate Repo1 including taxonomies to the destServer OCM'],
+		['cec replicate-repository Repo1 -s srcServer -d destServer -r Repo1 -c -b', 'Replicate Repo1 including channels to the destServer OCM'],
+		['cec replicate-repository Repo1 -s srcServer -d destServer -r Repo1 -l -m', 'Replicate Repo1 including collections to the destServer OCM']
+	]
+};
+
 const exportRepository = {
 	command: 'export-repository <name>',
 	alias: 'er',
 	name: 'export-repository',
 	usage: {
-		'short': 'Exports the repository <name>.',
+		'short': 'Exports a repository.',
 		'long': (function () {
 			let desc = 'Exports the repository on OCM server to a folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'Specify the folder with -f <folder> and specify the job name with -j <job-name>. ';
@@ -2061,9 +2108,9 @@ const exportRepository = {
 			'Export Repo1 including assets and types to home folder on the OCM server'],
 		['cec export-repository Repo1 -v -c -l -x',
 			'Export Repo1 including assets, types, custom components, channels, collections and taxonomies to home folder on the OCM server'],
-		['cec export-repository Repo1 -q \'channels co "RCHANNEL23B5221484BB46FAB4"\'',
+		['cec export-repository Repo1 -q \'channels co "RCHANNEL23B5221484BB46"\'',
 			'Export Repo1 including assets returned by the query specified to home folder on the OCM server'],
-		['cec export-repository Repo1 -o \'{"includeAssets":true,"assetOptions":...\'',
+		['cec export-repository Repo1 -o \'{"assetOptions":...}\'',
 			'Export Repo1 using the options specified to home folder on the OCM server'],
 		['cec export-repository Repo1 -f Export -j Repo1ExportJob -a -t',
 			'Export Repo1 and include assets as Repo1ExportJob to Export folder on the OCM server'],
@@ -2079,11 +2126,11 @@ const importRepository = {
 	alias: 'ir',
 	name: 'import-repository',
 	usage: {
-		'short': 'Imports the repository <name>.',
+		'short': 'Imports a repository.',
 		'long': (function () {
 			let desc = 'Import repository to OCM server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			desc = desc + os.EOL + 'The valid policies for <assetpolicy> are:' + os.EOL + os.EOL;
-			desc = getImportSiteAssetPolicies().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = getImportRepositoryAssetPolicies().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 		})()
 	},
@@ -2096,14 +2143,35 @@ const importRepository = {
 			'Import Repo1 including assets, types and custom components using duplicate asset policy and slug prefix u2 to Repo2 on the OCM server'],
 		['cec import-repository Repo1 -r Repo1 -p /dev/folder',
 			'Import Repo1 in /dev/folder to Repo1 on the OCM server'],
-		['cec import-repository Repo1 -r Repo1 -o \'{"assetOptions":{"updatePolicy"...\'',
+		['cec import-repository Repo1 -r Repo1 -o \'{"assetOptions":...}\'',
 			'Import Repo1 to Repo1 on the OCM server using the specified options'],
 		['cec import-repository Repo1 -j Repo1ImportJob -r Repo1',
 			'Import Repo1 to the OCM server with Repo1ImportJob as job name'],
-		['cec import-repository Repo1 -f Repo1_72D365DB55C94BF1BB023299B4AB64 -r Repo1',
+		['cec import-repository Repo1 -f Repo1_72D365DB55C94BF1BB023299 -r Repo1',
 			'Import from the given folder on the OCM server'],
 		['cec import-repository Repo1 -r Repo1 -g',
 			'Import Repo1 in src/repositoryExport/Repo1 to Repo1 on the OCM server and ignore all validation warnings']
+	]
+};
+
+const replicateSite = {
+	command: 'replicate-site <name>',
+	alias: 'rps',
+	name: 'replicate-site',
+	usage: {
+		'short': 'Replicates a site.',
+		'long': (function () {
+			let desc = 'Replicates a site from one OCM server to another. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			desc = desc + os.EOL + 'The valid policies for <assetpolicy> are:' + os.EOL + os.EOL;
+			desc = getReplicateSiteAssetPolicies().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+		})()
+	},
+	example: [
+		['cec replicate-site Site -s srcServer -d destServer', 'Replicate Site to the destServer OCM'],
+		['cec replicate-site Site1 -s srcServer -d destServer -r repo -l langPolicy', 'Replicate enterprise Site1 to the destServer OCM'],
+		['cec replicate-site Site1 -s srcServer -d destServer -r repo -l langPolicy -k', 'Replicate enterprise Site1 on the destServer OCM including unpublished assets'],
+		['cec replicate-site Site1 -s srcServer -d destServer -r repo -l langPolicy -a createOrUpdateIfOutdated -k', 'Update enterprise Site1 and assets on the destServer OCM including unpublished assets']
 	]
 };
 
@@ -2112,7 +2180,7 @@ const exportSite = {
 	alias: 'es',
 	name: 'export-site',
 	usage: {
-		'short': 'Exports the site <name>.',
+		'short': 'Exports a site.',
 		'long': (function () {
 			let desc = 'Exports the site on OCM server to a folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'Specify the folder with -f <folder> and specify the job name with -j <job-name>. ';
@@ -2132,7 +2200,7 @@ const importSite = {
 	alias: 'ips',
 	name: 'import-site',
 	usage: {
-		'short': 'Imports the site <name>.',
+		'short': 'Imports a site.',
 		'long': (function () {
 			let desc = 'Import site to OCM server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			desc = desc + ' The valid policies for <sitepolicy> are:\n\n';
@@ -2149,7 +2217,8 @@ const importSite = {
 		['cec import-site Site1 -i duplicateSite -n Site1Copy -r repository -x site1copy -l EnglishPolicy', 'Import site to the OCM server by duplicating it as Site1Copy'],
 		['cec import-site Site1 -a createOrUpdate -r repository', 'Import src/siteExport/Site1 to the OCM server with createOrUpdate assets policy'],
 		['cec import-site Site1 -f Site1_72D365DB55C94BF1BB023299B4AB64B0 -r repository', 'Import from the given folder on the OCM server'],
-		['cec import-site Site1 -r repository -g', 'Import site in src/siteExport/Site1 to the OCM server and ignore all validation warnings']
+		['cec import-site Site1 -r repository -g', 'Import site in src/siteExport/Site1 to the OCM server and ignore all validation warnings'],
+		['cec import-site Site2', 'Import standard site in src/siteExport/Site2 to the OCM server']
 	]
 };
 
@@ -3085,6 +3154,24 @@ const controlCollection = {
 	]
 };
 
+const describeCollection = {
+	command: 'describe-collection <name>',
+	alias: 'dscl',
+	name: 'describe-collection',
+	usage: {
+		'short': 'Lists the properties of a collection on OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of a collection on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			'The valid actions are:\n\n';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-collection Collection1 -r Repo1'],
+		['cec describe-collection Collection1 -r Repo1 -s SampleServer1']
+	]
+};
+
 const createChannel = {
 	command: 'create-channel <name>',
 	alias: 'cch',
@@ -3201,6 +3288,24 @@ const createLocalizationPolicy = {
 	]
 };
 
+const describeLocalizationPolicy = {
+	command: 'describe-localization-policy <name>',
+	alias: 'dslp',
+	name: 'describe-localization-policy',
+	usage: {
+		'short': 'Lists the properties of a localization policy on OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of a localization policy on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-localization-policy en-us'],
+		['cec describe-localization-policy multi -s SampleServer1']
+
+	]
+};
+
 const downloadLocalizationPolicy = {
 	command: 'download-localization-policy <name>',
 	alias: 'dllp',
@@ -3260,6 +3365,7 @@ const listAssets = {
 		['cec list-assets -r Repo1', 'List all assets from repository Repo1'],
 		['cec list-assets -r Repo1 -o "name:asc"', 'List all assets from repository Repo1 and order them by name'],
 		['cec list-assets -c Channel1', 'List all assets from channel Channel1'],
+		['cec list-assets -c Channel1 -p repository,id,name -o repositoryId', 'List all assets from channel Channel1 with repository name, asset id and name'],
 		['cec list-assets -r Repo1 -l Collection1', 'List all assets from collection Collection1 and repository Repo1'],
 		['cec list-assets -q \'fields.category eq "RECIPE"\'', 'List all assets matching the query'],
 		['cec list-assets -q \'fields.category eq "RECIPE"\' -k ranking1', 'List all assets matching the query and order them by relevance'],
@@ -3374,14 +3480,41 @@ const listTranslationJobs = {
 	usage: {
 		'short': 'Lists translation jobs.',
 		'long': (function () {
-			let desc = 'Lists translation jobs from local or from OCM server.';
+			let desc = 'Lists translation jobs from local or from OCM server. Optionally specify the job type with -t <type>. The valid values for <type> are:' + os.EOL + os.EOL;
+			desc = getTranslationJobTypes().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
+			desc += os.EOL + 'Optionally specify the job status with -a <status>. The valid values for <status> are:' + os.EOL + os.EOL;
+			desc = getTranslationJobStatus().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
+			desc += os.EOL + 'Optionally specify -o <orderby> to sort the results. The valid values for <orderby> are:' + os.EOL + os.EOL;
+			desc = getTranslationJobOrders().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
 			return desc;
 		})()
 	},
 	example: [
 		['cec list-translation-jobs', 'Lists local translation jobs'],
 		['cec list-translation-jobs -s', 'Lists translation jobs on the server specified in cec.properties file'],
-		['cec list-translation-jobs -s SampleServer1', 'Lists translation jobs on the registered server SampleServer1']
+		['cec list-translation-jobs -s SampleServer1', 'Lists translation jobs on the registered server SampleServer1'],
+		['cec list-translation-jobs -a INPROGRESS -s SampleServer1', 'Lists in progress translation jobs on the registered server SampleServer1'],
+		['cec list-translation-jobs -t assets -s SampleServer1', 'Lists asset translation jobs on the registered server SampleServer1'],
+		['cec list-translation-jobs -t assets -r Repo1 -s SampleServer1', 'Lists asset translation jobs of repository Repo1 on the registered server SampleServer1'],
+		['cec list-translation-jobs -t assets -n Blog -s SampleServer1', 'Lists asset translation jobs whose name contains Blog on the registered server SampleServer1'],
+		['cec list-translation-jobs -t assets -o updatedDate -s SampleServer1', 'Lists asset translation jobs on the registered server SampleServer1, newly updated first']
+	]
+};
+
+const describeTranslationJob = {
+	command: 'describe-translation-job <name>',
+	alias: 'dstj',
+	name: 'describe-translation-job',
+	usage: {
+		'short': 'Lists the properties of a translation job on OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of a translation job on OCM server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-translation-job job1'],
+		['cec describe-translation-job job1 -s SampleServer1']
 	]
 };
 
@@ -4612,8 +4745,10 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 _usage = _usage + os.EOL + 'Export and Import' + os.EOL +
 	_getCmdHelp(exportSite) + os.EOL +
 	_getCmdHelp(importSite) + os.EOL +
-	// _getCmdHelp(exportRepository) + os.EOL +
-	// _getCmdHelp(importRepository) + os.EOL +
+	_getCmdHelp(replicateSite) + os.EOL +
+	_getCmdHelp(exportRepository) + os.EOL +
+	_getCmdHelp(importRepository) + os.EOL +
+	_getCmdHelp(replicateRepository) + os.EOL +
 	_getCmdHelp(unblockImportJob) + os.EOL +
 	_getCmdHelp(retryImportJob) + os.EOL +
 	_getCmdHelp(cancelExportJob) + os.EOL +
@@ -4653,11 +4788,13 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(describeRepository) + os.EOL +
 	_getCmdHelp(createCollection) + os.EOL +
 	_getCmdHelp(controlCollection) + os.EOL +
+	_getCmdHelp(describeCollection) + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
 	_getCmdHelp(shareChannel) + os.EOL +
 	_getCmdHelp(unshareChannel) + os.EOL +
 	_getCmdHelp(describeChannel) + os.EOL +
 	_getCmdHelp(createLocalizationPolicy) + os.EOL +
+	_getCmdHelp(describeLocalizationPolicy) + os.EOL +
 	_getCmdHelp(downloadLocalizationPolicy) + os.EOL +
 	_getCmdHelp(uploadLocalizationPolicy) + os.EOL +
 	_getCmdHelp(listServerContentTypes) + os.EOL +
@@ -4705,6 +4842,7 @@ _usage = _usage + os.EOL + 'Permissions' + os.EOL +
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
+	_getCmdHelp(describeTranslationJob) + os.EOL +
 	_getCmdHelp(createTranslationJob) + os.EOL +
 	_getCmdHelp(downloadTranslationJob) + os.EOL +
 	_getCmdHelp(submitTranslationJob) + os.EOL +
@@ -7040,6 +7178,9 @@ const argv = yargs.usage(_usage)
 					if (argv.action && argv.action === 'set-metadata' && !argv.name) {
 						throw new Error(os.EOL + 'Please specify the metadata name');
 					}
+					if (argv.action && (argv.action === 'set-custom-property' || argv.action === 'remove-custom-property') && !argv.name) {
+						throw new Error(os.EOL + 'Please specify the custom site property name');
+					}
 					if (argv.action && argv.action === 'expire' && !argv.expiredate) {
 						throw new Error(os.EOL + 'Please specify the expiration date');
 					}
@@ -7136,11 +7277,11 @@ const argv = yargs.usage(_usage)
 				})
 				.option('name', {
 					alias: 'n',
-					description: 'The site metadata name'
+					description: 'The site metadata name or custom site property name'
 				})
 				.option('value', {
 					alias: 'v',
-					description: 'The site metadata value'
+					description: 'The site metadata value or custom site property value'
 				})
 				.option('expiredate', {
 					alias: 'x',
@@ -7168,6 +7309,8 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[15])
 				.example(...controlSite.example[16])
 				.example(...controlSite.example[17])
+				.example(...controlSite.example[18])
+				.example(...controlSite.example[19])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlSite.command} | cec ${controlSite.command.replace(controlSite.name, controlSite.alias)}\n\n${controlSite.usage.long}`);
@@ -7361,6 +7504,87 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${setSiteSecurity.command} | cec ${setSiteSecurity.command.replace(setSiteSecurity.name, setSiteSecurity.alias)}\n\n${setSiteSecurity.usage.long}`);
 		})
+	.command([replicateRepository.command, replicateRepository.alias], false,
+		(yargs) => {
+			yargs
+				.option('includecustomcomponents', {
+					alias: 'v',
+					description: 'Include custom components in the repository'
+				})
+				.option('includechannels', {
+					alias: 'c',
+					description: 'Include channels and localization policies in the repository'
+				})
+				.option('includechannelmappings', {
+					alias: 'b',
+					description: 'Include channel mappings in the repository'
+				})
+				.option('includecollections', {
+					alias: 'l',
+					description: 'Include collections in the repository'
+				})
+				.option('includecollectionmappings', {
+					alias: 'm',
+					description: 'Include collection mappings in the repository'
+				})
+				.option('includetaxonomies', {
+					alias: 'x',
+					description: 'Include taxonomies in the repository'
+				})
+				.option('includetaxonomymappings', {
+					alias: 'y',
+					description: 'Include taxonomy mappings in the repository'
+				})
+				.option('ignorewarnings', {
+					alias: 'g',
+					description: 'Ignore all validation warnings'
+				})
+				.option('folder', {
+					alias: 'f',
+					description: 'The folder to export the repository to'
+				})
+				.option('jobname', {
+					alias: 'j',
+					description: 'The job name',
+				})
+				.option('path', {
+					alias: 'p',
+					description: 'The path of the local folder for download'
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'The repository name',
+					demandOption: true
+				})
+				.option('assetpolicy', {
+					alias: 'e',
+					description: 'The asset policy [' + getReplicateRepositoryAssetPolicies().join(' | ') + ']'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.option('destination', {
+					alias: 'd',
+					description: 'The registered OCM server to update the repository',
+					demandOption: true
+				})
+				.check((argv) => {
+					if (argv.assetpolicy && !getReplicateRepositoryAssetPolicies().includes(argv.assetpolicy)) {
+						throw new Error(os.EOL + `${argv.assetpolicy} is not a valid value for <assetpolicy>`);
+					} else if (!argv.assetpolicy) {
+						argv.assetpolicy = 'createOrUpdateIfOutdated';
+					}
+					return true;
+				})
+				.example(...replicateRepository.example[0])
+				.example(...replicateRepository.example[1])
+				.example(...replicateRepository.example[2])
+				.example(...replicateRepository.example[3])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${replicateRepository.command} | cec ${replicateRepository.command.replace(replicateRepository.name, replicateRepository.alias)}\n\n${replicateRepository.usage.long}`);
+		})
 	.command([exportRepository.command, exportRepository.alias], false,
 		(yargs) => {
 			yargs
@@ -7394,7 +7618,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('download', {
 					alias: 'd',
-					description: 'The flag to indicate to download files of the exported repository to local folder'
+					description: 'Download files of the exported repository to local folder'
 				})
 				.option('path', {
 					alias: 'p',
@@ -7476,7 +7700,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('assetpolicy', {
 					alias: 'e',
-					description: 'The asset policy [' + getImportSiteAssetPolicies().join(' | ') + ']'
+					description: 'The asset policy [' + getImportRepositoryAssetPolicies().join(' | ') + ']'
 				})
 				.option('slugprefix', {
 					alias: 'u',
@@ -7484,7 +7708,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('ignorewarnings', {
 					alias: 'g',
-					description: 'The flag to indicate to ignore all validation warnings'
+					description: 'Ignore all validation warnings'
 				})
 				.option('folder', {
 					alias: 'f',
@@ -7508,6 +7732,12 @@ const argv = yargs.usage(_usage)
 							|| argv.includecollections || argv.includecollectionmappings || argv.includetaxonomies || argv.includetaxonomymappings   )) {
 							throw new Error('options must not be specified along with other include arguments');
 						}
+						if (argv.assetpolicy && !getImportRepositoryAssetPolicies().includes(argv.assetpolicy)) {
+							throw new Error(os.EOL + `${argv.assetpolicy} is not a valid value for <assetpolicy>`);
+						}
+						if (argv.assetpolicy === 'duplicate' && !argv.slugprefix) {
+							throw new Error('slugprefix must be specified along with --assetpolicy duplicate');
+						}
 						try {
 							JSON.parse(argv.options);
 						} catch (pe) {
@@ -7527,6 +7757,63 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${importRepository.command} | cec ${importRepository.command.replace(importRepository.name, importRepository.alias)}\n\n${importRepository.usage.long}`);
+		})
+	.command([replicateSite.command, replicateSite.alias], false,
+		(yargs) => {
+			yargs.option('folder', {
+				alias: 'f',
+				description: 'The folder to export the site to'
+			})
+				.option('jobname', {
+					alias: 'j',
+					description: 'The job name',
+				})
+				.option('includeunpublishedassets', {
+					alias: 'k',
+					description: 'Include unpublished content items and digital assets in the site'
+				})
+				.option('path', {
+					alias: 'p',
+					description: 'The path of the local folder for download'
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'The repository for enterprise site'
+				})
+				.option('localizationPolicy', {
+					alias: 'l',
+					description: 'The localization policy for enterprise site'
+				})
+				.option('assetpolicy', {
+					alias: 'a',
+					description: 'The asset policy [' + getReplicateSiteAssetPolicies().join(' | ') + ']'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.option('destination', {
+					alias: 'd',
+					description: 'The registered OCM server to create or update the site',
+					demandOption: true
+				})
+				.option('ignorewarnings', {
+					alias: 'g',
+					description: 'Ignore all validation warnings'
+				})
+				.check((argv) => {
+					if (argv.assetpolicy && !getReplicateSiteAssetPolicies().includes(argv.assetpolicy)) {
+						throw new Error(os.EOL + `${argv.assetpolicy} is not a valid value for <assetpolicy>`);
+					}
+					return true;
+				})
+				.example(...replicateSite.example[0])
+				.example(...replicateSite.example[1])
+				.example(...replicateSite.example[2])
+				.example(...replicateSite.example[3])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${replicateSite.command} | cec ${replicateSite.command.replace(replicateSite.name, replicateSite.alias)}\n\n${replicateSite.usage.long}`);
 		})
 	.command([exportSite.command, exportSite.alias], false,
 		(yargs) => {
@@ -7566,12 +7853,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('repository', {
 				alias: 'r',
-				description: 'The repository name',
-				demandOption: true
+				description: 'The repository for enterprise site'
 			})
 				.option('localizationPolicy', {
 					alias: 'l',
-					description: 'The localization policy, required for duplicating a site'
+					description: 'The localization policy for enterprise site'
 				})
 				.option('sitePrefix', {
 					alias: 'x',
@@ -7591,7 +7877,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('assetpolicy', {
 					alias: 'a',
-					description: 'The site policy [' + getImportSiteAssetPolicies().join(' | ') + ']'
+					description: 'The asset policy [' + getImportSiteAssetPolicies().join(' | ') + ']'
 				})
 				.option('newsite', {
 					alias: 'n',
@@ -7607,11 +7893,11 @@ const argv = yargs.usage(_usage)
 				})
 				.option('ignorewarnings', {
 					alias: 'g',
-					description: 'The flag to indicate to ignore all validation warnings'
+					description: 'Ignore all validation warnings'
 				})
 				.check((argv) => {
-					if (!argv.repository) {
-						throw new Error('Please specify repository');
+					if (process.shim && !argv.folder) {
+						throw new Error(os.EOL + 'Please specify the <folder> location on the OCM server that contains the export files to import');
 					}
 					if (argv.sitepolicy && !getImportSitePolicies().includes(argv.sitepolicy)) {
 						throw new Error(os.EOL + `${argv.sitepolicy} is not a valid value for <sitepolicy>`);
@@ -7625,12 +7911,6 @@ const argv = yargs.usage(_usage)
 						}
 						if (!argv.newsite) {
 							throw new Error('Pleaee specify newsite for duplicateSite policies');
-						}
-						if (!argv.localizationPolicy) {
-							throw new Error('Pleaee specify localizationPolicy for duplicateSite policies');
-						}
-						if (!argv.sitePrefix) {
-							throw new Error('Pleaee specify sitePrefix for duplicateSite policies');
 						}
 					} else if (argv.sitepolicy === 'updateSite') {
 						if (argv.assetpolicy === 'duplicate') {
@@ -7646,6 +7926,7 @@ const argv = yargs.usage(_usage)
 				.example(...importSite.example[4])
 				.example(...importSite.example[5])
 				.example(...importSite.example[6])
+				.example(...importSite.example[7])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${importSite.command} | cec ${importSite.command.replace(importSite.name, importSite.alias)}\n\n${importSite.usage.long}`);
@@ -9154,6 +9435,23 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${controlCollection.command} | cec ${controlCollection.command.replace(controlCollection.name, controlCollection.alias)}\n\n${controlCollection.usage.long}`);
 		})
+	.command([describeCollection.command, describeCollection.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+				alias: 'r',
+				description: 'The repository of the collection',
+				demandOption: true
+			})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...describeCollection.example[0])
+				.example(...describeCollection.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeCollection.command} | cec ${describeCollection.command.replace(describeCollection.name, describeCollection.alias)}\n\n${describeCollection.usage.long}`);
+		})
 	.command([createChannel.command, createChannel.alias], false,
 		(yargs) => {
 			yargs.option('description', {
@@ -9302,6 +9600,18 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${createLocalizationPolicy.command} | cec ${createLocalizationPolicy.command.replace(createLocalizationPolicy.name, createLocalizationPolicy.alias)}\n\n${createLocalizationPolicy.usage.long}`);
 		})
+	.command([describeLocalizationPolicy.command, describeLocalizationPolicy.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...describeLocalizationPolicy.example[0])
+				.example(...describeLocalizationPolicy.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeLocalizationPolicy.command} | cec ${describeLocalizationPolicy.command.replace(describeLocalizationPolicy.name, describeLocalizationPolicy.alias)}\n\n${describeLocalizationPolicy.usage.long}`);
+		})
 	.command([downloadLocalizationPolicy.command, downloadLocalizationPolicy.alias], false,
 		(yargs) => {
 			yargs.option('server', {
@@ -9434,6 +9744,7 @@ const argv = yargs.usage(_usage)
 				.example(...listAssets.example[11])
 				.example(...listAssets.example[12])
 				.example(...listAssets.example[13])
+				.example(...listAssets.example[14])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listAssets.command} | cec ${listAssets.command.replace(listAssets.name, listAssets.alias)}\n\n${listAssets.usage.long}`);
@@ -9575,16 +9886,65 @@ const argv = yargs.usage(_usage)
 		})
 	.command([listTranslationJobs.command, listTranslationJobs.alias], false,
 		(yargs) => {
+			yargs.option('type', {
+				alias: 't',
+				description: 'The type of translation jobs [' + getTranslationJobTypes().join(' | ') + '] on OCM server'
+			})
+				.option('status', {
+					alias: 'a',
+					description: 'The status of translation jobs [' + getTranslationJobStatus().join(' | ') + '] on OCM server'
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'The repository of the asset translation jobs'
+				})
+				.option('namefilter', {
+					alias: 'n',
+					description: 'The specified string to filter the results'
+				})
+				.option('orderby', {
+					alias: 'o',
+					description: 'The order to sort the translation jobs on OCM server'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.type && !getTranslationJobTypes().includes(argv.type)) {
+						throw new Error(`${os.EOL}${argv.type} is not a valid value for <type>`);
+					}
+					if (argv.status && !getTranslationJobStatus().includes(argv.status)) {
+						throw new Error(`${os.EOL}${argv.status} is not a valid value for <status>`);
+					}
+					if (argv.orderby && !getTranslationJobOrders().includes(argv.orderby)) {
+						throw new Error(`${os.EOL}${argv.orderby} is not a valid value for <orderby>`);
+					}
+					return true;
+				})
+				.example(...listTranslationJobs.example[0])
+				.example(...listTranslationJobs.example[1])
+				.example(...listTranslationJobs.example[2])
+				.example(...listTranslationJobs.example[3])
+				.example(...listTranslationJobs.example[4])
+				.example(...listTranslationJobs.example[5])
+				.example(...listTranslationJobs.example[6])
+				.example(...listTranslationJobs.example[7])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listTranslationJobs.command} | cec ${listTranslationJobs.command.replace(listTranslationJobs.name, listTranslationJobs.alias)}\n\n${listTranslationJobs.usage.long}`);
+		})
+	.command([describeTranslationJob.command, describeTranslationJob.alias], false,
+		(yargs) => {
 			yargs.option('server', {
 				alias: 's',
 				description: 'The registered OCM server'
 			})
-				.example(...listTranslationJobs.example[0])
-				.example(...listTranslationJobs.example[1])
-				.example(...listTranslationJobs.example[2])
+				.example(...describeTranslationJob.example[0])
+				.example(...describeTranslationJob.example[1])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${listTranslationJobs.command} | cec ${listTranslationJobs.command.replace(listTranslationJobs.name, listTranslationJobs.alias)}\n\n${listTranslationJobs.usage.long}`);
+				.usage(`Usage: cec ${describeTranslationJob.command} | cec ${describeTranslationJob.command.replace(describeTranslationJob.name, describeTranslationJob.alias)}\n\n${describeTranslationJob.usage.long}`);
 		})
 	.command([createTranslationJob.command, createTranslationJob.alias], false,
 		(yargs) => {
@@ -10991,14 +11351,15 @@ const argv = yargs.usage(_usage)
 	.strict()
 	.wrap(process.shim ? 800 : yargs.terminalWidth())
 	.fail((msg, err, yargs) => {
+		if (process.shim) {
+			// note that this was a parsing error
+			window.parsingError = true;
+		}
 		yargs.showHelp('log');
 		if (msg.indexOf('Not enough non-option arguments') < 0) {
 			console.log(msg);
 		}
 		console.log('');
-		if (process.shim) {
-			window.parsingError = true;
-		}
 		process.exit(1);
 	})
 	.argv;
@@ -11007,13 +11368,22 @@ const argv = yargs.usage(_usage)
 yargs.getOptions().boolean.splice(-2);
 
 if (!argv._[0] || argv.help) {
-	// prints to stdout
-	yargs.showHelp('log');
+	if (process.shim) {
+		// note that this is now showing help
+		window.showHelp = true;
+		if (!window.parsingError) {
+			yargs.showHelp('log');
+		}
+	} else {
+		// prints to stdout
+		yargs.showHelp('log');
+	}
 	console.log('');
 	process.exit(0);
 }
 
-if (process.shim && window.parsingError) {
+if (process.shim && (window.parsingError || window.showHelp)) {
+	// if we had a parsing error or are showing help, then we need to exit now
 	throw new Error()
 }
 
@@ -13201,6 +13571,63 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === replicateRepository.name || argv._[0] === replicateRepository.alias) {
+	_displayCommand(replicateRepository.name);
+	let replicateRepositoryArgs = ['run', '-s', replicateRepository.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.repository && typeof argv.repository !== 'boolean') {
+		replicateRepositoryArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.includecustomcomponents) {
+		replicateRepositoryArgs.push(...['--includecustomcomponents', argv.includecustomcomponents]);
+	}
+	if (argv.includetaxonomies) {
+		replicateRepositoryArgs.push(...['--includetaxonomies', argv.includetaxonomies]);
+	}
+	if (argv.includetaxonomymappings) {
+		replicateRepositoryArgs.push(...['--includetaxonomymappings', argv.includetaxonomymappings]);
+	}
+	if (argv.includecollections) {
+		replicateRepositoryArgs.push(...['--includecollections', argv.includecollections]);
+	}
+	if (argv.includecollectionmappings) {
+		replicateRepositoryArgs.push(...['--includecollectionmappings', argv.includecollectionmappings]);
+	}
+	if (argv.includechannels) {
+		replicateRepositoryArgs.push(...['--includechannels', argv.includechannels]);
+	}
+	if (argv.includechannelmappings) {
+		replicateRepositoryArgs.push(...['--includechannelmappings', argv.includechannelmappings]);
+	}
+	if (argv.assetpolicy && argv.assetpolicy !== 'boolean') {
+		replicateRepositoryArgs.push(...['--assetpolicy', argv.assetpolicy]);
+	}
+	if (argv.ignorewarnings) {
+		replicateRepositoryArgs.push(...['--ignorewarnings', argv.ignorewarnings]);
+	}
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		replicateRepositoryArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.path && typeof argv.path !== 'boolean') {
+		replicateRepositoryArgs.push(...['--path', argv.path]);
+	}
+	if (argv.jobname && typeof argv.jobname !== 'boolean') {
+		replicateRepositoryArgs.push(...['--jobname', argv.jobname]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		replicateRepositoryArgs.push(...['--server', argv.server]);
+	}
+	if (argv.destination && typeof argv.destination !== 'boolean') {
+		replicateRepositoryArgs.push(...['--destination', argv.destination]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, replicateRepositoryArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === exportRepository.name || argv._[0] === exportRepository.alias) {
 	_displayCommand(exportRepository.name);
 	let exportRepositoryArgs = ['run', '-s', exportRepository.name, '--prefix', appRoot,
@@ -13282,9 +13709,6 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		parsedoptions = JSON.parse(argv.options);
 		importRepositoryArgs.push(...['--options', JSON.stringify(parsedoptions)]);
 	}
-	if (argv.includes && argv.includes !== 'boolean') {
-		importRepositoryArgs.push(...['--includes', argv.includes]);
-	}
 	if (argv.assetpolicy && argv.assetpolicy !== 'boolean') {
 		importRepositoryArgs.push(...['--assetpolicy', argv.assetpolicy]);
 	}
@@ -13307,6 +13731,48 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		importRepositoryArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, importRepositoryArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === replicateSite.name || argv._[0] === replicateSite.alias) {
+	_displayCommand(replicateSite.name);
+	let replicateSiteArgs = ['run', '-s', replicateSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		replicateSiteArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.jobname && typeof argv.jobname !== 'boolean') {
+		replicateSiteArgs.push(...['--jobname', argv.jobname]);
+	}
+	if (argv.includeunpublishedassets) {
+		replicateSiteArgs.push(...['--includeunpublishedassets', argv.includeunpublishedassets]);
+	}
+	if (argv.path && typeof argv.path !== 'boolean') {
+		replicateSiteArgs.push(...['--path', argv.path]);
+	}
+	if (argv.repository && typeof argv.repository !== 'boolean') {
+		replicateSiteArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.localizationPolicy && typeof argv.localizationPolicy !== 'boolean') {
+		replicateSiteArgs.push(...['--localizationPolicy', argv.localizationPolicy]);
+	}
+	if (argv.assetpolicy && argv.assetpolicy !== 'boolean') {
+		replicateSiteArgs.push(...['--assetpolicy', argv.assetpolicy]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		replicateSiteArgs.push(...['--server', argv.server]);
+	}
+	if (argv.destination && typeof argv.destination !== 'boolean') {
+		replicateSiteArgs.push(...['--destination', argv.destination]);
+	}
+	if (argv.ignorewarnings) {
+		replicateSiteArgs.push(...['--ignorewarnings', argv.ignorewarnings]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, replicateSiteArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -14505,6 +14971,23 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === describeCollection.name || argv._[0] === describeCollection.alias) {
+	_displayCommand(describeCollection.name);
+	let describeCollectionArgs = ['run', '-s', describeCollection.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--repository', argv.repository
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeCollectionArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeCollectionArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === createChannel.name || argv._[0] === createChannel.alias) {
 	_displayCommand(createChannel.name);
 	let createChannelArgs = ['run', '-s', createChannel.name, '--prefix', appRoot,
@@ -14612,6 +15095,22 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		createLocalizationPolicyArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createLocalizationPolicyArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeLocalizationPolicy.name || argv._[0] === describeLocalizationPolicy.alias) {
+	_displayCommand(describeLocalizationPolicy.name);
+	let describeLocalizationPolicyArgs = ['run', '-s', describeLocalizationPolicy.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeLocalizationPolicyArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeLocalizationPolicyArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -14742,11 +15241,42 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--',
 		'--projectDir', cwd
 	];
+	if (argv.type) {
+		listTranslationJobsArgs.push(...['--type', argv.type]);
+	}
+	if (argv.status) {
+		listTranslationJobsArgs.push(...['--status', argv.status]);
+	}
+	if (argv.repository) {
+		listTranslationJobsArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.namefilter) {
+		listTranslationJobsArgs.push(...['--namefilter', argv.namefilter]);
+	}
+	if (argv.orderby) {
+		listTranslationJobsArgs.push(...['--orderby', argv.orderby]);
+	}
 	if (argv.server) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		listTranslationJobsArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, listTranslationJobsArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeTranslationJob.name || argv._[0] === describeTranslationJob.alias) {
+	_displayCommand(describeTranslationJob.name);
+	let describeTranslationJobArgs = ['run', '-s', describeTranslationJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeTranslationJobArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeTranslationJobArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
