@@ -11,6 +11,7 @@ var serverRest = require('../test/server/serverRest.js'),
 	site = require('./site.js'),
 	assetUtils = require('./asset.js').utils,
 	sprintf = require('sprintf-js').sprintf,
+	formatter = require('./formatter.js'),
 	fs = require('fs'),
 	path = require('path');
 
@@ -406,7 +407,7 @@ var _getRepository = function (repositoryId, server) {
 var _getSourceForExportJob = function (id, server) {
 	return new Promise(function (resolve, reject) {
 		var url = '/system/export/api/v1/exports/' + id;
-		url += '?fields=sources.select.type,sources.select.site.id,sources.select.site.name,sources.select.repository.id,sources.select.repository.name';
+		url += '?fields=sources.select.type,sources.select.site.id,sources.select.site.name,sources.select.repository.id,sources.select.repository.name,sources.apply.policies';
 
 		exportserviceutils.executeGetExportService({
 			server: server,
@@ -452,7 +453,7 @@ var _getSourceForExportJob = function (id, server) {
 var _getTargetForImportJob = function (id, server) {
 	return new Promise(function (resolve, reject) {
 		var url = '/system/export/api/v1/imports/' + id;
-		url += '?fields=targets.select.type,targets.select.type,targets.select.site.id,targets.select.site.name,targets.select.repository.id,targets.select.repository.name';
+		url += '?fields=targets.select.type,targets.select.type,targets.select.site.id,targets.select.site.name,targets.select.repository.id,targets.select.repository.name,targets.apply.policies';
 
 		exportserviceutils.executeGetExportService({
 			server: server,
@@ -540,27 +541,30 @@ module.exports.listExportJobs = function (argv, done) {
 					Promise.all(sitePromises).then(sites => {
 						data.items.forEach(function (job, index) {
 							var site = sites.at(index);
-							// console.log('site.select.type ' + site.select.type);
 							if (site.select.type === 'repository') {
-								// console.log('site.select.repository.id ' + site.select.repository.id);
-								// console.log('site.select.repository.name ' + site.select.repository.name);
 								job.augmentedSiteName = site && site.select.repository && site.select.repository.name;
 							} else {
 								job.augmentedSiteName = site && site.select.site && site.select.site.name;
 							}
+							job.policies = site.apply && site.apply.policies;
 						});
-						var format = '%-28s  %-34s  %-12s  %-12s  %-26s  %-14s  %-28s';
+
+						var titleFormat = '%-26s  %-32s  %-16s  %-9s  %-10s  %-24s  %-10s  %-26s';
 						console.log('Export jobs:');
-						console.log(sprintf(format, 'Target Name', 'Id', 'Completed', 'Progress', 'Created At', 'Duration', 'Job Name'));
+						console.log(sprintf(titleFormat, 'Target Name', 'Id', 'Policies', 'Completed', 'Progress', 'Created At', 'Duration', 'Job Name'));
 						data.items.forEach(function (job) {
+							var rowFormat = `%-26s  %-${formatter.exportJobColSize(32, job.id)}s  %-16s  %-9s  %-10s  %-24s  %-10s  %-26s`;
 							if (job.completed) {
-								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, job.createdAt || '', duration(job.createdAt, job.completedAt), job.name));
+								console.log(sprintf(rowFormat, job.augmentedSiteName || '', formatter.exportJobFormat(job.id), job.policies, job.completed, job.progress, job.createdAt || '', duration(job.createdAt, job.completedAt), job.name));
 							} else {
-								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, job.createdAt || '', '', job.name));
+								console.log(sprintf(rowFormat, job.augmentedSiteName || '', formatter.exportJobFormat(job.id), job.policies, job.completed, job.progress, job.createdAt || '', '', job.name));
 							}
 						});
+						done(true);
+					}).catch((e) => {
+						console.error(e);
+						done();
 					});
-					done(true);
 				} else {
 					done(true);
 				}
@@ -679,26 +683,32 @@ module.exports.listImportJobs = function (argv, done) {
 								var site = sites.at(index);
 								if (site && site.select) {
 									if (site.select.type === 'repository') {
-										job.augmentedSiteName = site && site.select.repository && site.select.repository.name;
+										job.augmentedSiteName = site.select.repository && site.select.repository.name;
 									} else {
-										job.augmentedSiteName = site && site.select.site && site.select.site.name;
+										job.augmentedSiteName = site.select.site && site.select.site.name;
 									}
+									job.policies = site.apply && site.apply.policies;
 								}
 							});
 						}
-						var format = '%-28s  %-34s  %-12s  %-12s  %-22s  %-26s  %-14s  %-28s';
+
+						var titleFormat = '%-26s  %-32s  %-16s  %-9s  %-10s  %-22s  %-24s  %-10s  %-26s';
 						console.log('Import jobs:');
-						console.log(sprintf(format, 'Target Name', 'Id', 'Completed', 'Progress', 'State', 'Created At', 'Duration', 'Job Name'));
+						console.log(sprintf(titleFormat, 'Target Name', 'Id', 'Policies', 'Completed', 'Progress', 'State', 'Created At', 'Duration', 'Job Name'));
 						data.items.forEach(function (job) {
+							var rowFormat = `%-26s  %-${formatter.importJobColSize(32)}s  %-16s  %-9s  %-10s  %-22s  %-24s  %-10s  %-26s`;
 							var state = job.state || '';
 							if (job.completed) {
-								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, state, job.createdAt || '', duration(job.createdAt, job.completedAt), job.name));
+								console.log(sprintf(rowFormat, job.augmentedSiteName || '', formatter.importJobFormat(job.id), job.policies, job.completed, job.progress, state, job.createdAt || '', duration(job.createdAt, job.completedAt), job.name));
 							} else {
-								console.log(sprintf(format, job.augmentedSiteName || '', job.id, job.completed, job.progress, state, job.createdAt || '', '', job.name));
+								console.log(sprintf(rowFormat, job.augmentedSiteName || '', formatter.importJobFormat(job.id), job.policies, job.completed, job.progress, state, job.createdAt || '', '', job.name));
 							}
 						});
+						done(true);
+					}).catch((e) => {
+						console.log('ERROR: Retrieving job details failed.');
+						done();
 					});
-					done(true);
 				} else {
 					done(true);
 				}

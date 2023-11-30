@@ -171,8 +171,9 @@ module.exports.findOrCreateFolder = function (args) {
 	return _findOrCreateFolder(args.server, args.parentID, args.foldername);
 };
 
-var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
+var _findFolderHierarchy = function (server, rootParentId, folderPathStr, noMsg) {
 	return new Promise(function (resolve, reject) {
+		var showDetail = noMsg ? false : true;
 		var folderPromises = [],
 			parentGUID;
 		var folderPath = folderPathStr ? folderPathStr.split('/') : [];
@@ -190,7 +191,9 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
 				// store the parent
 				if (folderDetails && folderDetails.id) {
 					if (folderDetails.id !== rootParentId) {
-						console.info(' - find ' + folderDetails.type + ' ' + folderDetails.name + ' (Id: ' + folderDetails.id + ')');
+						if (showDetail) {
+							console.info(' - find ' + folderDetails.type + ' ' + folderDetails.name + ' (Id: ' + folderDetails.id + ')');
+						}
 					}
 					parentGUID = folderDetails.id;
 
@@ -207,7 +210,9 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
 		doFindFolder.then(function (parentFolder) {
 			if (parentFolder && parentFolder.id) {
 				if (parentFolder.id !== rootParentId) {
-					console.info(' - find ' + parentFolder.type + ' ' + parentFolder.name + ' (Id: ' + parentFolder.id + ')');
+					if (showDetail) {
+						console.info(' - find ' + parentFolder.type + ' ' + parentFolder.name + ' (Id: ' + parentFolder.id + ')');
+					}
 				}
 			}
 			resolve(parentFolder);
@@ -223,7 +228,7 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.findFolderHierarchy = function (args) {
-	return _findFolderHierarchy(args.server, args.parentID, args.folderPath);
+	return _findFolderHierarchy(args.server, args.parentID, args.folderPath, args.noMsg);
 };
 
 var _findFolderItems = function (server, parentId, parentPath, _files) {
@@ -1837,15 +1842,6 @@ module.exports.queryItems = function (args) {
 				}
 
 				var totalCount = result.limit;
-				if (process.shim) {
-					// place a limit when running in the browser - add localStorage override in case of feedback
-					var userQueryLimit = window.localStorage && window.localStorage.getItem('powershellQueryLimit');
-					var queryLimit = (userQueryLimit && !isNaN(userQueryLimit)) ? userQueryLimit : 10000;
-					if (totalCount > queryLimit) {
-						console.info(' - total items: ' + totalCount);
-						return reject("[-] Query results limited to " + queryLimit + " items in the powershell, please further restrict your query.");
-					}
-				}
 				if (showTotal) {
 					console.info(' - total items: ' + totalCount);
 				}
@@ -8831,14 +8827,22 @@ var _executePost = function (args) {
 								console.log('Result URL: ' + (response.location || response.url));
 							}
 						}
-						if (responseStatus) {
+						if (responseStatus && response.statusCode >= 400) {
 							// If there is an error and body is empty, then resolve with response statusCode and statusMessage.
-							if (response.statusCode >= 400 && !data) {
+							if (data) {
+								if (!data.hasOwnProperty('statusCode')) {
+									data.statusCode = response.statusCode;
+								}
+								if (!data.hasOwnProperty('statusMessage')) {
+									data.statusMessage = response.statusMessage;
+								}
+							} else {
 								data = {
 									statusCode: response.statusCode,
 									statusMessage: response.statusMessage
 								};
 							}
+
 						}
 						return resolve(data);
 					}
@@ -8860,6 +8864,7 @@ module.exports.executePut = function (args) {
 	return new Promise(function (resolve, reject) {
 		var showDetail = args.noMsg ? false : true;
 		var endpoint = args.endpoint;
+		var responseStatus = args.responseStatus ? true : false;
 		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
 		var isSystem = endpoint.indexOf('/system/api/') === 0;
 
@@ -8922,6 +8927,23 @@ module.exports.executePut = function (args) {
 						}
 					}
 					// console.log(response);
+					if (responseStatus && response.statusCode >= 400) {
+						// If there is an error and body is empty, then resolve with response statusCode and statusMessage.
+						if (data) {
+							if (!data.hasOwnProperty('statusCode')) {
+								data.statusCode = response.statusCode;
+							}
+							if (!data.hasOwnProperty('statusMessage')) {
+								data.statusMessage = response.statusMessage;
+							}
+						} else {
+							data = {
+								statusCode: response.statusCode,
+								statusMessage: response.statusMessage
+							};
+						}
+
+					}
 					return resolve(data);
 
 				});
@@ -9238,10 +9260,18 @@ var _cancelScheduledJob = function (server, id) {
  */
 module.exports.getTranslationJobs = function (args) {
 	var fields;
-	var q;
-	var orderBy = 'name:asc';
+	var q = args.q;
+	var orderBy = args.orderBy || 'name:asc';
+	var jobStatus = args.jobStatus;
 	return new Promise(function (resolve, reject) {
-		_getAllResources(args.server, '/content/management/api/v1.1/translationJobs?jobType=' + args.jobType, 'translationJobs', fields, q, orderBy)
+		let url = '/content/management/api/v1.1/translationJobs?jobType=' + args.jobType;
+		if (jobStatus) {
+			url += '&jobStatus=' + jobStatus;
+		}
+		if (args.repositoryId) {
+			url = url + '&repositoryId=' + args.repositoryId;
+		}
+		_getAllResources(args.server, url, 'translationJobs', fields, q, orderBy)
 			.then(function (result) {
 				return resolve({
 					jobType: args.jobType,

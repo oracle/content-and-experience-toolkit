@@ -1791,7 +1791,7 @@ module.exports.describeRepository = function (argv, done) {
 				var assetTypes = [];
 				if (repo.contentTypes && repo.contentTypes.length > 0) {
 					repo.contentTypes.forEach(function (type) {
-						assetTypes.push(type.displayName || type.name);
+						assetTypes.push(formatter.typeFormat(type.name));
 					});
 				}
 
@@ -2806,9 +2806,9 @@ module.exports.describeType = function (argv, done) {
 					var groupAttr = group.hidden ? 'Hidden' : (group.collapse ? 'Collapsed by default' : 'Expanded by default');
 					console.log(sprintf('  %-s', group.title + ' (' + groupAttr + ')'));
 
-					var fieldFormat = '    %-20s  %-40s  %-8s %-8s %-9s %-11s  %-30s %-s';
-					console.log(sprintf(fieldFormat, 'Type', 'Name', 'Required', 'Multiple', 'Do not', 'Inherit', 'Reference types', 'Custom FieldEditor'));
-					console.log(sprintf(fieldFormat, '', '', '', '', 'translate', 'from master', '', ''));
+					var fieldTitleFormat = '    %-20s  %-40s  %-8s %-8s %-9s %-11s  %-30s %-s';
+					console.log(sprintf(fieldTitleFormat, 'Type', 'Name', 'Required', 'Multiple', 'Do not', 'Inherit', 'Reference types', 'Custom FieldEditor'));
+					console.log(sprintf(fieldTitleFormat, '', '', '', '', 'translate', 'from master', '', ''));
 					type.fields.forEach(function (field) {
 						if (field.settings && (!field.settings.hasOwnProperty('groupIndex') || field.settings.groupIndex === i)) {
 							let required = field.required ? '   √' : '';
@@ -2817,13 +2817,20 @@ module.exports.describeType = function (argv, done) {
 							let notranslate = translation.hasOwnProperty('translate') && !translation.translate ? '   √' : '';
 							let inheritFromMaster = translation.hasOwnProperty('inheritFromMaster') && translation.inheritFromMaster ? '   √' : '';
 							let refTypes = field.hasOwnProperty('referenceType') ? (field.referenceType.type ? field.referenceType.types : 'DigitalAsset') : '';
+							if (Array.isArray(refTypes)) {
+								refTypes = refTypes.map((assetType) => {
+									return (typeof assetType === 'string') ? formatter.typeFormat(assetType) : assetType
+								});
+							}
 							let fieldEditor = '';
 							if (field.settings && field.settings.caas && field.settings.caas.editor &&
 								field.settings.caas.editor.options && field.settings.caas.editor.options.name &&
 								field.settings.caas.editor.isCustom) {
 								fieldEditor = field.settings.caas.editor.options.name;
 							}
-							console.log(sprintf(fieldFormat, field.datatype, field.name, required, multiple, notranslate, inheritFromMaster, refTypes, fieldEditor));
+
+							var fieldRowFormat = `    %-20s  %-40s  %-8s %-8s %-9s %-11s  %-${formatter.typeColSize(30, refTypes)}s %-s`;
+							console.log(sprintf(fieldRowFormat, field.datatype, field.name, required, multiple, notranslate, inheritFromMaster, refTypes, fieldEditor));
 						}
 					});
 					console.log('');
@@ -3519,6 +3526,132 @@ var _updateCollectionPermission = function (server, repository, collections, use
 	});
 };
 
+module.exports.describeCollection = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var repositoryName = argv.repository;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var repository;
+		var collection;
+
+		serverRest.getRepositoryWithName({
+			server: server,
+			name: repositoryName
+		})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				repository = result.data;
+				if (!repository || !repository.id) {
+					console.error('ERROR: repository ' + repositoryName + ' does not exist');
+					return Promise.reject();
+				}
+
+				console.info(' - get repository (Id: ' + repository.id + ')');
+
+				// Get all fields for updating
+				return serverRest.getCollections({
+					server: server,
+					repositoryId: repository.id,
+					fields: 'all'
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var repoCollections = result || [];
+
+				for (var i = 0; i < repoCollections.length; i++) {
+					if (name.toLowerCase() === repoCollections[i].name.toLowerCase()) {
+						collection = repoCollections[i];
+						break;
+					}
+				}
+				if (!collection) {
+					console.error('ERROR: collection ' + name + ' does not exist in repository ' + repositoryName);
+					return Promise.reject();
+				}
+
+				console.log('');
+				var format1 = '%-38s  %-s';
+				console.log(sprintf(format1, 'Id', collection.id));
+				console.log(sprintf(format1, 'Name', collection.name));
+				console.log(sprintf(format1, 'Description', collection.description || ''));
+				console.log(sprintf(format1, 'Created', collection.createdDate.value + ' by ' + collection.createdBy));
+				console.log(sprintf(format1, 'Updated', collection.updatedDate.value + ' by ' + collection.updatedBy));
+				console.log(sprintf(format1, 'Dynamic', collection.isDynamic ? '√' : ''));
+				console.log(sprintf(format1, 'Channels (' + collection.channels.length + ')', ''));
+				if (collection.channels.length > 0) {
+					let format2 = '  %-52s  %-s';
+					console.log(sprintf(format2, 'Id', 'Name', 'Dynamic'));
+					collection.channels.forEach(function (ch) {
+						console.log(sprintf(format2, ch.id, ch.name));
+					});
+				}
+
+				if (collection.isDynamic) {
+					console.log(sprintf(format1, 'Rules', ''));
+					let format3 = '  %-s ';
+					let format4 = '      %-32s  %-4s  %-s';
+					// console.log(JSON.stringify(collection.ruleGroups, null, 4));
+					collection.ruleGroups.forEach(function (group) {
+						if (group.conjunction) {
+							console.log(sprintf(format3, group.conjunction));
+						}
+						console.log(sprintf(format3, (group.assetType === 'all' ? 'All Asset Types' : group.assetType)));
+						_displayCollectionRuleSet(group.ruleSet, format4);
+					});
+				}
+				console.log('');
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
+var _displayCollectionRuleSet = function (ruleSet, format) {
+	var indent = '    ';
+	ruleSet.forEach(function (rule) {
+		if (rule.rule) {
+			let fieldName = rule.conjunction ? (rule.conjunction + ' ' + rule.rule.fieldName) : rule.rule.fieldName;
+			console.log(sprintf(format, fieldName, rule.rule.operator, rule.rule.fieldValue));
+		} else if (rule.ruleSet && rule.ruleSet.length > 0) {
+			if (rule.conjunction) {
+				console.log(sprintf(format, rule.conjunction, '', ''));
+			}
+			_displayCollectionRuleSet(rule.ruleSet, indent + format);
+		}
+	});
+};
 
 module.exports.createChannel = function (argv, done) {
 	'use strict';
@@ -4116,7 +4249,7 @@ module.exports.describeChannel = function (argv, done) {
 				console.log(sprintf(format1, 'Updated', channel.updatedDate.value + ' by ' + channel.updatedBy));
 				console.log(sprintf(format1, 'Site channel', channel.isSiteChannel ? '√' : ''));
 				console.log(sprintf(format1, 'Publishing', channel.publishPolicy));
-				console.log(sprintf(format1, 'Localization', policyName));
+				console.log(sprintf(format1, 'Localization', formatter.localizationPolicyFormat(policyName)));
 				console.log(sprintf(format1, 'Access to published resources', channel.channelType));
 				/*
 				if (repoNames.length > 0) {
@@ -6057,6 +6190,66 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 	});
 };
 
+module.exports.describeLocalizationPolicy = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		serverRest.getLocalizationPolicWithName({server: server, name: name})
+			.then(function (result) {
+				var policies = result || [];
+				var policy;
+				for (let i = 0; i < policies.length; i++) {
+					if (policies[i] && policies[i].name && policies[i].name.toLowerCase() === name.toLowerCase()) {
+						policy = policies[i];
+						break;
+					}
+				}
+				if (!policy) {
+					console.error('ERROR: localization policy ' + name + ' does not exist');
+					return Promise.reject();
+				}
+
+				var format1 = '%-38s  %-s';
+				console.log('');
+				console.log(sprintf(format1, 'Id', policy.id));
+				console.log(sprintf(format1, 'Name', policy.name));
+				console.log(sprintf(format1, 'Description', policy.description || ''));
+				console.log(sprintf(format1, 'Created', policy.createdDate.value + ' by ' + policy.createdBy));
+				console.log(sprintf(format1, 'Updated', policy.updatedDate.value + ' by ' + policy.updatedBy));
+				console.log(sprintf(format1, 'Required languages', policy.requiredValues.sort()));
+				console.log(sprintf(format1, 'Default language', policy.defaultValue));
+				console.log(sprintf(format1, 'Optional languages', policy.optionalValues.sort()));
+				console.log('');
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
 
 module.exports.downloadLocalizationPolicy = function (argv, done) {
 	'use strict';
@@ -6729,7 +6922,7 @@ module.exports.listAssets = function (argv, done) {
 	var validate = typeof argv.validate !== 'string' || argv.validate.toLowerCase() === 'false' ? '' : argv.validate;
 
 	const allowedProperties = ['id', 'name', 'type', 'language', 'slug', 'status', 'createdDate', 'createdBy', 'updatedDate', 'updatedBy', 'version', 'publishedVersion', 'size',
-		'references', 'referencedBy', 'referencedBySites'];
+		'repository', 'references', 'referencedBy', 'referencedBySites'];
 	const defaultProperties = ['type', 'id', 'version', 'status', 'language', 'size', 'name'];
 	var properties = argv.properties ? argv.properties.split(',') : [];
 	var propertiesToShow = [];
@@ -6744,6 +6937,7 @@ module.exports.listAssets = function (argv, done) {
 		propertiesToShow = defaultProperties;
 	}
 	console.log(' - properties to show: ' + propertiesToShow);
+	var showRepository = propertiesToShow.includes('repository');
 
 	var expand = '';
 	if (propertiesToShow.includes('references') || propertiesToShow.includes('referencedBy') || propertiesToShow.includes('referencedBySites')) {
@@ -6798,6 +6992,8 @@ module.exports.listAssets = function (argv, done) {
 		var validatedItems = [];
 		var typeNames = [];
 		var textFields = [];
+		var repositories = [];
+		var repositoryIds = [];
 
 		var repositoryPromises = [];
 		if (repositoryName) {
@@ -6953,6 +7149,9 @@ module.exports.listAssets = function (argv, done) {
 
 				startTime = new Date();
 				let fields = 'name,status,slug,language,publishedChannels,languageIsMaster,translatable,createdDate,createdBy,updatedDate,updatedBy,version,versionInfo,typeCategory';
+				if (showRepository) {
+					fields += ',repositoryId';
+				}
 				return (assetsInFile.length > 0 ? contentUtils.queryItemsWithIds(server, '', assetsInFile, fields) :
 					serverRest.queryItems({
 						server: server,
@@ -6985,7 +7184,31 @@ module.exports.listAssets = function (argv, done) {
 					if (item.type && !['Image', 'File', 'Video'].includes(item.type) && !typeNames.includes(item.type)) {
 						typeNames.push(item.type);
 					}
+					if (item.repositoryId && !repositoryIds.includes(item.repositoryId)) {
+						repositoryIds.push(item.repositoryId);
+					}
 				});
+
+				var repoPromises = [];
+				if (showRepository) {
+					repositoryIds.forEach(function (id) {
+						repoPromises.push(serverRest.getRepository({server: server, id: id}));
+					});
+				}
+
+				return Promise.all(repoPromises);
+
+			})
+			.then(function (results) {
+
+				if (showRepository) {
+					let repos = results || [];
+					repos.forEach(function (repo) {
+						if (repo && repo.id) {
+							repositories.push(repo);
+						}
+					});
+				}
 
 				var expandPromises = [];
 				if (expand) {
@@ -7015,7 +7238,7 @@ module.exports.listAssets = function (argv, done) {
 					}
 				}
 
-				_displayAssets(server, propertiesToShow, repository, collection, channel, channelToken, items, showURLS, rankingApiName);
+				_displayAssets(server, propertiesToShow, repository, collection, channel, channelToken, items, showURLS, rankingApiName, repositories);
 				console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
 
 				var itemsWithForwardSlashSlug = [];
@@ -7041,10 +7264,11 @@ module.exports.listAssets = function (argv, done) {
 				});
 				if (translationsInDraft.length > 0) {
 					console.log(' - non-master translatable items in draft:');
-					let format = '   %-38s %-38s %-10s %-s';
-					console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name'));
+					let titleFormat = '   %-38s %-38s %-10s %-s';
+					console.log(sprintf(titleFormat, 'Type', 'Id', 'Language', 'Name'));
 					translationsInDraft.forEach(function (item) {
-						console.log(sprintf(format, item.type, item.id, item.language, item.name));
+						let rowFormat = `   %-${formatter.typeColSize(38, item.type)}s %-${formatter.assetColSize(38, item.id)}s %-10s %-s`;
+						console.log(sprintf(rowFormat, formatter.typeFormat(item.type), formatter.assetFormat(item.id), item.language, item.name));
 					});
 				}
 
@@ -7443,7 +7667,7 @@ var _getDigitalAssetIds = function (src) {
 	return values;
 };
 
-var _displayAssets = function (server, propertiesToShowOrig, repository, collection, channel, channelToken, origItems, showURLS, ranking) {
+var _displayAssets = function (server, propertiesToShowOrig, repository, collection, channel, channelToken, origItems, showURLS, ranking, repositories) {
 	var items = process.shim ? structuredClone(origItems) : origItems;
 	var types = [];
 	var allIds = [];
@@ -7535,7 +7759,7 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 		console.log(sprintf(format, 'Channel:', channel.name));
 	}
 	console.log(sprintf(format, 'Items:', ''));
-	var format2;
+	var format2, format2Row;
 
 	if (showURLS) {
 		//
@@ -7559,18 +7783,26 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 		// console.log(sprintf(format2, 'Type', 'Id', 'Version', 'Status', 'Language', 'Size', 'Name'));
 		var labels = [];
 		format2 = '   ';
+		format2Row = '   ';
 		for (let i = 0; i < propertiesToShow.length; i++) {
 			let name = propertiesToShow[i];
 			labels.push(name[0].toUpperCase() + name.slice(1));
 			let f = '%-10s ';
+			let frow;
 			if (i === propertiesToShow.length - 1) {
 				f = '%-s';
 			} else {
 				if (name === 'id' || name === 'type' || name === 'slug') {
 					f = '%-38s ';
 				}
+				if (name === 'id') {
+					frow = `%-${formatter.assetColSize(38, 'id')}s `;
+				}
 				if (name === 'name') {
-					f = '%-30s ';
+					f = '%-40s ';
+				}
+				if (name === 'repository') {
+					f = '%-40s ';
 				}
 				if (name === 'version') {
 					f = '%-7s ';
@@ -7599,6 +7831,7 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 				f = '';
 			}
 			format2 += f;
+			format2Row += frow || f;
 		}
 		// console.log(format2);
 
@@ -7648,6 +7881,16 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 			}
 		}
 
+		var _getRepoName = function (repositoryId) {
+			var name = '';
+			for (let i = 0; i < repositories.length; i++) {
+				if (repositories[i] && repositories[i].id === repositoryId) {
+					name = repositories[i].name;
+					break;
+				}
+			}
+			return name;
+		};
 		var totalSize = 0;
 		let firstIsType = propertiesToShow[0] === 'type';
 		if (propertiesToShow.includes('type')) {
@@ -7669,7 +7912,7 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 						if (name === 'references' || name === 'referencedBy' || name === 'referencedBySites') {
 							// display other properties
 							if (values.length > 0) {
-								console.log(vsprintf(format2, values));
+								console.log(vsprintf(format2Row, values));
 								values = [];
 							}
 							_displayRelationships(item, name, firstIsType);
@@ -7685,6 +7928,9 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 
 								value = item.fields && item.fields.size ? item.fields.size : '';
 
+							} else if (name === 'repository') {
+
+								value = _getRepoName(item.repositoryId);
 							}
 							if (name === 'type') {
 								if (j > 0) {
@@ -7698,7 +7944,7 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 						}
 					});
 					if (!showRelationships) {
-						console.log(vsprintf(format2, values));
+						console.log(vsprintf(format2Row, values));
 					}
 				}
 			}
@@ -7713,7 +7959,7 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 					if (name === 'references' || name === 'referencedBy' || name === 'referencedBySites') {
 						// display other properties
 						if (values.length > 0) {
-							console.log(vsprintf(format2, values));
+							console.log(vsprintf(format2Row, values));
 							values = [];
 						}
 						_displayRelationships(item, name, firstIsType);
@@ -7729,7 +7975,11 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 
 							value = item.fields && item.fields.size ? item.fields.size : '';
 
+						} else if (name === 'repository') {
+
+							value = _getRepoName(item.repositoryId);
 						}
+
 						if (value === undefined) {
 							value = '';
 						}
@@ -7737,7 +7987,7 @@ var _displayAssets = function (server, propertiesToShowOrig, repository, collect
 					}
 				});
 				if (!showRelationships) {
-					console.log(vsprintf(format2, values));
+					console.log(vsprintf(format2Row, values));
 				}
 			}
 		}
@@ -8093,14 +8343,14 @@ module.exports.describeAsset = function (argv, done) {
 				console.log(sprintf(format1, 'Created', item.createdDate.value + ' by ' + item.createdBy));
 				console.log(sprintf(format1, 'Updated', item.updatedDate.value + ' by ' + item.updatedBy));
 				console.log(sprintf(format1, 'Slug', item.slug));
-				console.log(sprintf(format1, 'Asset type', item.type));
+				console.log(sprintf(format1, 'Asset type', formatter.typeFormat(item.type)));
 				console.log(sprintf(format1, 'Status', item.status));
 				console.log(sprintf(format1, 'Version', item.version));
 				console.log(sprintf(format1, 'Language', item.language || ''));
 				console.log(sprintf(format1, 'Translatable', item.translatable ? '√' : ''));
 				console.log(sprintf(format1, 'Master', item.languageIsMaster ? '√' : ''));
 				if (masterItemId) {
-					console.log(sprintf(format1, 'Master item Id', masterItemId));
+					console.log(sprintf(format1, 'Master item Id', formatter.assetFormat(masterItemId)));
 				}
 				console.log(sprintf(format1, 'Published', item.isPublished ? '√' : ''));
 				console.log(sprintf(format1, 'Repository', formatter.repositoryFormat(repository.name) + ' (Id: ' + repository.id + ')'));
@@ -8123,7 +8373,8 @@ module.exports.describeAsset = function (argv, done) {
 				}
 				console.log(sprintf(format1, 'Channels', ''));
 				if (channels.length > 0) {
-					console.log(sprintf(format2, 'Name', 'Id', 'Token', 'Published to'));
+					var channelTitleFormat = '  %-36s  %-51s  %-32s  %-s';
+					console.log(sprintf(channelTitleFormat, 'Name', 'Id', 'Token', 'Published to'));
 					channels.forEach(function (channel) {
 						var tokens = channel.channelTokens || [];
 						var channelToken = '';
@@ -8134,7 +8385,8 @@ module.exports.describeAsset = function (argv, done) {
 							}
 						}
 						var pubished = itemPublishedChannels.includes(channel.id) ? '   √' : '';
-						console.log(sprintf(format2, formatter.channelFormat(channel.name), channel.id, channelToken, pubished));
+						var channelRowFormat = `  %-${formatter.channelColSize(36, channel.name)}s  %-51s  %-32s  %-s`;
+						console.log(sprintf(channelRowFormat, formatter.channelFormat(channel.name), channel.id, channelToken, pubished));
 					});
 				}
 
@@ -8154,30 +8406,33 @@ module.exports.describeAsset = function (argv, done) {
 					var translations = item.variations.data[0].items || [];
 					if (translations.length > 1) {
 						console.log(sprintf(format1, 'Translations', ''));
-						var transFormat = '  %-36s  %-8s  %-10s  %-9s  %-s';
-						console.log(sprintf(transFormat, 'Id', 'Language', 'Status', 'Published', 'Name'));
+						var transTitleFormat = '  %-36s  %-8s  %-10s  %-9s  %-s';
+						console.log(sprintf(transTitleFormat, 'Id', 'Language', 'Status', 'Published', 'Name'));
 						translations.forEach(function (transItem) {
 							if (transItem.id !== item.id) {
-								console.log(sprintf(transFormat, transItem.id, transItem.value, transItem.status, transItem.isPublished ? '   √' : '', transItem.name));
+								var transRowFormat = `  %-${formatter.assetColSize(36, transItem.id)}s  %-8s  %-10s  %-9s  %-s`;
+								console.log(sprintf(transRowFormat, formatter.assetFormat(transItem.id), transItem.value, transItem.status, transItem.isPublished ? '   √' : '', transItem.name));
 							}
 						});
 					}
 				}
 
-				var itemFormat = '  %-36s  %-40s  %-s';
+				var itemTitleFormat = '  %-36s  %-40s  %-s';
 				console.log(sprintf(format1, 'Dependencies', ''));
 				if (referenceItems.length > 0) {
-					console.log(sprintf(itemFormat, 'Id', 'Type', 'Name'));
+					console.log(sprintf(itemTitleFormat, 'Id', 'Type', 'Name'));
 					referenceItems.forEach(function (refItem) {
-						console.log(sprintf(itemFormat, formatter.assetFormat(refItem.id), refItem.type, refItem.name));
+						var itemRowFormat = `  %-${formatter.assetColSize(36, refItem.id)}s  %-${formatter.typeColSize(40, refItem.type)}s  %-s`;
+						console.log(sprintf(itemRowFormat, formatter.assetFormat(refItem.id), formatter.typeFormat(refItem.type), refItem.name));
 					});
 				}
 
 				console.log(sprintf(format1, 'Referenced by', ''));
 				if (referencedByItems.length > 0) {
-					console.log(sprintf(itemFormat, 'Id', 'Type', 'Name'));
+					console.log(sprintf(itemTitleFormat, 'Id', 'Type', 'Name'));
 					referencedByItems.forEach(function (refItem) {
-						console.log(sprintf(itemFormat, formatter.assetFormat(refItem.id), refItem.type, refItem.name));
+						var itemRowFormat = `  %-${formatter.assetColSize(36, refItem.id)}s  %-${formatter.typeColSize(40, refItem.type)}s  %-s`;
+						console.log(sprintf(itemRowFormat, formatter.assetFormat(refItem.id), formatter.typeFormat(refItem.type), refItem.name));
 					});
 				}
 
@@ -8868,7 +9123,78 @@ var _zipContent = function (contentpath, contentfilename) {
 };
 
 
+/**
+ * Validate input for replicate repository
+ */
+module.exports.validateReplicateRepositoryInput = function (argv, done) {
+	'use strict';
 
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var destServerName = argv.destination;
+	var destServer = serverUtils.verifyServer(destServerName, projectDir);
+	if (!destServer || !destServer.valid) {
+		done();
+		return;
+	}
+
+	if (server.url === destServer.url) {
+		console.error('ReplicateSite: source and destination server are the same');
+		done();
+		return;
+	}
+
+	try {
+		var repoName = argv.name,
+			destRepoName = argv.repository;
+
+		serverRest.getRepositoryWithName({
+			server: server,
+			name: repoName,
+			showInfo: false
+		}).then(function(repoInfo) {
+			if (!repoInfo.data || !repoInfo.data.id) {
+				console.error('ERROR: Repository ' + repoName + ' is not found');
+				done();
+				return;
+			}
+
+			serverRest.getRepositoryWithName({
+				server: destServer,
+				name: destRepoName,
+				showInfo: false
+			}).then(function(destRepoInfo) {
+				var requiredMissing = false;
+				if (!destRepoInfo || destRepoInfo.err) {
+					console.error('ERROR: failed to get repository ' + destRepoName);
+					requiredMissing = true;
+				} else if (!destRepoInfo.data || !destRepoInfo.data.id) {
+					console.error('ERROR: repository ' + destRepoName + ' does not exist');
+					requiredMissing = true;
+				}
+				if (requiredMissing) {
+					done();
+					return;
+				}
+
+				done(true);
+			});
+		});
+	} catch (e) {
+		console.error(e);
+		done();
+	}
+};
 
 /**
  * export repository
@@ -9347,7 +9673,7 @@ var _describeRepositoryExportJob = function (server, id, download, data, project
 			job.sources.forEach((s) => {
 				if (s.select.type === 'repository') {
 					if (repositoryName) {
-						console.log(sprintf(jobFormat, 'Repository Name', repositoryName));
+						console.log(sprintf(jobFormat, 'Repository Name', formatter.repositoryFormat(repositoryName)));
 					} else {
 						console.log(sprintf(jobFormat, 'Repository Id', s.select.site.id));
 					}
@@ -9373,7 +9699,10 @@ var _describeRepositoryExportJob = function (server, id, download, data, project
 				console.log(sprintf(jobFormat, 'Duration', duration(job.createdAt, job.completedAt)));
 			}
 
-			if (download) {
+			if (process.shim) {
+				console.log(sprintf(jobFormat, '[!--downloadExportReport--]' + id + '[/!--downloadExportReport--]', ''));
+				done(true);
+			} else if (download) {
 				var reportName = repositoryName || data.job.name;
 				exportserviceUtils.downloadReports({
 					reports: data.reports,
@@ -9473,7 +9802,7 @@ var _describeRepositoryImportJob = function (server, id, download, data, project
 				console.log(sprintf(jobFormat, 'Archive Id', job.source.archive.id));
 			}
 			if (repositoryName) {
-				console.log(sprintf(jobFormat, 'Target Asset Repository', repositoryName));
+				console.log(sprintf(jobFormat, 'Target Asset Repository', formatter.repositoryFormat(repositoryName)));
 			} else {
 				console.log(sprintf(jobFormat, 'Target Asset Repository Id', repositoryId));
 			}
@@ -9513,7 +9842,10 @@ var _describeRepositoryImportJob = function (server, id, download, data, project
 			}
 
 			var checkDownload = function (dataForDownload) {
-				if (download) {
+				if (process.shim) {
+					console.log(sprintf(jobFormat, '[!--downloadImportReport--]' + id + '[/!--downloadImportReport--]', ''));
+					done(true);
+				} else if (download) {
 					exportserviceUtils.downloadReports({
 						reports: dataForDownload.reports,
 						type: 'repository',

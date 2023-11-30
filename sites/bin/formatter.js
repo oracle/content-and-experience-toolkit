@@ -3,55 +3,131 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
-
-function channelFormat(name) {
-	return process.shim ? `[!--dsch--]${name}[/!--dsch--]` : name;
+function formatName(name, tag) {
+	return process.shim && name ? `[!--${tag}--]${name}[/!--${tag}--]` : name;
 }
 
-function taxonomyFormat(name) {
-	return process.shim ? `[!--dstx--]${name}[/!--dstx--]` : name;
-}
+function sizeColumn(dfltSize, name, tag) {
+	var numberOfItems = Math.min(Array.isArray(name) ? name.length : (name ? 1 : 0), 5);
 
-function assetFormat(name) {
-	return process.shim ? `[!--dsa--]${name}[/!--dsa--]` : name;
-}
-
-function componentFormat(name) {
-	if (name === 'scs-contentitem') {
-		return name;
+	if (process.shim && numberOfItems > 0) {
+		// dfltSize + ([!--tag.length--][/!--tag.length--]).length * nuber of items
+		return dfltSize + (((tag.length * 2) + 15) * numberOfItems);
 	} else {
-		return process.shim ? `[!--dscp--]${name}[/!--dscp--]` : name;
+		return dfltSize;
 	}
 }
 
-function repositoryFormat(name) {
-	return process.shim ? `[!--dsr--]${name}[/!--dsr--]` : name;
+var tags = [{
+	name: 'channel',
+	value: 'dsch'
+}, {
+	name: 'taxonomy',
+	value: 'dstx'
+}, {
+	name: 'asset',
+	value: 'dsa'
+}, {
+	name: 'component',
+	value: 'dscp'
+}, {
+	name: 'repository',
+	value: 'dsr'
+}, {
+	name: 'site',
+	value: 'dss'
+}, {
+	name: 'theme',
+	value: 'dsth'
+}, {
+	name: 'template',
+	value: 'dst'
+}, {
+	name: 'type',
+	value: 'dstp'
+}, {
+	name: 'category',
+	value: 'dsct'
+}, {
+	name: 'translationJob',
+	value: 'dstj'
+}, {
+}, {
+	name: 'localizationPolicy',
+	value: 'dllp'
+}, {
+	name: 'file',
+	value: 'dsf'
+}, {
+	name: 'folder',
+	value: 'lfd'
+}, {
+	name: 'exportJob',
+	value: 'dsej'
+}, {
+	name: 'importJob',
+	value: 'dsij'
+}, {
+	name: 'bgjob',
+	value: 'dsbj'
+}, {
+	name: 'fileview',
+	value: 'fileview'
 }
+];
 
-function siteFormat(name) {
-	return process.shim ? `[!--dss--]${name}[/!--dss--]` : name;
-}
+var formatter = {};
 
-function themeFormat(name) {
-	return process.shim ? `[!--dsth--]${name}[/!--dsth--]` : name;
-}
+// populate the formatter
+tags.forEach((tag) => {
+	// add in the 'name' formatters
+	formatter[tag.name + 'Format'] = (name) => {
+		return formatName(name, tag.value);
+	};
 
-function templateFormat(name) {
-	return process.shim ? `[!--dst--]${name}[/!--dst--]` : name;
-}
+	// add in the 'column' sizes
+	formatter[tag.name + 'ColSize'] = (dfltSize, name) => {
+		return sizeColumn(dfltSize, name, tag.value);
+	}
+});
 
-function bgjobFormat(name) {
-	return process.shim ? `[!--dsbj--]${name}[/!--dsbj--]` : name;
-}
+var systemNames = ['scs-contentitem', 'Default', 'Same as Desktop'];
 
-module.exports = {
-	channelFormat,
-	taxonomyFormat,
-	assetFormat,
-	componentFormat,
-	repositoryFormat,
-	siteFormat,
-	themeFormat,
-	templateFormat,
-	bgjobFormat
-}
+// add in any overrides
+formatter.componentFormat = (name) => {
+	if (systemNames.indexOf(name) === -1) {
+		return formatName(name, 'dscp');
+	} else {
+		return name;
+	}
+};
+formatter.componentColSize = (dfltSize, name) => {
+	if (systemNames.indexOf(name) === -1) {
+		return sizeColumn(dfltSize, name, 'dscp');
+	} else {
+		return dfltSize;
+	}
+};
+formatter.categoryFormat = (name, taxonomy) => {
+	if (process.shim && name && taxonomy) {
+		return formatName(`${name},${taxonomy}`, 'dsct');
+	} else {
+		return name;
+	}
+};
+formatter.fileFormat = (name, folder) => {
+	if (process.shim && name) {
+		return formatName(folder ? `${name},${folder}` : name, 'dsf');
+	} else {
+		return name;
+	}
+};
+formatter.folderFormat = (name, folder) => {
+	if (process.shim && name) {
+		return formatName(folder ? `${name},${folder}` : name, 'lfd');
+	} else {
+		return name;
+	}
+};
+
+module.exports = formatter;

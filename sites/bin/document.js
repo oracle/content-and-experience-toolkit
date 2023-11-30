@@ -10,7 +10,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	readline = require('readline'),
 	fs = require('fs'),
 	path = require('path'),
-	sprintf = require('sprintf-js').sprintf;
+	sprintf = require('sprintf-js').sprintf,
+	formatter = require('./formatter.js');
 
 var console = require('../test/server/logger.js').console;
 
@@ -132,10 +133,11 @@ var _createFolder = function (server, rootParentId, folderPath, showMessage) {
 	});
 };
 
-var _getResourceInfo = function (server, resourcePath) {
+var _getResourceInfo = function (server, resourcePath, noMsg) {
 	var resourceName;
 	var resourceType;
 	var resourcePromises = [];
+	var showInfo = noMsg ? false : true;
 	if (resourcePath && (resourcePath.indexOf('site:') === 0 || resourcePath.indexOf('theme:') === 0 || resourcePath.indexOf('component:') === 0)) {
 		// resourceFolder = true;
 		if (resourcePath.indexOf('site:') === 0) {
@@ -159,7 +161,8 @@ var _getResourceInfo = function (server, resourcePath) {
 		if (resourceType === 'site') {
 			resourcePromises.push(sitesRest.getSite({
 				server: server,
-				name: resourceName
+				name: resourceName,
+				showInfo: showInfo
 			}));
 		} else if (resourceType === 'theme') {
 			resourcePromises.push(sitesRest.getTheme({
@@ -1084,15 +1087,16 @@ module.exports.downloadFile = function (argv, done) {
 //
 // argv.file = <file path> such docs/file1.json, site:site1/structure.json
 //
-var _getFileContent = function (argv, server) {
+var _getFileContent = function (argv, server, noMsg) {
 	return new Promise(function (resolve, reject) {
+		var showDetail = noMsg ? false : true;
 		var filePath = argv.file;
 		var fileName = filePath;
 		if (fileName.indexOf('/') > 0) {
 			fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
 		}
 
-		var info = _getResourceInfo(server, filePath);
+		var info = _getResourceInfo(server, filePath, noMsg);
 		var resourceName = info.resourceName;
 		var resourceType = info.resourceType;
 		var folderResourcePromises = info.resourcePromises;
@@ -1123,7 +1127,8 @@ var _getFileContent = function (argv, server) {
 				return serverRest.findFolderHierarchy({
 					server: server,
 					parentID: fileRootParentId,
-					folderPath: filePath
+					folderPath: filePath,
+					noMsg: noMsg
 				});
 
 			})
@@ -1134,7 +1139,9 @@ var _getFileContent = function (argv, server) {
 				}
 				file = result;
 
-				console.info(' - verify source file ' + filePath + ' (Id: ' + file.id + ' version: ' + file.version + ')');
+				if (showDetail) {
+					console.info(' - verify source file ' + filePath + ' (Id: ' + file.id + ' version: ' + file.version + ')');
+				}
 
 				return serverRest.downloadFile({
 					server: server,
@@ -1723,7 +1730,8 @@ module.exports.listFolder = function (argv, done) {
 				var format = '   %-6s  %-44s  %-20s  %-s';
 				console.log(sprintf(format, 'Type', 'Id', 'Last Modified Date', 'Path'));
 				items.forEach(function (item) {
-					var itemPath = item.path;
+					var itemPath = (item.type || '').toLowerCase() === 'folder' ? formatter.folderFormat(item.path, argv.path) : formatter.fileFormat(item.path, argv.path);
+
 					if (item.version) {
 						itemPath = itemPath + ' (';
 						if (item.size) {
@@ -3063,7 +3071,7 @@ module.exports.describeFile = function (argv, done) {
 					typeLabel = typeLabel.substring(typeLabel.lastIndexOf('/') + 1);
 				}
 				console.log('');
-				console.log(sprintf(format1, 'Id', file.id));
+				console.log(sprintf(format1, 'Id', formatter.fileviewFormat(file.id)));
 				console.log(sprintf(format1, 'Name', file.name));
 				console.log(sprintf(format1, 'Description', file.description || ''));
 				console.log(sprintf(format1, 'Size', file.size));

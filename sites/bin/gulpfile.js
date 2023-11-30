@@ -1881,6 +1881,36 @@ gulp.task('update-site', function (done) {
 });
 
 /**
+ * replicate repository
+ */
+gulp.task('replicate-repository', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.validateReplicateRepositoryInput(argv, function (success) {
+		if (success) {
+			// Download export files
+			argv.download = true;
+			assetlib.exportRepository(argv, function (success) {
+				process.exitCode = _getExitCode(success);
+				if (process.exitCode === 0) {
+					console.log(' - Export repository completed successfully. Start importing repository to destination server.');
+					// Set server to destination
+					argv.server = argv.destination;
+					assetlib.importRepository(argv, function (success) {
+						process.exitCode = _getExitCode(success);
+						done();
+					});
+				} else {
+					done();
+				}
+			});
+		} else {
+			done();
+		}
+	});
+});
+
+/**
  * export repository
  */
 gulp.task('export-repository', function (done) {
@@ -1901,6 +1931,36 @@ gulp.task('import-repository', function (done) {
 	assetlib.importRepository(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
+	});
+});
+
+/**
+ * replicate site
+ */
+gulp.task('replicate-site', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.validateReplicateSiteInput(argv, function (success) {
+		if (success) {
+			// Download export files
+			argv.download = true;
+			sitelib.exportSite(argv, function (success) {
+				process.exitCode = _getExitCode(success);
+				if (process.exitCode === 0) {
+					console.log(' - Export site completed successfully. Start importing site to destination server.');
+					// Set server to destination
+					argv.server = argv.destination;
+					sitelib.importSite(argv, function (success) {
+						process.exitCode = _getExitCode(success);
+						done();
+					});
+				} else {
+					done();
+				}
+			});
+		} else {
+			done();
+		}
 	});
 });
 
@@ -2491,6 +2551,18 @@ gulp.task('control-collection', function (done) {
 });
 
 /**
+ * Describe on a collection
+ */
+gulp.task('describe-collection', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.describeCollection(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Create a channel
  */
 gulp.task('create-channel', function (done) {
@@ -2545,6 +2617,18 @@ gulp.task('create-localization-policy', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	assetlib.createLocalizationPolicy(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Describe a localization policy
+ */
+gulp.task('describe-localization-policy', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.describeLocalizationPolicy(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -2665,6 +2749,18 @@ gulp.task('list-translation-jobs', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	translationlib.listTranslationJobs(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * describe server translation job
+ */
+gulp.task('describe-translation-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	translationlib.describeTranslationJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

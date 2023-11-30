@@ -21,7 +21,8 @@ var express = require('express'),
 	url = require('url'),
 	_ = require('underscore'),
 	fileUtils = require('./fileUtils.js'),
-	sitesRest = require('./sitesRest.js');
+	sitesRest = require('./sitesRest.js'),
+	formatter = require('../../bin/formatter.js');
 
 var console = require('./logger.js').console;
 
@@ -789,8 +790,8 @@ var _clearOAuthToken = function (server) {
 module.exports.displayContentLayoutMapping = function (mappings) {
 	// console.log(mappings);
 	console.log('');
-	var format = '   %-36s  %-40s  %-s';
-	console.log(sprintf(format, 'Layout Styles', 'Desktop Content Layout', 'Mobile Content Layout'));
+	var titleFormat = '   %-36s  %-40s  %-s';
+	console.log(sprintf(titleFormat, 'Layout Styles', 'Desktop Content Layout', 'Mobile Content Layout'));
 
 	var _displayOne = function (style) {
 		var desktopLayout = 'Default';
@@ -803,7 +804,9 @@ module.exports.displayContentLayoutMapping = function (mappings) {
 				mobileLayout = mapping.formats && mapping.formats.mobile || mobileLayout;
 			}
 		}
-		console.log(sprintf(format, style, desktopLayout, mobileLayout));
+
+		var rowFormat = `   %-36s  %-${formatter.componentColSize(40, desktopLayout)}s  %-s`;
+		console.log(sprintf(rowFormat, style, formatter.componentFormat(desktopLayout), mobileLayout));
 	};
 
 	_displayOne('Default');
@@ -981,7 +984,7 @@ var _getTemplateComponents = function (templateName, includeThemeComps) {
 		return comps;
 	}
 
-	var pages = fs.readdirSync(path.join(tempSrcDir, 'pages'));
+	var pages = fs.existsSync(path.join(tempSrcDir, 'pages')) ? fs.readdirSync(path.join(tempSrcDir, 'pages')) : [];
 
 	var processInstances = function (componentInstances) {
 		var compvalues;

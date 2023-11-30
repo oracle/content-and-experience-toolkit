@@ -146,7 +146,7 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 								if (needNewLine && console.showInfo()) {
 									process.stdout.write(os.EOL);
 								}
-								console.error(' - Export Site job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
+								console.error('ERROR: Export Site job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
 								return resolve({
 									err: 'err',
 									reports: _getReports(response.location, data)
@@ -255,7 +255,7 @@ var _createArchive = function (server, folderId, archiveType) {
 					// TODO: Pending confirmation from server team on the fields for repository.
 					statusUrl += '?fields=id,entries,provider,docs.entries.repository,entries.repository.id,entries.repository.name';
 				} else {
-					statusUrl += '?fields=id,entries.entityName,entries.entityType,provider,entries.site.id,entries.site.name,entries.site.defaultLanguage,entries.site.channel,entries.site.channel,entries.site.channel.localizationPolicy,target.docs.folderId,target.docs.result.folderId,target.docs.result.folderName';
+					statusUrl += '?fields=id,entries.entityName,entries.entityType,provider,entries.site.id,entries.site.name,entries.site.isEnterprise,entries.site.defaultLanguage,entries.site.channel,entries.site.channel,entries.site.channel.localizationPolicy,target.docs.folderId,target.docs.result.folderId,target.docs.result.folderName';
 				}
 				var startTime = new Date();
 				var inter = setInterval(function () {
@@ -264,7 +264,7 @@ var _createArchive = function (server, folderId, archiveType) {
 							if (!data || data.error) {
 								clearInterval(inter);
 								var msg = data && data.error ? (data.error.detail || data.error.title) : '';
-								console.error(' - Create archive failed: ' + msg + ' (ecid: ' + response.ecid + ')');
+								console.error('ERROR: Create archive failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 								return resolve({
 									err: 'err'
 								});
@@ -311,30 +311,33 @@ var _showValidationResults = function (source, job) {
 		v2Format = '       %-24s  %-s',
 		v3Format = '         %-22s  %-s';
 
-	console.log(sprintf(jobFormat, 'Validation', ''));
-	if (job.validationSummary) {
-		job.validationSummary.messagesByEntityTypes.forEach((entity) => {
-			if (entity.countsByLevel.error > 0) {
-				console.log(sprintf(v1Format, 'error count', entity.countsByLevel.error));
-			}
-			if (entity.countsByLevel.warning > 0) {
-				console.log(sprintf(v1Format, 'warning count', entity.countsByLevel.warning));
-			}
-			if (entity.countsByLevel.info > 0) {
-				console.log(sprintf(v1Format, 'info count', entity.countsByLevel.info));
-			}
-		})
-	}
+	if ((job.validationSummary && job.validationSummary.messagesByEntityTypes.length > 0) || (job.validationResults && job.validationResults.items.length > 0)) {
+		console.log(sprintf(jobFormat, 'Validation', ''));
 
-	if (job.validationResults) {
-		job.validationResults.items.forEach((item) => {
-			console.log(sprintf(v2Format, item.entityType, item.entityName));
-			item.messages.items.forEach(function (message) {
-				console.log(sprintf(v3Format, message.level, message.text));
+		if (job.validationSummary && job.validationSummary.messagesByEntityTypes.length > 0) {
+			job.validationSummary.messagesByEntityTypes.forEach((entity) => {
+				if (entity.countsByLevel.error > 0) {
+					console.log(sprintf(v1Format, 'error count', entity.countsByLevel.error));
+				}
+				if (entity.countsByLevel.warning > 0) {
+					console.log(sprintf(v1Format, 'warning count', entity.countsByLevel.warning));
+				}
+				if (entity.countsByLevel.info > 0) {
+					console.log(sprintf(v1Format, 'info count', entity.countsByLevel.info));
+				}
+			})
+		}
+
+		if (job.validationResults && job.validationResults.items.length > 0) {
+			job.validationResults.items.forEach((item) => {
+				console.log(sprintf(v2Format, item.entityType, item.entityName));
+				item.messages.items.forEach(function (message) {
+					console.log(sprintf(v3Format, message.level, message.text));
+				});
 			});
-		});
+		}
+		console.info('');
 	}
-	console.info('');
 };
 
 var _pollImportJob = function (server, statusUrl, type, resolve, reject, response) {
@@ -370,7 +373,7 @@ var _pollImportJob = function (server, statusUrl, type, resolve, reject, respons
 						process.stdout.write(os.EOL);
 					}
 					if (response) {
-						console.error(' - ' + typeText + ' job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: ' + typeText + ' job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
 					}
 					_showValidationResults(' - ' + typeText, data);
 					return resolve({
@@ -386,7 +389,11 @@ var _pollImportJob = function (server, statusUrl, type, resolve, reject, respons
 						}
 						process.stdout.write(os.EOL);
 					}
-					console.info(' - ' + typeText + ' job ' + data.id + ' ' + data.state + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+					if (data.state === 'allCompleted') {
+						console.info(' - ' + typeText + ' job ' + data.id + ' ' + data.state + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+					} else {
+						console.warn('WARNING: ' + typeText + ' job ' + data.id + ' ' + data.state + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+					}
 					return resolve({
 						job: data,
 						reports: _getReports(statusUrl, data)
@@ -447,45 +454,56 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, local
 			}
 		};
 
-		switch (policies) {
-		case 'createSite':
-			payload.targets[0].apply.createSite = {
-				"assetsPolicy": assetspolicy,
-				"site": {
-					"repository": {
-						"id": repositoryId
-					}
-				}
-			}
-			break;
-		case 'updateSite':
-			payload.targets[0].apply.updateSite = {
-				"assetsPolicy": assetspolicy,
-				"site": {
-					"repository": {
-						"id": repositoryId
-					}
-				}
-			}
-			break;
-		case 'duplicateSite':
-			payload.targets[0].apply.duplicateSite = {
-				"assetsPolicy": 'duplicate',
-				"site": {
-					"name": newsite,
-					"sitePrefix": sitePrefix,
-					"repository": {
-						"id": repositoryId
-					},
-					channel: {
-						"localizationPolicy": {
-							"id": localizationPolicyId
+		if (repositoryId) {
+			switch (policies) {
+			case 'createSite':
+				payload.targets[0].apply.createSite = {
+					"assetsPolicy": assetspolicy,
+					"site": {
+						"repository": {
+							"id": repositoryId
 						}
 					}
 				}
+				break;
+			case 'updateSite':
+				payload.targets[0].apply.updateSite = {
+					"assetsPolicy": assetspolicy,
+					"site": {
+						"repository": {
+							"id": repositoryId
+						}
+					}
+				}
+				break;
+			case 'duplicateSite':
+				payload.targets[0].apply.duplicateSite = {
+					"assetsPolicy": 'duplicate',
+					"site": {
+						"name": newsite,
+						"sitePrefix": sitePrefix,
+						"repository": {
+							"id": repositoryId
+						},
+						channel: {
+							"localizationPolicy": {
+								"id": localizationPolicyId
+							}
+						}
+					}
+				}
+				break;
+			default:
 			}
-			break;
-		default:
+		} else {
+			payload.targets[0].apply.policies = policies;
+			if (policies === 'duplicateSite') {
+				payload.targets[0].apply.duplicateSite = {
+					"site": {
+						"name": newsite
+					}
+				}
+			}
 		}
 
 		console.info(' - Import Site payload ' + JSON.stringify(payload));
@@ -935,7 +953,7 @@ var _exportRepository = function (server, name, repositoryName, repositoryId, fo
 								if (needNewLine && console.showInfo()) {
 									process.stdout.write(os.EOL);
 								}
-								console.error(' - Export Repository job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
+								console.error('ERROR: Export Repository job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
 								return resolve({
 									err: 'err',
 									reports: _getReports(response.location, data)

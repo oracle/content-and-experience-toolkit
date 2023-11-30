@@ -2057,14 +2057,8 @@ module.exports.describeTemplate = function (argv, done) {
 		return;
 	}
 
-	/*
-	Browser toolkit FIX for some reason argv.template has no data but our template name goes to argv.name within browser env
-	Also we must explicitly define server as __cecconfigserver otherwise it will look for templates locally
-	*/
-
-
 	if (process.shim) {
-		argv.template = argv.name;
+		// we must explicitly define server as __cecconfigserver otherwise it will look for templates locally
 		argv.server = "__cecconfigserver";
 	}
 
