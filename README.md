@@ -15,6 +15,12 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.12.1
+
+**Updated**
+- `cec list-activities` - Now lists asset activities on an OCM server
+
+
 # New in Release 23.11.1
 
 **Added**

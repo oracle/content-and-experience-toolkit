@@ -5,7 +5,8 @@
 
 var serverRest = require('../test/server/serverRest.js'),
 	fs = require('fs'),
-	path = require('path');
+	path = require('path'),
+	fileUtils = require('../test/server/fileUtils.js');
 
 
 var _executeGetExportService = function (args) {
@@ -62,7 +63,7 @@ var _downloadReport = function (url, name, server, projectDir, type) {
 			headers: addheaders
 		}
 		serverRest.downloadByURLSave(downloadArgs).then(function () {
-			resolve();
+			resolve(targetPath);
 		}).catch((error) => {
 			console.error('Failed to download reports');
 			resolve();
@@ -96,9 +97,38 @@ var _downloadSiteReports = function (reports, name, server, projectDir) {
 	});
 }
 
+var _writeErrorDetail = function(args) {
+	var reportPath = args.reportPath;
+
+	return new Promise(function (resolve, reject) {
+		// Just trim the '.zip' from reportPath
+		var extractPath = reportPath.substring(0, reportPath.lastIndexOf('.zip'));
+
+		// Remove target path if exists.
+		if (fs.existsSync(extractPath)) {
+			fileUtils.remove(extractPath);
+		}
+
+		// Create extraction directory
+		fs.mkdirSync(extractPath);
+
+		fileUtils.extractZip(reportPath, extractPath).then(function() {
+			console.info(' - Extracted report to ' + extractPath);
+			var reportFilePath = path.join(extractPath, 'Report.json');
+			if (fs.existsSync(reportFilePath)) {
+				var reportStr = fs.readFileSync(reportFilePath);
+				var reportJson = JSON.parse(reportStr);
+				console.info('ERROR Detail: ' + reportJson.errorDetail);
+			}
+			resolve();
+		});
+	});
+};
+
 module.exports.utils = {
 	executeGetExportService: _executeGetExportService,
 	downloadReport: _downloadReport,
 	downloadReports: _downloadReports,
-	downloadSiteReports: _downloadSiteReports
+	downloadSiteReports: _downloadSiteReports,
+	writeErrorDetail: _writeErrorDetail
 }

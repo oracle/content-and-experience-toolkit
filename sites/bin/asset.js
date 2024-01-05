@@ -9181,6 +9181,9 @@ module.exports.validateReplicateRepositoryInput = function (argv, done) {
 				} else if (!destRepoInfo.data || !destRepoInfo.data.id) {
 					console.error('ERROR: repository ' + destRepoName + ' does not exist');
 					requiredMissing = true;
+				} else if (!destRepoInfo.data.notReadyEnabled) {
+					console.error('ERROR: notReadyEnabled property must be set to true in repository ' + destRepoName);
+					requiredMissing = true;
 				}
 				if (requiredMissing) {
 					done();
@@ -9317,7 +9320,7 @@ module.exports.exportRepository = function (argv, done) {
 							name: repositoryName,
 							server: server,
 							projectDir: projectDir
-						}).then(function () {
+						}).then(function (reportPaths) {
 
 							if (data.job && data.job.progress === 'succeeded' && argv.download && data.job.target && data.job.target.docs && data.job.target.docs.result) {
 								var exportFolderName = data.job.target.docs.result.folderName;
@@ -9357,7 +9360,16 @@ module.exports.exportRepository = function (argv, done) {
 									done(true);
 								});
 							} else if (data.err) {
-								done();
+								var reportsPromises = [];
+								(reportPaths || []).forEach(function(reportPath) {
+									reportsPromises.push(exportserviceUtils.writeErrorDetail({
+										reportPath: reportPath
+									}));
+								});
+
+								Promise.all(reportsPromises).then(function() {
+									done();
+								});
 							} else {
 								done(true);
 							}
@@ -9465,6 +9477,8 @@ module.exports.importRepository = function (argv, done) {
 					}
 					if (!repo.data || !repo.data.id) {
 						return Promise.reject('repository ' + repository + ' does not exist');
+					} else if (!repo.data.notReadyEnabled) {
+						return Promise.reject('notReadyEnabled property must be set to true in repository ' + repository);
 					} else {
 						importRepo = repo.data;
 
@@ -9563,9 +9577,18 @@ module.exports.importRepository = function (argv, done) {
 							name: repositoryName,
 							server: server,
 							projectDir: projectDir
-						}).then(function () {
+						}).then(function (reportPaths) {
 							if (data.err) {
-								done();
+								var reportsPromises = [];
+								(reportPaths || []).forEach(function(reportPath) {
+									reportsPromises.push(exportserviceUtils.writeErrorDetail({
+										reportPath: reportPath
+									}));
+								});
+
+								Promise.all(reportsPromises).then(function() {
+									done();
+								});
 							} else {
 								done(true);
 							}
@@ -9710,7 +9733,7 @@ var _describeRepositoryExportJob = function (server, id, download, data, project
 					name: reportName,
 					server: server,
 					projectDir: projectDir
-				}).then(function () {
+				}).then(function (reportPaths) {
 					if (data.job.progress === 'succeeded' && data.job.target && data.job.target.docs && data.job.target.docs.result) {
 						var exportFolderName = data.job.target.docs.result.folderName;
 
@@ -9742,6 +9765,17 @@ var _describeRepositoryExportJob = function (server, id, download, data, project
 						documentUtils.downloadFolder(downloadArgv, server, true, true, [], exportSiteFileGroupSize).then(function () {
 							console.info('Downloaded export site files to ' + targetPath);
 							done(true);
+						});
+					} else if (data.job.progress === 'failed') {
+						var reportsPromises = [];
+						(reportPaths || []).forEach(function(reportPath) {
+							reportsPromises.push(exportserviceUtils.writeErrorDetail({
+								reportPath: reportPath
+							}));
+						});
+
+						Promise.all(reportsPromises).then(function() {
+							done();
 						});
 					} else {
 						done(true);
@@ -9852,8 +9886,21 @@ var _describeRepositoryImportJob = function (server, id, download, data, project
 						name: job.name,
 						server: server,
 						projectDir: projectDir
-					}).then(function () {
-						done(true);
+					}).then(function (reportPaths) {
+						if (data.job.progress === 'failed') {
+							var reportsPromises = [];
+							(reportPaths || []).forEach(function(reportPath) {
+								reportsPromises.push(exportserviceUtils.writeErrorDetail({
+									reportPath: reportPath
+								}));
+							});
+
+							Promise.all(reportsPromises).then(function() {
+								done();
+							});
+						} else {
+							done(true);
+						}
 					});
 				} else {
 					done(true);
