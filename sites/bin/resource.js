@@ -1341,6 +1341,22 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 };
 
 
+var _getAssetWithName = function (server, name) {
+	return new Promise(function (resolve, reject) {
+		//var q = 'name mt "' + encodeURIComponent(name) + '"';
+		var q = 'name eq "' + name + '"';
+		var fields = 'name,typeCategory';
+		return serverRest.queryItems({
+			server: server,
+			q: q,
+			fields: fields,
+			showTotal: false
+		}).then(function (result) {
+			return resolve(result);
+		});
+	});
+};
+
 module.exports.listActivities = function (argv, done) {
 	'use strict';
 
@@ -1364,7 +1380,7 @@ module.exports.listActivities = function (argv, done) {
 		if (category === 'publishing') {
 			eventCategory = type === 'site' ? 'SITE_PUBLISHING' : 'ASSET_PUBLISHING';
 		} else if (category === 'lifecycle') {
-			eventCategory = 'SITE_LIFECYCLE';
+			eventCategory =  type === 'site' ? 'SITE_LIFECYCLE' : 'ASSET_LIFECYCLE'
 		} else if (category === 'security') {
 			eventCategory = type === 'site' ? 'SITE_SECURITY' : 'ASSET_SECURITY'
 		} else if (category === 'administration') {
@@ -1374,6 +1390,7 @@ module.exports.listActivities = function (argv, done) {
 
 	var name = argv.name;
 	var objectId;
+	var assets = [];
 
 	var beforeDate = argv.before === undefined ? '' : argv.before.toString();
 	var afterDate = argv.after === undefined ? '' : argv.after.toString();
@@ -1407,6 +1424,8 @@ module.exports.listActivities = function (argv, done) {
 				resourcePromises.push(serverRest.getChannelWithName({ server: server, name: name }));
 			} else if (type === 'taxonomy') {
 				resourcePromises.push(serverRest.getTaxonomyWithName({server: server, name: name}));
+			} else if (type === 'asset') {
+				resourcePromises.push(_getAssetWithName(server, name));
 			}
 		}
 		Promise.all(resourcePromises)
@@ -1416,16 +1435,39 @@ module.exports.listActivities = function (argv, done) {
 						console.error('ERROR: ' + type + ' ' + name + ' not found');
 						return Promise.reject();
 					}
-					let obj = type === 'site' ? results[0] : results[0].data;
-					if (!obj || !obj.id) {
-						console.error('ERROR: ' + type + ' ' + name + ' not found');
-						return Promise.reject();
+
+					if (type === 'asset') {
+						assets = results[0] && results[0].data || [];
+						if (assets.length === 0) {
+							console.error('ERROR: ' + type + ' ' + name + ' not found');
+							return Promise.reject();
+						}
+
+						let assetIds = [];
+						assets.forEach(function (asset) {
+							assetIds.push(asset.id);
+						});
+
+						console.info(' - get asset (name: ' + name + ' Id: ' + assetIds + ')');
+
+					} else {
+						let obj = type === 'site' ? results[0] : results[0].data;
+						if (!obj || !obj.id) {
+							console.error('ERROR: ' + type + ' ' + name + ' not found');
+							return Promise.reject();
+						}
+						objectId = obj.id;
+						console.info(' - get resource (Id: ' + objectId + ' name: ' + name + ')');
 					}
-					objectId = obj.id;
-					console.info(' - get resource (Id: ' + objectId + ' name: ' + name + ')');
 				}
 
-				return serverRest.getAllActivities({
+				return type === 'asset' ? serverRest.getAllAssetActivities({
+					server: server,
+					assets: assets,
+					eventCategory: eventCategory,
+					beforeDate: beforeDate,
+					afterDate: afterDate
+				}) : serverRest.getAllActivities({
 					server: server,
 					objectType: objectType,
 					objectId: objectId,
@@ -1453,9 +1495,15 @@ module.exports.listActivities = function (argv, done) {
 				}
 
 				var format = '  %-36s  %-20s  %-24s  %-32s  %-s';
+				var assetFormat = '  %-36s  %-48s  %-20s  %-24s  %-32s  %-s';
 				if (acts.length > 0) {
 					// console.log(acts[0]);
-					console.log(sprintf(format, 'Name', 'Action', 'Date', 'By', 'Message'));
+					console.log('');
+					if (type === 'asset') {
+						console.log(sprintf(assetFormat, 'Id', 'Name', 'Action', 'Date', 'By', 'Message'));
+					} else {
+						console.log(sprintf(format, 'Name', 'Action', 'Date', 'By', 'Message'));
+					}
 					var cats = [];
 					acts.forEach(function (event) {
 						if (event.event && event.event.categories) {
@@ -1468,7 +1516,12 @@ module.exports.listActivities = function (argv, done) {
 						var msg = event.message && event.message.text || '';
 						var action = detail.action || detail.source || '';
 						var updatedBy = detail.updatedBy || (initiatedBy && (initiatedBy.displayName || initiatedBy.name)) || '';
-						console.log(sprintf(format, detail.name, action.toLowerCase(), event.registeredAt, updatedBy, msg));
+						if (type === 'asset') {
+							let name = detail.name;
+							console.log(sprintf(assetFormat, detail.objectId, name, action.toLowerCase(), event.registeredAt, updatedBy, msg));
+						} else {
+							console.log(sprintf(format, detail.name, action.toLowerCase(), event.registeredAt, updatedBy, msg));
+						}
 					});
 					console.log('');
 					console.log(' - total activities: ' + acts.length);

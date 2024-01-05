@@ -3175,6 +3175,114 @@ module.exports.getAllActivities = function (args) {
 	return _getAllResources(args.server, endpoint, 'activities');
 };
 
+/**
+ * Get activities of an asset (Content Item or Digital Asset)
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getAllAssetActivities = function (args) {
+	return new Promise(function (resolve, reject) {
+		var endpoint = '/system/api/v1/auditlog/activities';
+		var q = '';
+		var actPromises = [];
+		var activities = [];
+
+		if (args.assets && args.assets.length > 0) {
+			var contentItems = [];
+			var digitalAssets = [];
+			args.assets.forEach(function (asset) {
+				if (asset.typeCategory === 'DigitalAssetType') {
+					digitalAssets.push(asset.id);
+				} else {
+					contentItems.push(asset.id);
+				}
+			});
+			if (contentItems.length > 0) {
+				q = 'objectType eq "Content Item"';
+				let idq = '';
+				contentItems.forEach(function (id) {
+					if (idq) {
+						idq = idq + ' or ';
+					}
+					idq = idq + 'objectId eq "' + id + '"';
+				});
+				q = q + ' and (' + idq + ')';
+				if (args.eventCategory) {
+					q = q + ' and eventCategory eq "' + args.eventCategory + '"';
+				}
+				if (args.afterDate) {
+					q = q + ' and registeredAt ge "' + args.afterDate + '"';
+				}
+				if (args.beforeDate) {
+					q = q + ' and registeredAt le "' + args.beforeDate + '"';
+				}
+				console.info(' - activity query: ' + q);
+				actPromises.push(_getAllResources(args.server, endpoint + '?q=' + q + '&expand=activityDetails,initiatedBy', 'activities'));
+			}
+			if (digitalAssets.length > 0) {
+				q = 'objectType eq "Digital Asset"';
+				let idq = '';
+				digitalAssets.forEach(function (id) {
+					if (idq) {
+						idq = idq + ' or ';
+					}
+					idq = idq + 'objectId eq "' + id + '"';
+				});
+				q = q + ' and (' + idq + ')';
+				if (args.eventCategory) {
+					q = q + ' and eventCategory eq "' + args.eventCategory + '"';
+				}
+				if (args.afterDate) {
+					q = q + ' and registeredAt ge "' + args.afterDate + '"';
+				}
+				if (args.beforeDate) {
+					q = q + ' and registeredAt le "' + args.beforeDate + '"';
+				}
+				console.info(' - activity query: ' + q);
+				actPromises.push(_getAllResources(args.server, endpoint + '?q=' + q + '&expand=activityDetails,initiatedBy', 'activities'));
+			}
+		} else {
+		// query both Asset Item and Digital Asset
+			q = 'objectType eq "Content Item"';
+			if (args.eventCategory) {
+				q = q + ' and eventCategory eq "' + args.eventCategory + '"';
+			}
+			if (args.afterDate) {
+				q = q + ' and registeredAt ge "' + args.afterDate + '"';
+			}
+			if (args.beforeDate) {
+				q = q + ' and registeredAt le "' + args.beforeDate + '"';
+			}
+			console.info(' - activity query: ' + q);
+			actPromises.push(_getAllResources(args.server, endpoint + '?q=' + q + '&expand=activityDetails,initiatedBy', 'activities'));
+
+			q = 'objectType eq "Digital Asset"';
+			if (args.eventCategory) {
+				q = q + ' and eventCategory eq "' + args.eventCategory + '"';
+			}
+			if (args.afterDate) {
+				q = q + ' and registeredAt ge "' + args.afterDate + '"';
+			}
+			if (args.beforeDate) {
+				q = q + ' and registeredAt le "' + args.beforeDate + '"';
+			}
+			console.info(' - activity query: ' + q);
+			actPromises.push(_getAllResources(args.server, endpoint + '?q=' + q + '&expand=activityDetails,initiatedBy', 'activities'));
+		}
+
+		Promise.all(actPromises).then(function (results) {
+			if (results && results.length > 0) {
+				activities = results[0];
+				if (results[1] && results[1].length > 0) {
+					activities = activities.concat(results[1]);
+				}
+			}
+			return resolve(activities);
+		});
+	});
+};
+
 // CAAS query maximum limit for resources other than assets
 const MAX_LIMIT = 200;
 

@@ -6071,7 +6071,7 @@ module.exports.exportSite = function (argv, done) {
 							name: siteName,
 							server: server,
 							projectDir: projectDir
-						}).then(function () {
+						}).then(function (reportPaths) {
 							if (data.job && data.job.progress === 'succeeded' && argv.download && data.job.target && data.job.target.docs && data.job.target.docs.result) {
 								var exportFolderName = data.job.target.docs.result.folderName;
 
@@ -6110,7 +6110,16 @@ module.exports.exportSite = function (argv, done) {
 									done(true);
 								});
 							} else if (data.err) {
-								done();
+								var reportsPromises = [];
+								(reportPaths || []).forEach(function(reportPath) {
+									reportsPromises.push(exportserviceUtils.writeErrorDetail({
+										reportPath: reportPath
+									}));
+								});
+
+								Promise.all(reportsPromises).then(function() {
+									done();
+								});
 							} else {
 								done(true);
 							}
@@ -6224,6 +6233,8 @@ module.exports.importSite = function (argv, done) {
 						}
 						if (!repo.data || !repo.data.id) {
 							return Promise.reject('repository ' + repository + ' does not exist');
+						} else if (!repo.data.notReadyEnabled) {
+							return Promise.reject('notReadyEnabled property must be set to true in repository ' + repository);
 						} else {
 							importRepo = repo.data;
 
@@ -6387,9 +6398,19 @@ module.exports.importSite = function (argv, done) {
 							name: argv.newsite || siteName,
 							server: server,
 							projectDir: projectDir
-						}).then(function () {
+						}).then(function (reportPaths) {
 							if (data.err) {
-								done();
+								var reportsPromises = [];
+
+								(reportPaths || []).forEach(function(reportPath) {
+									reportsPromises.push(exportserviceUtils.writeErrorDetail({
+										reportPath: reportPath
+									}));
+								});
+
+								Promise.all(reportsPromises).then(function() {
+									done();
+								});
 							} else {
 								done(true);
 							}
@@ -6527,7 +6548,7 @@ module.exports.describeSiteExportJob = function (argv, done) {
 							name: reportName,
 							server: server,
 							projectDir: projectDir
-						}).then(function () {
+						}).then(function (reportPaths) {
 
 							if (data.job.progress === 'succeeded' && data.job.target && data.job.target.docs && data.job.target.docs.result) {
 								var exportFolderName = data.job.target.docs.result.folderName;
@@ -6560,6 +6581,18 @@ module.exports.describeSiteExportJob = function (argv, done) {
 								documentUtils.downloadFolder(downloadArgv, server, true, true, [], exportSiteFileGroupSize).then(function () {
 									console.info(os.EOL + 'Downloaded export site files to ' + targetPath);
 									done(true);
+								});
+							} else if (data.job.progress === 'failed') {
+								var reportsPromises = [];
+
+								(reportPaths || []).forEach(function(reportPath) {
+									reportsPromises.push(exportserviceUtils.writeErrorDetail({
+										reportPath: reportPath
+									}));
+								});
+
+								Promise.all(reportsPromises).then(function() {
+									done();
 								});
 							} else {
 								done(true);
@@ -6746,8 +6779,22 @@ module.exports.describeSiteImportJob = function (argv, done) {
 								name: siteName,
 								server: server,
 								projectDir: projectDir
-							}).then(function () {
-								done(true);
+							}).then(function (reportPaths) {
+								if (data.job.progress === 'failed') {
+									var reportsPromises = [];
+
+									(reportPaths || []).forEach(function(reportPath) {
+										reportsPromises.push(exportserviceUtils.writeErrorDetail({
+											reportPath: reportPath
+										}));
+									});
+
+									Promise.all(reportsPromises).then(function() {
+										done();
+									});
+								} else {
+									done(true);
+								}
 							});
 						} else {
 							done(true);

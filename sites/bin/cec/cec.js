@@ -401,7 +401,12 @@ var getAssetValidateNames = function () {
 };
 
 var getActivityObjectTypes = function () {
-	const types = ['site', 'channel', 'repository', 'taxonomy'];
+	const types = ['asset', 'site', 'channel', 'repository', 'taxonomy'];
+	return types;
+};
+
+var getAssetActivityCategories = function () {
+	const types = ['lifecycle', 'publishing'];
 	return types;
 };
 
@@ -1694,7 +1699,10 @@ const listActivities = {
 			let desc = 'Lists activities on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'Specify -t <type> to specify the resource type. The valid values for <type> are: ' + os.EOL + os.EOL;
 			desc = getActivityObjectTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + 'Optionally specify -c <category> to specify the activity category. The valid site activity categories are:' + os.EOL + os.EOL;
+			desc = desc + os.EOL + 'Optionally specify -c <category> to specify the activity category. ';
+			desc = desc + 'The valid asset activity categories are:' + os.EOL + os.EOL;
+			desc = getAssetActivityCategories().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'The valid site activity categories are:' + os.EOL + os.EOL;
 			desc = getSiteActivityCategories().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			desc = desc + os.EOL + 'The valid channel activity categories are:' + os.EOL + os.EOL;
 			desc = getChannelActivityCategories().reduce((acc, item) => acc + '  ' + item + '\n', desc);
@@ -1710,6 +1718,8 @@ const listActivities = {
 		['cec list-activities -t site -n BlogSite -c publishing', 'List the publishing activities for site BlgoSite'],
 		['cec list-activities -t site -a 2023-01-01', 'List all site activities created in 2023'],
 		['cec list-activities -t site -a 2022-01-01 -b 2022-12-31', 'List all site activities created in 2022'],
+		['cec list-activities -t asset -c lifecycle -a 2023-01-01 -b 2023-01-02', 'List all asset lifecycle activities created on Jan. 1, 2023'],
+		['cec list-activities -t asset -n Asset1', 'List all asset activities created for the asset with name Asset1'],
 		['cec list-activities -t taxonomy -n Taxonomy1', 'List all activities for taxonomy Taxonomy1'],
 	]
 };
@@ -6802,6 +6812,9 @@ const argv = yargs.usage(_usage)
 						throw new Error(os.EOL + `${argv.type} is not a valid value for <type>`);
 					}
 					if (argv.category) {
+						if (argv.type === 'asset' && !getAssetActivityCategories().includes(argv.category)) {
+							throw new Error(os.EOL + `${argv.category} is not a valid value for <category>`);
+						}
 						if (argv.type === 'site' && !getSiteActivityCategories().includes(argv.category)) {
 							throw new Error(os.EOL + `${argv.category} is not a valid value for <category>`);
 						}
@@ -6821,6 +6834,8 @@ const argv = yargs.usage(_usage)
 				.example(...listActivities.example[4])
 				.example(...listActivities.example[5])
 				.example(...listActivities.example[6])
+				.example(...listActivities.example[7])
+				.example(...listActivities.example[8])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listActivities.command} | cec ${listActivities.command.replace(listActivities.name, listActivities.alias)}\n\n${listActivities.usage.long}`);

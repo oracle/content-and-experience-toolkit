@@ -149,6 +149,7 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 								console.error('ERROR: Export Site job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
 								return resolve({
 									err: 'err',
+									job: data,
 									reports: _getReports(response.location, data)
 								});
 							} else if (data.completed && data.progress === 'succeeded') {
@@ -177,7 +178,8 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.error('ERROR: failed to export site ' + (name) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
-					err: msg || 'err'
+					err: msg || 'err',
+					job: data
 				});
 			}
 
