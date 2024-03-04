@@ -131,7 +131,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 			sitesRest.getSite({
 				server: server,
 				name: siteName,
-				expand: 'channel,repository,staticSiteDeliveryOptions'
+				expand: 'channel,repository,staticSiteDeliveryOptions,access'
 			})
 				.then(function (result) {
 					if (!result || result.err || !result.id) {
@@ -146,6 +146,10 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						console.error('ERROR: site ' + siteName + ' is not published');
 						return Promise.reject();
 					}
+
+					// check site security
+					var siteSecurity = site.security && site.security.access || [];
+					var siteSecured = siteSecurity.includes('everyone') ? false : true;
 
 					// create local folder for the template
 
@@ -1102,9 +1106,13 @@ var _downloadComponents = function (comps, server, publishedversion) {
 
 // copy the site from the mounted shared filesystem location if available
 var _copySiteFromFSS = function (siteName, siteSrcPath, publishedversion) {
+	// e.g.: /u03/sitespublish/<siteName>pages/12.json
 	var mountedSitePath = path.join(siteMountPoint, siteName);
-	if (publishedversion && fs.existsSync(mountedSitePath)) {
-		// copy the site files
+
+	// make sure at least the pages folder exists
+	var pagesPath = path.join(mountedSitePath, 'pages')
+	if (publishedversion && fs.existsSync(mountedSitePath) && fs.existsSync(pagesPath)) {
+		// this now assumes all the files under /u03/sitespublish/<siteName> contains all the published files for the site
 		try {
 			console.info(' - copying site files: ' + siteName);
 			fs.cpSync(mountedSitePath, siteSrcPath, { force: true, recursive: true });
@@ -1115,6 +1123,7 @@ var _copySiteFromFSS = function (siteName, siteSrcPath, publishedversion) {
 		}
 	} else {
 		// only copy if using the published version of the site
+		console.info(' - downloading site files');
 		return false;
 	}
 };
@@ -1122,13 +1131,8 @@ var _copySiteFromFSS = function (siteName, siteSrcPath, publishedversion) {
 // Download the site - use the source folder if it exists, otherwise handle individual files
 var _downloadSite = function (server, type, id, name, publishedversion, targetPath, showError, showDetail, excludeFolder) {
 
-	// try to copy the site
-	if (_copySiteFromFSS(name, targetPath, publishedversion)) {
-		return Promise.resolve({});
-	} else {
-		// if can't copy, then download the site
-		return _downloadResource(server, type, id, name, publishedversion, targetPath, showError, showDetail, excludeFolder);
-	}
+	// start with the top-level folder for the site
+	return _downloadResource(server, type, id, name, publishedversion, targetPath, showError, showDetail, excludeFolder);
 };
 
 //
@@ -1138,6 +1142,10 @@ var _downloadResource = function (server, type, id, name, publishedversion, targ
 	return new Promise(function (resolve, reject) {
 
 		if (publishedversion) {
+			// if we are downloading the published version of a site, first copy the files from the shared filesystem
+			// Note: any top-level files will be overwritten by the subsequent code, e.g.: structure.json but this is expected
+			var copiedFromFSS = ((type === 'site') && _copySiteFromFSS(name, targetPath, publishedversion));
+
 			var getCompPromises = [];
 			if (type === 'component') {
 				getCompPromises.push(sitesRest.getComponent({
@@ -1220,20 +1228,23 @@ var _downloadResource = function (server, type, id, name, publishedversion, targ
 
 				})
 				.then(function (results) {
+					if (copiedFromFSS) {
+						// files already copied, we're done here
+						return Promise.resolve();
+					} else {
+						// download publish folder and place at the top of the resource
+						var downloadArgv = {
+							path: type + ':' + name + '/publish',
+							folder: targetPath
+						};
 
-					// download publish folder and place at the top of the resource
-					var downloadArgv = {
-						path: type + ':' + name + '/publish',
-						folder: targetPath
-					};
-
-					// If user specifies site:content, we will exclude publish/content
-					var publishExcludeFolder = [];
-					excludeFolder.forEach(function (folder) {
-						publishExcludeFolder.push('publish' + folder);
-					});
-					return documentUtils.downloadFolder(downloadArgv, server, showError, showDetail, publishExcludeFolder);
-
+						// If user specifies site:content, we will exclude publish/content
+						var publishExcludeFolder = [];
+						excludeFolder.forEach(function (folder) {
+							publishExcludeFolder.push('publish' + folder);
+						});
+						return documentUtils.downloadFolder(downloadArgv, server, showError, showDetail, publishExcludeFolder);
+					}
 				})
 				.then(function (result) {
 
@@ -1267,10 +1278,10 @@ var _downloadResource = function (server, type, id, name, publishedversion, targ
 // set file mount points for copying files during creating a template
 var _setMountPoints = function (mountPoint) {
 	// ToDo: get final FSS mount point as default
-	baseMountPoint = mountPoint || '/_ocm_publish';
-	themeMountPoint = path.join(baseMountPoint, 'themes');
-	siteMountPoint = path.join(baseMountPoint, 'sites');
-	componentMountPoint = path.join(baseMountPoint, 'components');
+	baseMountPoint = mountPoint || '/u03';
+	themeMountPoint = path.join(baseMountPoint, 'themespublish');
+	siteMountPoint = path.join(baseMountPoint, 'sitespublish');
+	componentMountPoint = path.join(baseMountPoint, 'compspublish');
 };
 
 module.exports.createTemplate = function (argv, done) {
