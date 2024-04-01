@@ -53,9 +53,9 @@ ContentList.prototype.compile = function (args) {
 
 	return new Promise(function (resolve, reject) {
 		// can't compile if it requires pagination or is a recommendation
-		if ((self.loadType === 'showPagination') || (self.isRecommendation)) {
+		if ((['showPagination', 'lazyLoadOnScroll', 'lazyLoadOnClick'].indexOf(self.loadType) !== -1) || (self.isRecommendation)) {
 			compilationReporter.warn({
-				message: 'Cannot compile content/dynamic lists that leverage pagination or use recommendations.'
+				message: 'Cannot compile content/dynamic lists that leverages pagination or uses recommendations.'
 			});
 			return resolve({
 				hydrate: true,

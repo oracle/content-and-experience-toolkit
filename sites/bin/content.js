@@ -704,7 +704,7 @@ var _getChannelToken = function (channel) {
  */
 var _getChannelsFromServer = function (server) {
 	var channelsPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
+		if (!server.url || ((!server.username || !server.password) && !server.oauthtoken)) {
 			console.error('ERROR: no server is configured');
 			return resolve({
 				err: 'err'
@@ -752,7 +752,7 @@ var _getChannelsFromServer = function (server) {
  */
 var _exportChannelContent = function (request, server, channelId, publishedassets, assetGUIDS, exportfilepath, requiredContentTemplateName) {
 	var exportPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
+		if (!server.url || ((!server.username || !server.password) && !server.oauthtoken)) {
 			console.error('ERROR: no server is configured');
 			return resolve({
 				err: 'err'

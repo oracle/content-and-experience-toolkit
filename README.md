@@ -15,6 +15,13 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 24.3.1
+
+**Fixed**
+- `cec download-content` - Corrected issue where command stated server was not configured when using token authentication
+- `cec compile-template` - Corrected issue where paginated content lists were getting compiled into the page
+
+
 # New in Release 24.2.1
 
 **Updated**
