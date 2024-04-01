@@ -2030,7 +2030,7 @@ module.exports.getOAuthTokenFromIDCS = function (server) {
 var _getOAuthTokenFromIDCS = function (server, showMsg) {
 	var output = showMsg === undefined ? true : showMsg;
 	var tokenPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
+		if (!server.url || ((!server.username || !server.password) && !server.oauthtoken)) {
 			console.error('ERROR: no server is configured');
 			return resolve({
 				err: 'no server'
