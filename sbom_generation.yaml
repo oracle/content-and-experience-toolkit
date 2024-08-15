@@ -12,12 +12,6 @@ runAs: root
 
 steps:
   - type: Command
-    name: "Change the ownership of items in the npm cache"
-    command: |
-      chown -R 1000:1000 "/root/.npm"
-
-
-  - type: Command
     name: "Install dependencies & cyclonedx-node-npm package in react-starter-sites"
     command: |
       cd react-starter-sites && npm install && npm install --save-dev @cyclonedx/cyclonedx-npm
@@ -26,6 +20,12 @@ steps:
     command: |
       # For more details, visit https://github.com/CycloneDX/cyclonedx-node-npm/blob/main/README.md
       cd react-starter-sites && npx @cyclonedx/cyclonedx-npm --omit dev --output-format JSON --output-file artifactSBOM.json --spec-version 1.4
+
+
+  - type: Command
+    name: "Change the ownership of items in the npm cache"
+    command: |
+      chown -R 1000:1000 "/root/.npm"
 
 
   - type: Command
