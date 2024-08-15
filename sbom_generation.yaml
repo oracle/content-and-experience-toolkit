@@ -8,19 +8,9 @@ version: 0.1
 component: build
 timeoutInSeconds: 1000
 shell: bash
+runAs: root
 
 steps:
-  - type: Command
-    name: "Install npm"
-    command: |
-      # Install npm version 8.19.4
-      npm i -g npm@v8.19.4
-  - type: Command
-    name: "Install node-cli & unit-testing packages"
-    command: |
-      npm install --ignore-scripts
-
-
   - type: Command
     name: "Install dependencies & cyclonedx-node-npm package in react-starter-sites"
     command: |
