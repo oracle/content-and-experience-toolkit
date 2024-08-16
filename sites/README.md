@@ -17,7 +17,7 @@ https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-oracle-con
 
 [Site Pre-Compilation](doc/compiler.md) - Pre-Compile a site for faster rendition in the browser
 
-## Setup
+## Installation
 
 * Make sure `node` and `npm` are in your `PATH`.  Use NodeJS version 16.18.1+.
 * Download the Content Toolkit - e.g. from GitHub - [link](https://github.com/oracle/content-and-experience-toolkit/archive/master.zip)
@@ -101,19 +101,3 @@ Instructions on how to setup the IAM application for headless CLI are [here](doc
 
 ## Using an IDCS Application to access CEC Instance to have a CLI without Chromium popup for Authentication
 Instructions on how to setup the IDCS application for headless CLI are [here](doc/IDCS-App.md)
-
-## Contributing
-
-This project welcomes contributions from the community. Before submitting a pull request, please [review our contribution guide](../CONTRIBUTING.md)
-
-## Security
-
-Please consult the [security guide](../SECURITY.md) for our responsible security vulnerability disclosure process
-
-## License
-
-Copyright (c) 2019, 2024 Oracle and/or its affiliates.
-
-Released under the Universal Permissive License v1.0 as shown at
-<https://oss.oracle.com/licenses/upl/>.
-

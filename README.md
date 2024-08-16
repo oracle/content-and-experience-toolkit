@@ -4,37 +4,58 @@ Templates and resources for development platforms.
 
 [sites](sites/) – Work with tools to create, test, and package your own site templates, themes, components and content layouts.
 
-[Pre-Compile Sites](sites/doc/compiler.md) - Pre-compile site pages into HTML for faster rendition in the browser
+- [Pre-Compile Sites](sites/doc/compiler.md) - Pre-compile site pages into HTML for faster rendition in the browser
 
-[Test to Production](sites/doc/T2P.md) – Use the Content Toolkit for Test to Production
+- [Test to Production](sites/doc/T2P.md) – Use the Content Toolkit for Test to Production
 
-[Build Test](sites/doc/Build-Test.md) - Build, optimize and test updates for OCM source
+- [Build Test](sites/doc/Build-Test.md) - Build, optimize and test updates for OCM source
 
-[Asset Sync](sites/doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCM servers
+- [Asset Sync](sites/doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCM servers
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+## Getting Started
 
-# New in Release 24.3.1
+Consult the README.md associated with the [Sites Toolkit](./sites/README.md) or the [CEC Starter Site CLI](./react-starter-sites/README.md).
+
+## Contributing
+
+This project welcomes contributions from the community. Before submitting a pull request, please [review our contribution guide](./CONTRIBUTING.md).
+
+## Security
+
+Please consult the [security guide](./SECURITY.md) for our responsible security vulnerability disclosure process.
+
+## License
+
+Copyright (c) 2019, 2024 Oracle and/or its affiliates.
+
+Released under the Universal Permissive License v1.0 as shown at
+<https://oss.oracle.com/licenses/upl/>.
+
+
+## Release History
+
+### New in Release 24.3.1
 
 **Fixed**
 - `cec download-content` - Corrected issue where command stated server was not configured when using token authentication
 - `cec compile-template` - Corrected issue where paginated content lists were getting compiled into the page
 
 
-# New in Release 24.2.1
+### New in Release 24.2.1
 
 **Updated**
 - `cec create-component` - Minor changes to seeded components
 
 
-# New in Release 23.12.1
+### New in Release 23.12.1
 
 **Updated**
 - `cec list-activities` - Now lists asset activities on an OCM server
 
 
-# New in Release 23.11.1
+### New in Release 23.11.1
 
 **Added**
 - `cec replicate-site` - Replicates a site from one OCM server to another
@@ -53,7 +74,7 @@ Templates and resources for development platforms.
 - `cec describe-site` - Now displays custom site properties
 
 
-# New in Release 23.10.1
+### New in Release 23.10.1
 
 **Added**
 - `cec list-groups` - Lists the groups on an OCM server
@@ -69,7 +90,7 @@ Templates and resources for development platforms.
 - `cec create-translation-job` - Added option `--skipdependencies`
 
 
-# New in Release 23.9.2
+### New in Release 23.9.2
 
 **Added**
 - `cec describe-local-content` - Can now list the content of local resources
@@ -90,7 +111,7 @@ Templates and resources for development platforms.
 
 
 
-# New in Release 23.7.2
+### New in Release 23.7.2
 
 **Added**
 - `cec describe-category` - Lists the properties of a taxonomy's category on OCM server
@@ -104,7 +125,7 @@ Templates and resources for development platforms.
 - `cec transfer-category-property` - Now handles custom property type display name changed after creation on the source server
 
 
-# New in Release 23.7.1
+### New in Release 23.7.1
 
 **Added**
 - `cec transfer-category-property` - Transfers category properties of a taxonomy from one OCM server to another
@@ -114,7 +135,7 @@ Templates and resources for development platforms.
 - `cec create-template` - Now has option to exclude content types
 
 
-# New in Release 23.6.2
+### New in Release 23.6.2
 
 **Updated**
 - `cec transfer-site-page` - Now supports cross site transfers
@@ -124,7 +145,7 @@ Templates and resources for development platforms.
 - `cec create-site-map` - Now correctly handles very large numbers of items
 
 
-# New in Release 23.6.1
+### New in Release 23.6.1
 
 **Added**
 - `cec share-taxonomy` - Share taxonomy with users and groups on an OCM server and assign a role
@@ -135,7 +156,7 @@ Templates and resources for development platforms.
 - `cec control-site` - Now has option to selectively publish site auxiliary files
 
 
-# New in Release 23.5.2
+### New in Release 23.5.2
 
 **Added**
 - `cec list-asset-ids` - lists asset Ids
@@ -147,7 +168,7 @@ Templates and resources for development platforms.
 - `cec describe-site` - now lists the theme layouts usage
 
 
-# New in Release 23.5.1
+### New in Release 23.5.1
 
 **Added**
 - `cec create-site-page` - Creates a new page for a site on an OCM server
@@ -157,7 +178,7 @@ Templates and resources for development platforms.
 - `cec validate-site` and `cec validate-assets` - Added option to save results to a JSON file
 
 
-# New in Release 23.4.2
+### New in Release 23.4.2
 
 **Added**
 - `cec transfer-editorial-role` - Transfer editorial roles from one OCM server to another
@@ -177,7 +198,7 @@ Templates and resources for development platforms.
 - `cec create-component` - Now supports creating React and Preact local components
 
 
-# New in Release 23.4.1
+### New in Release 23.4.1
 
 **Added**
 - `cec list-activities` - Can now list repository and channel activities on an OCM server
@@ -188,7 +209,7 @@ Templates and resources for development platforms.
 - `cec compile-template` - Added `--useFallbackLocale` option to allow the compile to use this locale’s page files if the requested page translation file does not exist.  If no value given, it will use the sites default locale pages as the fallback.
 
 
-# New in Release 23.3.3
+### New in Release 23.3.3
 
 **Added**
 - `cec restore-trash` - restores the content in Trash on an OCM server
@@ -200,7 +221,7 @@ Templates and resources for development platforms.
 - `cec upload-file` - allow upload file to a shared folder
 
 
-# New in Release 23.3.2
+### New in Release 23.3.2
 
 **Added**
 - `cec list-activities` - Lists activities on an OCM server
@@ -210,7 +231,7 @@ Templates and resources for development platforms.
 - `cec config-properties` - Set configuration properties for an OCM server in cec.properties file
 
 
-# New in Release 23.3.1
+### New in Release 23.3.1
 
 **Added**
 - `cec transfer-site-page` - Transfer changes of site pages from source server to target server
@@ -221,7 +242,7 @@ Templates and resources for development platforms.
 - `cec sync-server` - Added option to specify the number of days to keep processed events when starting the server
 
 
-# New in Release 23.2.2
+### New in Release 23.2.2
 
 **Updated**
 - `cec create-site-map` - Added option to exclude languages
@@ -234,7 +255,7 @@ Templates and resources for development platforms.
 - `cec index-site` - Now handles update existing search items correctly
 
 
-# New in Release 23.2.1
+### New in Release 23.2.1
 
 **Updated**
 
@@ -245,7 +266,7 @@ Templates and resources for development platforms.
 - local server now supports locale fallbacks and aliases in URL when running a template
 
 
-# New in Release 23.1.2
+### New in Release 23.1.2
 
 **Updated**
 
@@ -259,7 +280,7 @@ Templates and resources for development platforms.
 - `cec transfer-site` - correctly check site prefix before starting transfer
 
 
-# New in Release 23.1.1
+### New in Release 23.1.1
 
 **Updated**
 
@@ -270,7 +291,7 @@ Templates and resources for development platforms.
 - local server now uses the channel token from the siteinfo.json when testing a template
 
 
-# New in Release 22.12.2
+### New in Release 22.12.2
 
 **Added**
 
@@ -286,7 +307,7 @@ Templates and resources for development platforms.
 - `cec describe-txonomy` - disambiguate between two taxonomies with the same name 
 
 
-# New in Release 22.12.1
+### New in Release 22.12.1
 
 **Updated**
 
@@ -296,7 +317,7 @@ Templates and resources for development platforms.
 - `cec describe-background-job` - add option to wait for job to finish if it is in process
 
 
-# New in Release 22.11.2
+### New in Release 22.11.2
 
 **Added**
 
@@ -315,7 +336,7 @@ Templates and resources for development platforms.
 
 
 
-# New in Release 22.11.1
+### New in Release 22.11.1
 
 **Added**
 
@@ -327,7 +348,7 @@ Templates and resources for development platforms.
 
 
 
-# New in Release 22.10.1
+### New in Release 22.10.1
 
 **Added**
 
@@ -340,7 +361,7 @@ Templates and resources for development platforms.
 - `cec upload-static-site-files` - add option to upload zipped files and option to save static files locally
 
 
-# New in Release 22.9.3
+### New in Release 22.9.3
 
 **Added**
 
@@ -358,7 +379,7 @@ Templates and resources for development platforms.
 
 
 
-# New in Release 22.9.2
+### New in Release 22.9.2
 
 **Added**
 
@@ -370,7 +391,7 @@ Templates and resources for development platforms.
 - All commands will now echo the full command to the output
 
 
-# New in Release 22.9.1
+### New in Release 22.9.1
 
 **Updated**
 
@@ -379,7 +400,7 @@ Templates and resources for development platforms.
 - `cec sync-server` - Can now handle auth token expiration
 
 
-# New in Release 22.8.2
+### New in Release 22.8.2
 
 **Added**
 
@@ -393,7 +414,7 @@ Templates and resources for development platforms.
 - `compile_site.sh` - Now supports uploading compiled files in a single zip file
 
 
-# New in Release 22.8.1
+### New in Release 22.8.1
 
 **Added**
 
@@ -408,7 +429,7 @@ Templates and resources for development platforms.
 - `cec sync-server` - Support event CONTENTITEM_TRANSLATIONADDED
 
 
-# New in Release 22.7.2
+### New in Release 22.7.2
 
 **Added**
 
@@ -420,7 +441,7 @@ Templates and resources for development platforms.
 - `cec control-site` - can now set site expiration date
 
 
-# New in Release 22.7.1
+### New in Release 22.7.1
 
 **Updated**
 
@@ -429,7 +450,7 @@ Templates and resources for development platforms.
 - `cec list` - Now includes unfinished site, template, theme and component background jobs
 
 
-# New in Release 22.6.2
+### New in Release 22.6.2
 
 **Added**
 
@@ -448,7 +469,7 @@ Templates and resources for development platforms.
 
 
 
-# New in Release 22.6.1
+### New in Release 22.6.1
 
 **Added**
 
@@ -464,7 +485,7 @@ Templates and resources for development platforms.
 
 
 
-# New in Release 22.5.2
+### New in Release 22.5.2
 
 **Updated**
 
@@ -474,7 +495,7 @@ Templates and resources for development platforms.
 - `cec transfer-site` - Now also updates the theme if the site's theme has changed
 
 
-# New in Release 22.5.1
+### New in Release 22.5.1
 
 **Updated**
 
@@ -486,7 +507,7 @@ Templates and resources for development platforms.
 - `cec download-content` - Now correctly handles published assets that are in draft state
 
 
-# New in Release 22.4.3
+### New in Release 22.4.3
 
 **Added**
 
@@ -497,21 +518,21 @@ Templates and resources for development platforms.
 - `cec register-server` - Now supports Oracle Cloud Infrastructure Identity and Access Management (IAM) Domains
 
 
-# New in Release 22.4.2
+### New in Release 22.4.2
 
 **Updated**
 
 - `cec create-template` - added options to exclude components and specific folders from site or theme 
 
  
-# New in Release 22.4.1
+### New in Release 22.4.1
 
 **Updated**
 
 - `cec create-site-map` - Now supports creating entries for assets of content types that are placed on site detail pages
 
 
-# New in Release 22.3.2
+### New in Release 22.3.2
 
 **Added**
 
@@ -525,7 +546,7 @@ Templates and resources for development platforms.
 - `cec control-content publish` -  Can now publish same items to multiple channels
 
 
-# New in Release 22.3.1
+### New in Release 22.3.1
 
 **Added**
 
@@ -537,7 +558,7 @@ Templates and resources for development platforms.
 - `cec list-assets` - Added parameter `--rankby` to sort query result by ranking policy
 
 
-# New in Release 22.2.2
+### New in Release 22.2.2
 
 **Added**
 
@@ -553,7 +574,7 @@ Templates and resources for development platforms.
 
 
 
-# New in Release 22.2.1
+### New in Release 22.2.1
 
 **Added**
 
@@ -570,21 +591,21 @@ Templates and resources for development platforms.
 
 
 
-# New in Release 22.1.2b
+### New in Release 22.1.2b
 
 **Fixed**
 
 - Updated version of `node-fetch` to address known issue
 
 
-# New in Release 22.1.2a
+### New in Release 22.1.2a
 
 **Fixed**
 
 - Updated version of `marked` to address known issue
 
 
-# New in Release 22.1.2
+### New in Release 22.1.2
 
 **Added**
 
@@ -601,14 +622,14 @@ Templates and resources for development platforms.
 - `cec transfer-site` - Now preserves the site id when transfering the site to the target server the first time
 
 
-# New in Release 22.1.1
+### New in Release 22.1.1
 
 **Added**
 
 - `cec create-digital-asset` - Added support for creating digital assets from Documents
 
 
-# New in Release 21.12.2
+### New in Release 21.12.2
 
 **Added**
 
@@ -617,14 +638,14 @@ Templates and resources for development platforms.
 - `cec create-template` - Added option `--publishedassets` to include only the published assets
 
 
-# New in Release 21.12.1
+### New in Release 21.12.1
 
 **Added**
 
 - `cec compile-template` - Added support for JavaScript modules when compiling pages and components
 
 
-# New in Release 21.11.2
+### New in Release 21.11.2
 
 **Added**
 
@@ -634,7 +655,7 @@ Templates and resources for development platforms.
 - `cec upload-type` - Added option `--excludecomponents` to not upload the content field editors, content forms and content layouts
 
 
-# New in Release 21.11.1
+### New in Release 21.11.1
 
 **Updated**
 
@@ -643,13 +664,13 @@ Templates and resources for development platforms.
 - `cec upload-component` - Performance and reliability improvements
 
 
-# New in Release 21.10.2a
+### New in Release 21.10.2a
 
 **Fixed**
 - Removed dependency on specific server version
 
 
-# New in Release 21.10.2
+### New in Release 21.10.2
 
 **NOTE**
  - This version requires a 21.10.2 server so please do not update if your OCM server is not version 21.10.2
@@ -659,7 +680,7 @@ Templates and resources for development platforms.
 - `cec execute-post` - Makes an HTTP POST request to a REST API endpoint on the OCM server
 
 
-# New in Release 21.10.1
+### New in Release 21.10.1
 
 **Added**
 
@@ -671,7 +692,7 @@ Templates and resources for development platforms.
 - `cec transfer-site` - Now handles an issue where a theme conflict was previously reported
 
 
-# New in Release 21.9.1
+### New in Release 21.9.1
 
 **Added**
 
@@ -685,7 +706,7 @@ Templates and resources for development platforms.
 - `cec create-site` - Now supports working with governance enabled
 
 
-# New in Release 21.8.1
+### New in Release 21.8.1
 
 **Added**
 
@@ -701,7 +722,7 @@ Templates and resources for development platforms.
 - `cec compile-template` - Fixed a high memory usage isse
 
 
-# New in Release 21.7.1
+### New in Release 21.7.1
 
 **Added**
 
@@ -714,14 +735,14 @@ Templates and resources for development platforms.
 - Updated the Starter-Blog-Post-Form in the BlogTemplate to support a sidebar in the content editor on an OCM server
 
 
-# New in Release 21.6.1a
+### New in Release 21.6.1a
 
 **Fixed**
 
 - Fixed a site compilation issue with rendering of Content Lists
  
 
-# New in Release 21.6.1
+### New in Release 21.6.1
 
 **Added**
 
@@ -738,7 +759,7 @@ Templates and resources for development platforms.
 - Starter-Blog-Post-Form in BlogTemplate supports create and edit referenced asset from the form
 
 
-# New in Release 21.5.1
+### New in Release 21.5.1
 
 **Added**
 
@@ -748,14 +769,14 @@ Templates and resources for development platforms.
 - `cec transfer-content` and `cec transfer-site-content` - Now support much larger batch sizes
 
 
-# New in Release 21.2.2a
+### New in Release 21.2.2a
 
 **Fixed**
 
 - Updated `underscore` to 1.13.1 to resolve vulnerability
 
 
-# New in Release 21.2.2
+### New in Release 21.2.2
 
 **Added**
 
@@ -765,7 +786,7 @@ Templates and resources for development platforms.
 - Updated local server to support content form in Create new item mode
 
 
-# New in Release 21.2.1a
+### New in Release 21.2.1a
 
 **Added**
 
@@ -779,7 +800,7 @@ Templates and resources for development platforms.
 - Updated version of xmldom library
 
 
-# New in Release 21.2.1
+### New in Release 21.2.1
 
 **Added**
 
@@ -792,7 +813,7 @@ Templates and resources for development platforms.
 - Can now use the word `help` as a resource name such as a site, repository or channel name
 
 
-# New in Release 21.1.3
+### New in Release 21.1.3
 
 **Added**
 
@@ -805,7 +826,7 @@ Templates and resources for development platforms.
 - `cec transfer-site` - Corrected alias for `--suppressgovernance`
 
 
-# New in Release 21.1.2a
+### New in Release 21.1.2a
 
 **Added**
 
@@ -815,7 +836,7 @@ Templates and resources for development platforms.
 - local server now supports rendering a content form with a content item
 
 
-# New in Release 21.1.2
+### New in Release 21.1.2
 
 **Added**
 
@@ -825,14 +846,14 @@ Templates and resources for development platforms.
 - `cec transfer-site` - Added option `--suppressgovernance`
 
 
-# New in Release 21.1.1a
+### New in Release 21.1.1a
 
 **Fixed**
 
 - Fixed local server error with missing Promise polyfill
 
 
-# New in Release 21.1.1
+### New in Release 21.1.1
 
 **Added**
 
@@ -842,7 +863,7 @@ Templates and resources for development platforms.
 - Updated template BlogTemplate with content form Starter-Blog-Post-Form
 
 
-# New in Release 20.4.3b
+### New in Release 20.4.3b
 
 **Added**
 
@@ -854,7 +875,7 @@ Templates and resources for development platforms.
 - `cec transfer-site` - Fixed file permission errors on Windows.
 
 
-# New in Release 20.4.3a
+### New in Release 20.4.3a
 
 **Added**
 
@@ -863,7 +884,7 @@ Templates and resources for development platforms.
 - The local server now has a List view option for components and templates.
 
 
-# New in Release 20.4.3
+### New in Release 20.4.3
 
 **Added**
 
@@ -875,7 +896,7 @@ Templates and resources for development platforms.
 - `cec rename-content-type` - Now correctly handles content types listed in the content layout mapping section.
 
 
-# New in Release 20.4.2a
+### New in Release 20.4.2a
 
 **Added**
 
@@ -888,7 +909,7 @@ Templates and resources for development platforms.
 - `cec transfer-site` - Correctly sets the app type for local components.
 
 
-# New in Release 20.4.2
+### New in Release 20.4.2
 
 **Added**
 
@@ -909,7 +930,7 @@ Templates and resources for development platforms.
 - Local server now supports rendering content layout custom data.
 
 
-# New in Release 20.4.1
+### New in Release 20.4.1
 
 **Added**
 
@@ -924,7 +945,7 @@ Templates and resources for development platforms.
 - `cec download-template` - Now uses a background job.
 
 
-# New in Release 20.3.3
+### New in Release 20.3.3
 
 **Added**
 
@@ -934,14 +955,14 @@ Example:
 `cec create-component contentform1 -f ContentForm`
 
 
-# New in Release 20.3.2a
+### New in Release 20.3.2a
 
 **Added**
 
 - `cec transfer-site` - Added option `--excludecomponents` to allow transferring the site without any of its associated components.
 
 
-# New in Release 20.3.2
+### New in Release 20.3.2
 
 **Added**
 
@@ -958,7 +979,7 @@ Example:
 - `cec upload-folder` - Now supports running on different drive names on windows.
 
 
-# New in Release 20.3.1a
+### New in Release 20.3.1a
 
 **Added**
 
@@ -967,7 +988,7 @@ Example:
 - `cec transfer-site` - Can now transfer standard sites.
 
 
-# New in Release 20.3.1
+### New in Release 20.3.1
 
 **Added**
 
@@ -978,21 +999,21 @@ Example:
 - `cec create-template` and `cec create-template-from-site` - Add option `-enterprisetemplate` to create enterprise template from standard site.
 
 
-# New in Release 20.2.3b
+### New in Release 20.2.3b
 
 **Fixed**
 
 - `cec transfer-site` - Now updates site metadata correctly on destination server for repeat transfers.
  
 
-# New in Release 20.2.3a
+### New in Release 20.2.3a
 
 **Fixed**
 
 - `cec create-rss-feed` - Now works correctly with the latest version of gulp cli.
 
 
-# New in Release 20.2.3
+### New in Release 20.2.3
 
 **Added**
 
@@ -1003,28 +1024,28 @@ Example:
 - `cec transfer-site` - Fixed issue with internal component IDs.
 
 
-# New in Release 20.2.2d
+### New in Release 20.2.2d
 
 **Fixed**
 
 - `cec transfer-site` with `-x` option - Now handles a larger number of files in the site.
 
 
-# New in Release 20.2.2c
+### New in Release 20.2.2c
 
 **Fixed**
 
 - `cec transfer-site` - Fixed issue with internal theme ID when transferring site both with and without content.
 
 
-# New in Release 20.2.2b
+### New in Release 20.2.2b
 
 **Fixed**
 
 - `cec transfer-site-content` - Now correctly handles repositories with spaces in their names. 
 
 
-# New in Release 20.2.2a
+### New in Release 20.2.2a
 
 **Added**
 Support transfer large sites from OCE server to another OCE server in two steps.  
@@ -1049,7 +1070,7 @@ Examples:
 
 Both commands can be repeated for the same site.
 
-# New in Release 20.2.2
+### New in Release 20.2.2
 
 **Fixed**
 
@@ -1063,14 +1084,14 @@ Both commands can be repeated for the same site.
  `NO_PROXY/no_proxy` A comma separated list of hosts to opt out of proxying.   
 
 
-# New in Release 20.2.1b
+### New in Release 20.2.1b
 
 **Fixed**
 
 - Fixes `cec install` issue on Windows. Please be sure to run `npm install` after `cec install` on Windows.
 
 
-# New in Release 20.2.1a
+### New in Release 20.2.1a
 
 **Added**
 
@@ -1084,7 +1105,7 @@ Both commands can be repeated for the same site.
 - Several commands can now handle much larger numbers of sites, components and themes.
 
 
-# New in Release 20.2.1
+### New in Release 20.2.1
 
 **Added**
 
@@ -1095,7 +1116,7 @@ Both commands can be repeated for the same site.
 
 - Now also shows content field editor's view mode when testing on the local server.
 
-# New in Release 20.1.2f
+### New in Release 20.1.2f
 
 **Fixed**
 
@@ -1104,7 +1125,7 @@ Both commands can be repeated for the same site.
 - Fixed issue with using slugs in detail page links in local testing.
 
 
-# New in Release 20.1.2e
+### New in Release 20.1.2e
 
 **Fixed**
 
@@ -1117,14 +1138,14 @@ Both commands can be repeated for the same site.
 - `cec create-asset-report` - Enhanced to include site content and report any unused documents.
 
 
-# New in Release 20.1.2d
+### New in Release 20.1.2d
 
 **Fixed**
 
 - `cec migrate-site` - Fixed issue parsing the version number on newer versions.
 
 
-# New in Release 20.1.2c
+### New in Release 20.1.2c
 
 **Fixed**
 
@@ -1132,14 +1153,14 @@ Both commands can be repeated for the same site.
 - Test content layouts on local server with server content.
 
 
-# New in Release 20.1.2b
+### New in Release 20.1.2b
 
 **Fixed**
 
 - `cec create-asset-report` - Fixed issue where site metadata caused no results to be returned when reporting on a site.
 
 
-# New in Release 20.1.2a
+### New in Release 20.1.2a
 
 **Added**
 
@@ -1150,7 +1171,7 @@ Both commands can be repeated for the same site.
 - `cec transfer-site` - Now works correctly with OAuth.
 
 
-# New in Release 20.1.2
+### New in Release 20.1.2
 
 **Added**
 
@@ -1162,7 +1183,7 @@ Both commands can be repeated for the same site.
 - Node version 10 or later is now required.
 
 
-# New in Release 20.1.1d
+### New in Release 20.1.1d
 
 **Added**
 
@@ -1174,13 +1195,13 @@ Both commands can be repeated for the same site.
 
 - `cec index-site` - Handles invalid html in large text fields.
 
-# New in Release 20.1.1c
+### New in Release 20.1.1c
 
 **Fixed**
 
 `cec upload-folder` - allow upload of a theme from src/themes directory without infinite loop caused by `_scs_theme_root_` softlink.
 
-# New in Release 20.1.1b
+### New in Release 20.1.1b
 
 **Added**
 
@@ -1191,17 +1212,17 @@ Both commands can be repeated for the same site.
 
 - `cec compile-template` - correctly handles macros in markdown fields.
 
-# New in Release 20.1.1a
+### New in Release 20.1.1a
 
 **Updated**
 
 `doc/T2p.md` - Updated to use new create-site with -u option to preserve content IDs.
 
-# Updated to 20.1.1
+### New in Release 20.1.1
 
 **No Changes**
 
-# New in Release 19.4.3d
+### New in Release 19.4.3d
 
 **Added**
 
@@ -1214,13 +1235,13 @@ Both commands can be repeated for the same site.
 
 `cec compile-template` - handle content layout macros correctly
 
-# New in Release 19.4.3c
+### New in Release 19.4.3c
 
 **Fixed**
 
 `cec migrate-site` - fixed issues using the command on windows.
 
-# New in Release 19.4.3b
+### New in Release 19.4.3b
 
 **Added**
 
@@ -1235,14 +1256,14 @@ Both commands can be repeated for the same site.
 
 `cec download-file` - handle large number of site page files
 
-# New in Release 19.4.3a
+### New in Release 19.4.3a
 
 `cec create-site` - supports `-u` option to keep same asset GUIDS for content from the content template within the site template when creating the site.  This simplifies T2P for propagation of a site the second time.
 
 `cec transfer-site` - can specify source and destination servers to transfer a site.  Site is created in destination using same ASSET IDs, so `cec transfer-site` can be called multiple times, and with subsequent execution the site and assets are updated, not recreated.
 
 
-# New in Release 19.4.3
+### New in Release 19.4.3
 
 **Added**
 
@@ -1256,7 +1277,7 @@ Both commands can be repeated for the same site.
 
 `cec register-translation-connector` - register a translation connector with a service.  Requires 19.4.3.
 
-# New in Release 19.4.1c
+### New in Release 19.4.1c
 
 **Updated**
 
@@ -1267,7 +1288,7 @@ Both commands can be repeated for the same site.
 `cec download-static-site-files` - download files from site's /static folder from OCE server.  Requires 19.4.3.
 `cec delete-static-site-files` - remove static files from site's /static folder.  Requires 19.4.3.
 
-# New in Release 19.4.1b
+### New in Release 19.4.1b
 
 **Updated**
 
@@ -1277,7 +1298,7 @@ Both commands can be repeated for the same site.
 
 `cec upload-static-site` - take a folder of static files and upload to a Site's static folder for publishing as a static site.  Requires 19.4.3.
 
-# New in Release 19.4.1a
+### New in Release 19.4.1a
 
 **Updated**
 
@@ -1296,7 +1317,7 @@ Both commands can be repeated for the same site.
 **Added**
 `cec refresh-translation-job` - for use in 19.4.3 to pull updated translations from a TMS through a connector before ingesting into OCE server
 
-# New in Release 19.4.1
+### New in Release 19.4.1
 
 **Added**
 
@@ -1322,7 +1343,7 @@ Both commands can be repeated for the same site.
 
 `cec create-asset-report` - now reports on broken links where a site includes references to content items, documents, web pages that don't exist
 
-# New in Release 19.3.3a
+### New in Release 19.3.3a
 
 **Fixed**
 - `cec download-content` - fixed issue hitting timeout on long download
@@ -1331,13 +1352,13 @@ Both commands can be repeated for the same site.
 **Updated**
 - `cec control-content` - Now shows indeterminate progress instead of percentate: 0
 
-# New in Release 19.3.3
+### New in Release 19.3.3
 
 **Added**
 
 - `cec register-server` - register using IDCS Application client id, secret, scope for HEADLESS cli -- I.e. no popup browser window for authentication during CLI calls.
 
-# New in Release 19.3.2h
+### New in Release 19.3.2h
 
 **Added**
 - `cec set-site-security` - set site as public or secure and define type of runtime access
@@ -1349,7 +1370,7 @@ Both commands can be repeated for the same site.
 **Fixed**
 - `cec add-contentlayout-mapping` - summary.json in template which is used by SERVER on template upload. 
 
-# New in Release 19.3.2g
+### New in Release 19.3.2g
 
 **Updated**
 - `cec create-site-map` - use --newlink to generate 19.3.3 style detail page links with slug.  For use when 19.3.3 is released.
@@ -1361,18 +1382,18 @@ Both commands can be repeated for the same site.
 **Fixed**
 - `cec create-site-map` - correctly finds SEO information for pages when there are no detail pages in the site.
 
-# New in Release 19.3.2f
+### New in Release 19.3.2f
 
 **Fixed**
 - `cec upload-folder` - correctly recurses folders on windows
 
-# New in Release 19.3.2e
+### New in Release 19.3.2e
 
 **Fixed**
 - `cec upload-template` - can now handle very large templates
 - `cec download-template` - can now handle very large templates
 
-# New in Release 19.3.2d
+### New in Release 19.3.2d
 
 **Fixed**
 - `cec delete-template` - properly removes template from trash
@@ -1384,12 +1405,12 @@ Both commands can be repeated for the same site.
 - `cec install` - does a check for minimum required version of node
 - `cec *` - no longer reports connection missing in gradle.properties
 
-# New in Release 19.3.2c
+### New in Release 19.3.2c
 
 - `cec share-site` - share site with users or groups on a CEC server
 - `cec unshare-site` - un-share site access from users or groups on a CEC server
 
-# New in Release 19.3.2b
+### New in Release 19.3.2b
 
 **Added**
 
@@ -1400,12 +1421,12 @@ Both commands can be repeated for the same site.
 **Fixed**
 - `cec create-template-from-site` - returns proper exit code
 
-# New in Release 19.3.2a
+### New in Release 19.3.2a
 
 **Fixed**
 - `cec upload-template` - now correctly reports component conflicts on import.
 
-# New in Release 19.3.2
+### New in Release 19.3.2
 
 **Updated**
 
@@ -1414,13 +1435,13 @@ Both commands can be repeated for the same site.
 **Added**
 - `cec` -  commands now return exit status for use in scripting
 
-# New in Release 19.3.1i
+### New in Release 19.3.1i
 
 **Fixed**
 - `cec create-asset-report` - resolved issues identifying content items and content layouts.
 - `cec create-encryption-key` - correctly outputs keyfile on windows
 
-# New in Release 19.3.1h
+### New in Release 19.3.1h
 
 **Added**
 - `cec create-asset-report` - audit a site, for all site members, checking all members have access to all site resources: components, theme, content items, etc.  and that all content items are assigned to the site channel.
@@ -1429,7 +1450,7 @@ Both commands can be repeated for the same site.
 **Fixed**
 - `cec develop` - runtime will serve content.min.js now
 
-# New in Release 19.3.1g
+### New in Release 19.3.1g
 
 **Added**
 
@@ -1437,12 +1458,12 @@ Both commands can be repeated for the same site.
 - `cec unshare-type` - can remove access to types for given users in a CEC server
 - `cec share-repository` - can now also share types used by repository in a CEC server
 
-# New in Release 19.3.1.f
+### New in Release 19.3.1.f
 
 **Fixed**
 - `cec create-site-map` - now works for sites with 1000s of pages
 
-# New in Release 19.3.1e
+### New in Release 19.3.1e
 
 **Updated**
 
@@ -1453,7 +1474,7 @@ Both commands can be repeated for the same site.
 - `cec share-repository` - share access to a repository in the CEC server
 - `cec unshare-repository` - remove user access to a repository in the CEC server
 
-# New in Release 19.3.1d
+### New in Release 19.3.1d
 
 **Updated**
 - `cec create-site-map` - use `--changefreq auto` to calculate page update frequency based on page update history.
@@ -1461,18 +1482,18 @@ Both commands can be repeated for the same site.
 **Fixed**
 - `cec upload-template` - can now successfully upload templates which use hybrid links.
 
-# New in Release 19.3.1c
+### New in Release 19.3.1c
 
 **Fixed**
 - `cec update-site` -- command line logging not working with node 10 when tracking progress updating files to site.
 
-# New in Release 19.3.1b
+### New in Release 19.3.1b
 
 **Updated**
 
 - `cec develop` -- now takes --server XXX parameter to test locally using registered CEC server XXX for content.  Use `cec register-server` to register the server to use.
 
-# New in Release 19.3.1a
+### New in Release 19.3.1a
 
 **Added**
 
@@ -1483,7 +1504,7 @@ Both commands can be repeated for the same site.
 
 - Test to Production using OCE Toolkit documentation - [link](https://github.com/oracle/content-and-experience-toolkit/blob/master/sites/doc/T2P.md)
 
-# New in Release 19.3.1
+### New in Release 19.3.1
 
 **Added**
 - `cec share-folder` -- share a documents folder in a CEC server
@@ -1491,7 +1512,7 @@ Both commands can be repeated for the same site.
 **Fixed**
 - `npm install` -- on Windows not doing copy-libs step
 
-# New in Release 19.2.3c
+### New in Release 19.2.3c
 
 **Added**
 - `cec upload-file` -- upload a file to CEC server
@@ -1500,26 +1521,26 @@ Both commands can be repeated for the same site.
 - `cec-components` -- folder no longer needed, upleveled contained files.
 - `README.MD` -- install instructions only need `npm install` now and then put `cec` on your path.
 
-# New in Release 19.2.3b
+### New in Release 19.2.3b
 
 **Added**
 - `cec control-repository` -- support for add-type, remove-type, add-channel, remove-channel
 - `cec create-folder` -- create folder in CEC server by name or path
 
-# New in Release 19.2.3a
+### New in Release 19.2.3a
 
 **Added**
 - `cec create-repository` -- create a repository on the specified CEC server
 - `cec create-channel` -- create a channel on the specified CEC server
 - `cec create-localization-policy` -- create a localization policy on the specified CEC server
 
-# New in Release 19.2.3
+### New in Release 19.2.3
 
 **Updated**
 - `cec create-rss-feed` - `{{{detailLink}}}` now includes slug.  `{{{DetailPageUrl}}}` plain link to detail page with no type and GUID, added to make `<link>{{{detailPageUrl}}}?slug={{slug}}</link>` possible.
 - `cec list` - can now list server resources as well as local resources.
 
-# New in Release 19.2.2f
+### New in Release 19.2.2f
 
 **Updated**
 - `cecss create-site` - in your site template zip, include a dependencies.json file at the top level to add tech dependencies for created sites.
@@ -1533,7 +1554,7 @@ Example: `dependencies.json`:
 }
 ```
 
-# New in Release 19.2.2e
+### New in Release 19.2.2e
 
 **Added**
 - `cec download-component` -- download a component from a CEC server to local file system
@@ -1544,7 +1565,7 @@ Example: `dependencies.json`:
 **Added**
 - `cec create-rss-feed` -- generate an RSS feed from a content query and publish to a site
 
-# New in Release 19.2.2d
+### New in Release 19.2.2d
 **The theme for this release is lifecycle.**
 
 **Added**
@@ -1569,11 +1590,11 @@ Example: `dependencies.json`:
 **Deprecated**
 - `cec deploy-template` -- it will still work, but is hidden from command usage.  Use `cec upload-template` instead.
 
-# New in Release 19.2.2c
+### New in Release 19.2.2c
 **Added**
 - additional help for `cec -h install`.
 
-# New in Release 19.2.2b
+### New in Release 19.2.2b
 **Added**
 
 - Support for non global install of cec.
@@ -1588,7 +1609,7 @@ export PATH=~/Dev/github/content-and-experience-toolkit/sites/cec-components/nod
 export PATH=$PATH:./node_modules/.bin
 ```
 
-# New in Release 19.2.2
+### New in Release 19.2.2
 **Added**
 - Aliases for all `cec` commands.  E.g. `cec ltj` for `cec list-translation-jobs`.
 - `cec install` -- Independent source creation, with own cec.properties, and npm install allows multiple source trees of CEC resources, and build step to load your own dependencies using npm via package.json unique to the source tree.
