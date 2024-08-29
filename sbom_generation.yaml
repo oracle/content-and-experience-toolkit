@@ -23,17 +23,6 @@ steps:
 
 
   - type: Command
-    name: "Install dependencies & cyclonedx-node-npm package in react-starter-sites"
-    command: |
-      cd react-starter-sites && npm install && npm install --save-dev @cyclonedx/cyclonedx-npm
-  - type: Command
-    name: "Run cyclonedx-node-npm package in react-starter-sites"
-    command: |
-      # For more details, visit https://github.com/CycloneDX/cyclonedx-node-npm/blob/main/README.md
-      cd react-starter-sites && npx @cyclonedx/cyclonedx-npm --omit dev --output-format JSON --output-file artifactSBOM.json --spec-version 1.4
-
-
-  - type: Command
     name: "Change the ownership of items in the npm cache"
     command: |
       chown -R 1000:1000 "/root/.npm"
@@ -60,7 +49,7 @@ steps:
     command: |
       # For more details, visit https://github.com/CycloneDX/cyclonedx-cli/blob/main/README.md
       chmod +x cyclonedx-linux-x64
-      ./cyclonedx-linux-x64 merge --input-files react-starter-sites/artifactSBOM.json sites/artifactSBOM.json --output-file merged-bom.json
+      ./cyclonedx-linux-x64 merge --input-files sites/artifactSBOM.json --output-file merged-bom.json
 outputArtifacts:
   - name: artifactSBOM
     type: BINARY

@@ -12,11 +12,11 @@ Templates and resources for development platforms.
 
 - [Asset Sync](sites/doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCM servers
 
-[react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
+NOTE: this project previously contained a sub-project called "react-starter-sites". That project is no longer supported, and has been archived in [react-starter-sites](https://github.com/oracle/react-starter-sites-archive).
 
 ## Getting Started
 
-Consult the README.md associated with the [Sites Toolkit](./sites/README.md) or the [CEC Starter Site CLI](./react-starter-sites/README.md).
+Consult the README.md associated with the [Sites Toolkit](./sites/README.md).
 
 ## Contributing
 
