@@ -24,6 +24,14 @@ if (_isWindows && cwd.endsWith(':\\')) {
 	cwd = cwd.substring(0, cwd.length - 1);
 }
 
+const childProcessSpawnSync = function(childProcessArgs) {
+	return childProcess.spawnSync(npmCmd, childProcessArgs, {
+		cwd,
+		shell: _isWindows,
+		stdio: 'inherit'
+	});
+}
+
 // console.log("Current working directory is: " + cwd);
 
 var _getProjectRoot = function () {
@@ -4654,10 +4662,7 @@ var _checkVersion = function () {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		checkVersionArgs.push(...['--server', argv.server]);
 	}
-	var checkVersion = childProcess.spawnSync(npmCmd, checkVersionArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	var checkVersion = childProcessSpawnSync(checkVersionArgs);
 };
 
 var _format = '  cec %-45s  %-72s  [alias: %4s]';
@@ -11488,10 +11493,7 @@ if (argv._[0] === 'install' || argv._[0] === 'i') {
 		'--',
 		'--projectDir', cwd
 	];
-	spawnCmd = childProcess.spawnSync(npmCmd, installArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(installArgs);
 	process.exit(0);
 }
 
@@ -11516,10 +11518,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--source', argv.from ? argv.from : 'local'
 	];
 	createComponentArgs.push(...['--name', argv.name]);
-	spawnCmd = childProcess.spawnSync(npmCmd, createComponentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createComponentArgs);
 
 } else if (argv._[0] === createContentLayout.name || argv._[0] === createContentLayout.alias) {
 	_displayCommand(createContentLayout.name);
@@ -11541,10 +11540,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createContentLayoutArgs.push(...['--addcustomsettings'], argv.addcustomsettings);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, createContentLayoutArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createContentLayoutArgs);
 
 } else if (argv._[0] === copyComponent.name || argv._[0] === copyComponent.alias) {
 	_displayCommand(copyComponent.name);
@@ -11565,10 +11561,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		copyComponentArgs.push(...['--server'], serverVal);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, copyComponentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(copyComponentArgs);
 
 } else if (argv._[0] === importComponent.name || argv._[0] === importComponent.alias) {
 	_displayCommand(importComponent.name);
@@ -11577,10 +11570,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--path', argv.zip
 	];
-	spawnCmd = childProcess.spawnSync(npmCmd, importComponentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(importComponentArgs);
 
 } else if (argv._[0] === exportComponent.name || argv._[0] === exportComponent.alias) {
 	_displayCommand(exportComponent.name);
@@ -11589,10 +11579,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--component', argv.name
 	];
-	spawnCmd = childProcess.spawnSync(npmCmd, exportComponentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(exportComponentArgs);
 
 } else if (argv._[0] === downloadComponent.name || argv._[0] === downloadComponent.alias) {
 	_displayCommand(downloadComponent.name);
@@ -11607,10 +11594,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadComponentArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadComponentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadComponentArgs);
 
 } else if (argv._[0] === deployComponent.name || argv._[0] === deployComponent.alias) {
 	_displayCommand(deployComponent.name);
@@ -11628,10 +11612,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		deployComponentArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, deployComponentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deployComponentArgs);
 
 } else if (argv._[0] === uploadComponent.name || argv._[0] === uploadComponent.alias) {
 	_displayCommand(uploadComponent.name);
@@ -11649,10 +11630,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadComponentArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadComponentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadComponentArgs);
 
 } else if (argv._[0] === controlComponent.name || argv._[0] === controlComponent.alias) {
 	_displayCommand(controlComponent.name);
@@ -11665,10 +11643,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlComponentArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, controlComponentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(controlComponentArgs);
 
 } else if (argv._[0] === shareComponent.name || argv._[0] === shareComponent.alias) {
 	_displayCommand(shareComponent.name);
@@ -11687,10 +11662,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareComponentArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, shareComponentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(shareComponentArgs);
 
 } else if (argv._[0] === unshareComponent.name || argv._[0] === unshareComponent.alias) {
 	_displayCommand(unshareComponent.name);
@@ -11708,10 +11680,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareComponentArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, unshareComponentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(unshareComponentArgs);
 
 } else if (argv._[0] === describeComponent.name || argv._[0] === describeComponent.alias) {
 	_displayCommand(describeComponent.name);
@@ -11726,10 +11695,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeComponentArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeComponentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeComponentArgs);
 
 } else if (argv._[0] === createTemplate.name || argv._[0] === createTemplate.alias) {
 	_displayCommand(createTemplate.name);
@@ -11772,10 +11738,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createTemplateArgs.push(...['--sourcefiles', argv.sourcefiles]);
 	}
 	createTemplateArgs.push(...['--name', argv.name]);
-	spawnCmd = childProcess.spawnSync(npmCmd, createTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createTemplateArgs);
 
 } else if (argv._[0] === copyTemplate.name || argv._[0] === copyTemplate.alias) {
 	_displayCommand(copyTemplate.name);
@@ -11796,10 +11759,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		copyTemplateArgs.push(...['--server'], serverVal);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, copyTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(copyTemplateArgs);
 
 } else if (argv._[0] === importTemplate.name || argv._[0] === importTemplate.alias) {
 	_displayCommand(importTemplate.name);
@@ -11808,10 +11768,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--path', argv.zip
 	];
-	spawnCmd = childProcess.spawnSync(npmCmd, importTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(importTemplateArgs);
 
 } else if (argv._[0] === exportTemplate.name || argv._[0] === exportTemplate.alias) {
 	_displayCommand(exportTemplate.name);
@@ -11823,10 +11780,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.optimize) {
 		exportTemplateArgs.push(...['--minify', argv.optimize]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, exportTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(exportTemplateArgs);
 
 } else if (argv._[0] === deployTemplate.name || argv._[0] === deployTemplate.alias) {
 	_displayCommand(deployTemplate.name);
@@ -11847,10 +11801,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.excludecontenttemplate) {
 		deployTemplateArgs.push(...['--excludecontenttemplate', argv.excludecontenttemplate]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, deployTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deployTemplateArgs);
 
 } else if (argv._[0] === uploadTemplate.name || argv._[0] === uploadTemplate.alias) {
 	_displayCommand(uploadTemplate.name);
@@ -11880,10 +11831,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.publish) {
 		uploadTemplateArgs.push(...['--publish', argv.publish]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadTemplateArgs);
 
 } else if (argv._[0] === createTemplateFromSite.name || argv._[0] === createTemplateFromSite.alias) {
 	_displayCommand(createTemplateFromSite.name);
@@ -11902,10 +11850,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.enterprisetemplate) {
 		createTemplateFromSiteArgs.push(...['--enterprisetemplate', argv.enterprisetemplate]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createTemplateFromSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createTemplateFromSiteArgs);
 
 } else if (argv._[0] === downloadTemplate.name || argv._[0] === downloadTemplate.alias) {
 	_displayCommand(downloadTemplate.name);
@@ -11918,10 +11863,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		downloadTemplateArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadTemplateArgs);
 
 } else if (argv._[0] === compileTemplate.name || argv._[0] === compileTemplate.alias) {
 	_displayCommand(compileTemplate.name);
@@ -11985,10 +11927,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.ignoreErrors) {
 		compileTemplateArgs.push(...['--ignoreErrors', argv.targetDevice]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, compileTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(compileTemplateArgs);
 
 } else if (argv._[0] === compileSite.name || argv._[0] === compileSite.alias) {
 	_displayCommand(compileSite.name);
@@ -12013,10 +11952,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server) {
 		compileSiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, compileSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(compileSiteArgs);
 } else if (argv._[0] === deleteTemplate.name) {
 	_displayCommand(deleteTemplate.name);
 	let deleteTemplateArgs = ['run', '-s', deleteTemplate.name, '--prefix', appRoot,
@@ -12031,10 +11967,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		deleteTemplateArgs.push(...['--permanent', argv.permanent]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, deleteTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deleteTemplateArgs);
 
 } else if (argv._[0] === shareTemplate.name || argv._[0] === shareTemplate.alias) {
 	_displayCommand(shareTemplate.name);
@@ -12053,10 +11986,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareTemplateArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, shareTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(shareTemplateArgs);
 
 } else if (argv._[0] === unshareTemplate.name || argv._[0] === unshareTemplate.alias) {
 	_displayCommand(unshareTemplate.name);
@@ -12074,10 +12004,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareTemplateArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, unshareTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(unshareTemplateArgs);
 
 } else if (argv._[0] === describeTemplate.name || argv._[0] === describeTemplate.alias) {
 	_displayCommand(describeTemplate.name);
@@ -12093,10 +12020,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		describeTemplateArgs.push(...['--server'], serverVal);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeTemplateArgs);
 
 } else if (argv._[0] === createTemplateReport.name || argv._[0] === createTemplateReport.alias) {
 	_displayCommand(createTemplateReport.name);
@@ -12114,10 +12038,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createTemplateReportArgs.push(...['--output', outputVal]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, createTemplateReportArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createTemplateReportArgs);
 
 } else if (argv._[0] === cleanupTemplate.name) {
 	_displayCommand(cleanupTemplate.name);
@@ -12127,10 +12048,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--file', argv.file
 	];
 
-	spawnCmd = childProcess.spawnSync(npmCmd, cleanupTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(cleanupTemplateArgs);
 
 } else if (argv._[0] === updateTemplate.name || argv._[0] === updateTemplate.alias) {
 	_displayCommand(updateTemplate.name);
@@ -12147,10 +12065,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		updateTemplateArgs.push(...['--server', serverVal]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, updateTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(updateTemplateArgs);
 
 } else if (argv._[0] === addContentLayoutMapping.name || argv._[0] === addContentLayoutMapping.alias) {
 	_displayCommand(addContentLayoutMapping.name);
@@ -12174,10 +12089,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		addContentLayoutMappingArgs.push(...['--server'], serverVal);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, addContentLayoutMappingArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(addContentLayoutMappingArgs);
 
 } else if (argv._[0] === removeContentLayoutMapping.name || argv._[0] === removeContentLayoutMapping.alias) {
 	_displayCommand(removeContentLayoutMapping.name);
@@ -12203,10 +12115,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		removeContentLayoutMappingArgs.push(...['--server'], serverVal);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, removeContentLayoutMappingArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(removeContentLayoutMappingArgs);
 
 } else if (argv._[0] === addFieldEditor.name || argv._[0] === addFieldEditor.alias) {
 	_displayCommand(addFieldEditor.name);
@@ -12222,10 +12131,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		addFieldEditorArgs.push(...['--contenttemplate', argv.contenttemplate]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, addFieldEditorArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(addFieldEditorArgs);
 
 } else if (argv._[0] === removeFieldEditor.name || argv._[0] === removeFieldEditor.alias) {
 	_displayCommand(removeFieldEditor.name);
@@ -12241,10 +12147,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		removeFieldEditorArgs.push(...['--contenttemplate', argv.contenttemplate]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, removeFieldEditorArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(removeFieldEditorArgs);
 
 } else if (argv._[0] === downloadContent.name || argv._[0] === downloadContent.alias) {
 	_displayCommand(downloadContent.name);
@@ -12282,10 +12185,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.name && typeof argv.name !== 'boolean') {
 		downloadContentArgs.push(...['--name', argv.name]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadContentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadContentArgs);
 
 } else if (argv._[0] === uploadContent.name || argv._[0] === uploadContent.alias) {
 	_displayCommand(uploadContent.name);
@@ -12322,10 +12222,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.types) {
 		uploadContentArgs.push(...['--types', argv.types]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadContentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadContentArgs);
 
 } else if (argv._[0] === controlContent.name || argv._[0] === controlContent.alias) {
 	_displayCommand(controlContent.name);
@@ -12367,10 +12264,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlContentArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, controlContentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(controlContentArgs);
 
 } else if (argv._[0] === transferContent.name || argv._[0] === transferContent.alias) {
 	_displayCommand(transferContent.name);
@@ -12399,10 +12293,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.execute) {
 		transferContentArgs.push(...['--execute', argv.execute]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, transferContentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(transferContentArgs);
 
 } else if (argv._[0] === transferRendition.name || argv._[0] === transferRendition.alias) {
 	_displayCommand(transferRendition.name);
@@ -12425,10 +12316,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		transferRenditionArgs.push(...['--assets', argv.assets]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, transferRenditionArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(transferRenditionArgs);
 
 } else if (argv._[0] === deleteAssets.name) {
 	_displayCommand(deleteAssets.name);
@@ -12455,10 +12343,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		deleteAssetsArgs.push(...['--assets', argv.assets]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, deleteAssetsArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deleteAssetsArgs);
 
 } else if (argv._[0] === validateContent.name || argv._[0] === validateContent.alias) {
 	_displayCommand(validateContent.name);
@@ -12472,10 +12357,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		validateContentArgs.push(...['--template', argv.template]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, validateContentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(validateContentArgs);
 
 } else if (argv._[0] === createDigitalAsset.name || argv._[0] === createDigitalAsset.alias) {
 	_displayCommand(createDigitalAsset.name);
@@ -12505,10 +12387,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createDigitalAssetArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, createDigitalAssetArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createDigitalAssetArgs);
 
 } else if (argv._[0] === updateDigitalAsset.name || argv._[0] === updateDigitalAsset.alias) {
 	_displayCommand(updateDigitalAsset.name);
@@ -12533,10 +12412,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		updateDigitalAssetArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, updateDigitalAssetArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(updateDigitalAssetArgs);
 
 } else if (argv._[0] === copyAssets.name || argv._[0] === copyAssets.alias) {
 	_displayCommand(copyAssets.name);
@@ -12561,10 +12437,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.assets && typeof argv.assets !== 'boolean') {
 		copyAssetsArgs.push(...['--assets', argv.assets]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, copyAssetsArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(copyAssetsArgs);
 
 } else if (argv._[0] === downloadTaxonomy.name || argv._[0] === downloadTaxonomy.alias) {
 	_displayCommand(downloadTaxonomy.name);
@@ -12580,10 +12453,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadTaxonomyArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadTaxonomyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadTaxonomyArgs);
 
 } else if (argv._[0] === uploadTaxonomy.name || argv._[0] === uploadTaxonomy.alias) {
 	_displayCommand(uploadTaxonomy.name);
@@ -12610,10 +12480,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadTaxonomyArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadTaxonomyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadTaxonomyArgs);
 
 } else if (argv._[0] === transferCategoryProperty.name || argv._[0] === transferCategoryProperty.alias) {
 	_displayCommand(transferCategoryProperty.name);
@@ -12627,10 +12494,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.id) {
 		transferCategoryPropertiesArgs.push(...['--id', argv.id]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, transferCategoryPropertiesArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(transferCategoryPropertiesArgs);
 
 } else if (argv._[0] === controlTaxonomy.name || argv._[0] === controlTaxonomy.alias) {
 	_displayCommand(controlTaxonomy.name);
@@ -12654,10 +12518,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlTaxonomyArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, controlTaxonomyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(controlTaxonomyArgs);
 
 } else if (argv._[0] === updateTaxonomy.name || argv._[0] === updateTaxonomy.alias) {
 	_displayCommand(updateTaxonomy.name);
@@ -12675,10 +12536,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		updateTaxonomyArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, updateTaxonomyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(updateTaxonomyArgs);
 
 } else if (argv._[0] === describeTaxonomy.name || argv._[0] === describeTaxonomy.alias) {
 	_displayCommand(describeTaxonomy.name);
@@ -12696,10 +12554,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeTaxonomyArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeTaxonomyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeTaxonomyArgs);
 
 } else if (argv._[0] === describeCategory.name || argv._[0] === describeCategory.alias) {
 	_displayCommand(describeCategory.name);
@@ -12718,10 +12573,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeCategoryArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeCategoryArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeCategoryArgs);
 
 } else if (argv._[0] === shareTaxonomy.name || argv._[0] === shareTaxonomy.alias) {
 	_displayCommand(shareTaxonomy.name);
@@ -12743,10 +12595,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareTaxonomyArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, shareTaxonomyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(shareTaxonomyArgs);
 
 } else if (argv._[0] === unshareTaxonomy.name || argv._[0] === unshareTaxonomy.alias) {
 	_displayCommand(unshareTaxonomy.name);
@@ -12767,10 +12616,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareTaxonomyArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, unshareTaxonomyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(unshareTaxonomyArgs);
 
 } else if (argv._[0] === addComponentToTheme.name || argv._[0] === addComponentToTheme.alias) {
 	_displayCommand(addComponentToTheme.name);
@@ -12784,10 +12630,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		addComponentToThemeArgs.push(...['--category', argv.category]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, addComponentToThemeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(addComponentToThemeArgs);
 
 } else if (argv._[0] === removeComponentFromTheme.name || argv._[0] === removeComponentFromTheme.alias) {
 	_displayCommand(removeComponentFromTheme.name);
@@ -12798,10 +12641,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--theme', argv.theme
 	];
 
-	spawnCmd = childProcess.spawnSync(npmCmd, removeComponentFromThemeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(removeComponentFromThemeArgs);
 
 } else if (argv._[0] === copyTheme.name || argv._[0] === copyTheme.alias) {
 	_displayCommand(copyTheme.name);
@@ -12821,10 +12661,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		copyThemeArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, copyThemeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(copyThemeArgs);
 
 } else if (argv._[0] === controlTheme.name || argv._[0] === controlTheme.alias) {
 	_displayCommand(controlTheme.name);
@@ -12837,10 +12674,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlThemeArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, controlThemeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(controlThemeArgs);
 
 } else if (argv._[0] === shareTheme.name || argv._[0] === shareTheme.alias) {
 	_displayCommand(shareTheme.name);
@@ -12859,10 +12693,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareThemeArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, shareThemeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(shareThemeArgs);
 
 } else if (argv._[0] === unshareTheme.name || argv._[0] === unshareTheme.alias) {
 	_displayCommand(unshareTheme.name);
@@ -12880,10 +12711,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareThemeArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, unshareThemeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(unshareThemeArgs);
 
 } else if (argv._[0] === describeTheme.name || argv._[0] === describeTheme.alias) {
 	_displayCommand(describeTheme.name);
@@ -12896,10 +12724,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeThemeArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeThemeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeThemeArgs);
 
 } else if (argv._[0] === listServerContentTypes.name || argv._[0] === listServerContentTypes.alias) {
 	_displayCommand(listServerContentTypes.name);
@@ -12926,10 +12751,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		listServerContentTypesArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, listServerContentTypesArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listServerContentTypesArgs);
 
 } else if (argv._[0] === listResources.name || argv._[0] === listResources.alias) {
 	_displayCommand(listResources.name);
@@ -12944,10 +12766,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		listArgs.push(...['--server'], serverVal);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, listArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listArgs);
 
 } else if (argv._[0] === listActivities.name || argv._[0] === listActivities.alias) {
 	_displayCommand(listActivities.name);
@@ -12974,10 +12793,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		listArgs.push(...['--server'], serverVal);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, listArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listArgs);
 
 } else if (argv._[0] === describeBackgroundJob.name || argv._[0] === describeBackgroundJob.alias) {
 	_displayCommand(describeBackgroundJob.name);
@@ -12993,10 +12809,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeBackgroundJobArgsArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeBackgroundJobArgsArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeBackgroundJobArgsArgs);
 
 } else if (argv._[0] === listAssets.name || argv._[0] === listAssets.alias) {
 	_displayCommand(listAssets.name);
@@ -13051,10 +12864,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		listAssetsArgs.push(...['--assetsfile', argv.assetsfile]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, listAssetsArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listAssetsArgs);
 
 } else if (argv._[0] === listAssetIds.name || argv._[0] === listAssetIds.alias) {
 	_displayCommand(listAssetIds.name);
@@ -13078,10 +12888,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		listAssetIdsArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, listAssetIdsArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listAssetIdsArgs);
 
 } else if (argv._[0] === describeAsset.name || argv._[0] === describeAsset.alias) {
 	_displayCommand(describeAsset.name);
@@ -13094,10 +12901,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		describeAssetArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, describeAssetArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeAssetArgs);
 
 } else if (argv._[0] === validateAssets.name || argv._[0] === validateAssets.alias) {
 	_displayCommand(validateAssets.name);
@@ -13119,10 +12923,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		let file = typeof argv.file === 'boolean' ? ('va_' + argv.channel + '.json') : argv.file;
 		validateAssetsArgs.push(...['--file', file]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, validateAssetsArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(validateAssetsArgs);
 
 } else if (argv._[0] === createAssetUsageReport.name || argv._[0] === createAssetUsageReport.alias) {
 	_displayCommand(createAssetUsageReport.name);
@@ -13139,10 +12940,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createAssetUsageReportArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createAssetUsageReportArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createAssetUsageReportArgs);
 
 } else if (argv._[0] === createSite.name || argv._[0] === createSite.alias) {
 	_displayCommand(createSite.name);
@@ -13182,10 +12980,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createSiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createSiteArgs);
 
 } else if (argv._[0] === createSitePage.name || argv._[0] === createSitePage.alias) {
 	_displayCommand(createSitePage.name);
@@ -13208,10 +13003,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createSitePageArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createSitePageArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createSitePageArgs);
 
 } else if (argv._[0] === copySite.name || argv._[0] === copySite.alias) {
 	_displayCommand(copySite.name);
@@ -13233,10 +13025,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		copySiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, copySiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(copySiteArgs);
 
 } else if (argv._[0] === transferSite.name || argv._[0] === transferSite.alias) {
 	_displayCommand(transferSite.name);
@@ -13289,10 +13078,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.suppressgovernance) {
 		transferSiteArgs.push(...['--suppressgovernance', argv.suppressgovernance]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, transferSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(transferSiteArgs);
 
 } else if (argv._[0] === transferSiteContent.name || argv._[0] === transferSiteContent.alias) {
 	_displayCommand(transferSiteContent.name);
@@ -13325,10 +13111,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.execute) {
 		transferSiteContentArgs.push(...['--execute', argv.execute]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, transferSiteContentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(transferSiteContentArgs);
 
 } else if (argv._[0] === transferSitePage.name || argv._[0] === transferSitePage.alias) {
 	_displayCommand(transferSitePage.name);
@@ -13343,10 +13126,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.targetsite) {
 		transferSitePageArgs.push(...['--targetsite', argv.targetsite]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, transferSitePageArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(transferSitePageArgs);
 
 } else if (argv._[0] === controlSite.name || argv._[0] === controlSite.alias) {
 	_displayCommand(controlSite.name);
@@ -13404,10 +13184,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlSiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, controlSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(controlSiteArgs);
 
 } else if (argv._[0] === shareSite.name || argv._[0] === shareSite.alias) {
 	_displayCommand(shareSite.name);
@@ -13426,10 +13203,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareSiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, shareSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(shareSiteArgs);
 
 } else if (argv._[0] === unshareSite.name || argv._[0] === unshareSite.alias) {
 	_displayCommand(unshareSite.name);
@@ -13447,10 +13221,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareSiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, unshareSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(unshareSiteArgs);
 
 } else if (argv._[0] === deleteSite.name) {
 	_displayCommand(deleteSite.name);
@@ -13466,10 +13237,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		deleteSiteArgs.push(...['--permanent', argv.permanent]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, deleteSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deleteSiteArgs);
 
 } else if (argv._[0] === describeSite.name || argv._[0] === describeSite.alias) {
 	_displayCommand(describeSite.name);
@@ -13485,10 +13253,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeSiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeSiteArgs);
 
 } else if (argv._[0] === describeSitePage.name || argv._[0] === describeSitePage.alias) {
 	_displayCommand(describeSitePage.name);
@@ -13508,10 +13273,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeSitePageArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeSitePageArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeSitePageArgs);
 
 } else if (argv._[0] === getSiteSecurity.name || argv._[0] === getSiteSecurity.alias) {
 	_displayCommand(getSiteSecurity.name);
@@ -13523,10 +13285,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		getSiteSecurityArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, getSiteSecurityArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(getSiteSecurityArgs);
 
 } else if (argv._[0] === setSiteSecurity.name || argv._[0] === setSiteSecurity.alias) {
 	_displayCommand(setSiteSecurity.name);
@@ -13554,10 +13313,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		setSiteSecurityArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, setSiteSecurityArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(setSiteSecurityArgs);
 
 } else if (argv._[0] === updateSite.name || argv._[0] === updateSite.alias) {
 	_displayCommand(updateSite.name);
@@ -13581,10 +13337,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.compilationjob && typeof argv.compilationjob !== 'boolean') {
 		updateSiteArgs.push(...['--compilationjob', argv.compilationjob]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, updateSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(updateSiteArgs);
 
 } else if (argv._[0] === replicateRepository.name || argv._[0] === replicateRepository.alias) {
 	_displayCommand(replicateRepository.name);
@@ -13638,10 +13391,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.destination && typeof argv.destination !== 'boolean') {
 		replicateRepositoryArgs.push(...['--destination', argv.destination]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, replicateRepositoryArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(replicateRepositoryArgs);
 
 } else if (argv._[0] === exportRepository.name || argv._[0] === exportRepository.alias) {
 	_displayCommand(exportRepository.name);
@@ -13684,10 +13434,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		exportRepositoryArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, exportRepositoryArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(exportRepositoryArgs);
 
 } else if (argv._[0] === importRepository.name || argv._[0] === importRepository.alias) {
 	_displayCommand(importRepository.name);
@@ -13745,10 +13492,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		importRepositoryArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, importRepositoryArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(importRepositoryArgs);
 
 } else if (argv._[0] === replicateSite.name || argv._[0] === replicateSite.alias) {
 	_displayCommand(replicateSite.name);
@@ -13787,10 +13531,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.ignorewarnings) {
 		replicateSiteArgs.push(...['--ignorewarnings', argv.ignorewarnings]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, replicateSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(replicateSiteArgs);
 
 } else if (argv._[0] === exportSite.name || argv._[0] === exportSite.alias) {
 	_displayCommand(exportSite.name);
@@ -13817,10 +13558,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.path && typeof argv.path !== 'boolean') {
 		exportSiteArgs.push(...['--path', argv.path]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, exportSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(exportSiteArgs);
 
 } else if (argv._[0] === importSite.name || argv._[0] === importSite.alias) {
 	_displayCommand(importSite.name);
@@ -13862,10 +13600,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.ignorewarnings) {
 		importSiteArgs.push(...['--ignorewarnings', argv.ignorewarnings]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, importSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(importSiteArgs);
 
 } else if (argv._[0] === unblockImportJob.name || argv._[0] === unblockImportJob.alias) {
 	_displayCommand(unblockImportJob.name);
@@ -13880,10 +13615,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.ignorewarnings) {
 		unblockImportJobArgs.push(...['--ignorewarnings', argv.ignorewarnings]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, unblockImportJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(unblockImportJobArgs);
 
 } else if (argv._[0] === retryImportJob.name || argv._[0] === retryImportJob.alias) {
 	_displayCommand(retryImportJob.name);
@@ -13895,10 +13627,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		retryImportJobArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, retryImportJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(retryImportJobArgs);
 
 } else if (argv._[0] === cancelExportJob.name || argv._[0] === cancelExportJob.alias) {
 	_displayCommand(cancelExportJob.name);
@@ -13911,10 +13640,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		cancelExportJobArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, cancelExportJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(cancelExportJobArgs);
 
 } else if (argv._[0] === cancelImportJob.name || argv._[0] === cancelImportJob.alias) {
 	_displayCommand(cancelImportJob.name);
@@ -13927,10 +13653,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		cancelImportJobArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, cancelImportJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(cancelImportJobArgs);
 
 } else if (argv._[0] === deleteExportJob.name || argv._[0] === deleteExportJob.alias) {
 	_displayCommand(deleteExportJob.name);
@@ -13943,10 +13666,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		deleteExportJobArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, deleteExportJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deleteExportJobArgs);
 
 } else if (argv._[0] === deleteImportJob.name || argv._[0] === deleteImportJob.alias) {
 	_displayCommand(deleteImportJob.name);
@@ -13959,10 +13679,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		deleteImportJobArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, deleteImportJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deleteImportJobArgs);
 
 } else if (argv._[0] === listExportJobs.name || argv._[0] === listExportJobs.alias) {
 	_displayCommand(listExportJobs.name);
@@ -13973,10 +13690,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		listExportJobsArg.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, listExportJobsArg, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listExportJobsArg);
 
 } else if (argv._[0] === describeExportJob.name || argv._[0] === describeExportJob.alias) {
 	_displayCommand(describeExportJob.name);
@@ -13992,10 +13706,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		describeExportJobArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, describeExportJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeExportJobArgs);
 
 } else if (argv._[0] === listImportJobs.name || argv._[0] === listImportJobs.alias) {
 	_displayCommand(listImportJobs.name);
@@ -14006,10 +13717,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		listImportJobsArg.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, listImportJobsArg, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listImportJobsArg);
 
 } else if (argv._[0] === describeImportJob.name || argv._[0] === describeImportJob.alias) {
 	_displayCommand(describeImportJob.name);
@@ -14025,10 +13733,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		describeImportJobArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, describeImportJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeImportJobArgs);
 
 } else if (argv._[0] === validateSite.name || argv._[0] === validateSite.alias) {
 	_displayCommand(validateSite.name);
@@ -14044,10 +13749,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		validateSiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, validateSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(validateSiteArgs);
 
 } else if (argv._[0] === indexSite.name || argv._[0] === indexSite.alias) {
 	_displayCommand(indexSite.name);
@@ -14063,10 +13765,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		indexSiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, indexSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(indexSiteArgs);
 
 } else if (argv._[0] === createSiteMap.name || argv._[0] === createSiteMap.alias) {
 	_displayCommand(createSiteMap.name);
@@ -14125,10 +13824,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.usedefaultsiteurl) {
 		createSiteMapArgs.push(...['--usedefaultsiteurl', argv.usedefaultsiteurl]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createSiteMapArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createSiteMapArgs);
 
 } else if (argv._[0] === createRSSFeed.name || argv._[0] === createRSSFeed.alias) {
 	_displayCommand(createRSSFeed.name);
@@ -14172,10 +13868,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createRSSFeedArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createRSSFeedArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createRSSFeedArgs);
 
 } else if (argv._[0] === createAssetReport.name || argv._[0] === createAssetReport.alias) {
 	_displayCommand(createAssetReport.name);
@@ -14195,10 +13888,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createAssetReportArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createAssetReportArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createAssetReportArgs);
 
 } else if (argv._[0] === uploadStaticSite.name || argv._[0] === uploadStaticSite.alias) {
 	_displayCommand(uploadStaticSite.name);
@@ -14220,10 +13910,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadStaticSiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadStaticSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadStaticSiteArgs);
 
 } else if (argv._[0] === downloadStaticSite.name || argv._[0] === downloadStaticSite.alias) {
 	_displayCommand(downloadStaticSite.name);
@@ -14238,10 +13925,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadStaticSiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadStaticSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadStaticSiteArgs);
 
 } else if (argv._[0] === deleteStaticSite.name || argv._[0] === deleteStaticSite.alias) {
 	_displayCommand(deleteStaticSite.name);
@@ -14253,10 +13937,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		deleteStaticSiteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, deleteStaticSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deleteStaticSiteArgs);
 
 } else if (argv._[0] === refreshPrerenderCache.name || argv._[0] === refreshPrerenderCache.alias) {
 	_displayCommand(refreshPrerenderCache.name);
@@ -14268,10 +13949,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		refreshPrerenderCacheArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, refreshPrerenderCacheArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(refreshPrerenderCacheArgs);
 
 } else if (argv._[0] === createSitePlan.name || argv._[0] === createSitePlan.alias) {
 	_displayCommand(createSitePlan.name);
@@ -14293,10 +13971,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createSitePlanArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createSitePlanArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createSitePlanArgs);
 
 } else if (argv._[0] === migrateSite.name || argv._[0] === migrateSite.alias) {
 	_displayCommand(migrateSite.name);
@@ -14322,10 +13997,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.sitePrefix) {
 		migrateSiteArgs.push(...['--sitePrefix', argv.sitePrefix]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, migrateSiteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(migrateSiteArgs);
 
 } else if (argv._[0] === migrateContent.name || argv._[0] === migrateContent.alias) {
 	_displayCommand(migrateContent.name);
@@ -14343,10 +14015,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.collection && typeof argv.collection !== 'boolean') {
 		migrateContentArgs.push(...['--collection', argv.collection]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, migrateContentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(migrateContentArgs);
 
 } else if (argv._[0] === compileContent.name || argv._[0] === compileContent.alias) {
 	_displayCommand(compileContent.name);
@@ -14380,10 +14049,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.fileBoundary) {
 		compileContentArgs.push(...['--fileBoundary', argv.fileBoundary]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, compileContentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(compileContentArgs);
 
 } else if (argv._[0] === uploadCompiledContent.name || argv._[0] === uploadCompiledContent.alias) {
 	_displayCommand(uploadCompiledContent.name);
@@ -14396,10 +14062,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		uploadCompiledContentArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadCompiledContentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadCompiledContentArgs);
 
 } else if (argv._[0] === describeLocalContent.name || argv._[0] === describeLocalContent.alias) {
 	_displayCommand(uploadCompiledContent.name);
@@ -14416,10 +14079,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		describeLocalContentArgs.push(...['--file', argv.file]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, describeLocalContentArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeLocalContentArgs);
 
 } else if (argv._[0] === renameContentType.name || argv._[0] === renameContentType.alias) {
 	_displayCommand(renameContentType.name);
@@ -14433,10 +14093,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.template) {
 		renameContentTypeArgs.push(...['--template', argv.template]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, renameContentTypeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(renameContentTypeArgs);
 
 } else if (argv._[0] === createRepository.name || argv._[0] === createRepository.alias) {
 	_displayCommand(createRepository.name);
@@ -14463,10 +14120,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createRepositoryArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createRepositoryArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createRepositoryArgs);
 
 } else if (argv._[0] === controlRepository.name || argv._[0] === controlRepository.alias) {
 	_displayCommand(controlRepository.name);
@@ -14499,10 +14153,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlRepositoryArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, controlRepositoryArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(controlRepositoryArgs);
 
 } else if (argv._[0] === shareRepository.name || argv._[0] === shareRepository.alias) {
 	_displayCommand(shareRepository.name);
@@ -14527,10 +14178,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareRepositoryArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, shareRepositoryArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(shareRepositoryArgs);
 
 } else if (argv._[0] === unshareRepository.name || argv._[0] === unshareRepository.alias) {
 	_displayCommand(unshareRepository.name);
@@ -14551,10 +14199,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareRepositoryArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, unshareRepositoryArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(unshareRepositoryArgs);
 
 } else if (argv._[0] === describeRepository.name || argv._[0] === describeRepository.alias) {
 	_displayCommand(describeRepository.name);
@@ -14569,10 +14214,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeRepositoryArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeRepositoryArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeRepositoryArgs);
 
 } else if (argv._[0] === setEditorialPermission.name || argv._[0] === setEditorialPermission.alias) {
 	_displayCommand(setEditorialPermission.name);
@@ -14606,10 +14248,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		setEditorialPermissionArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, setEditorialPermissionArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(setEditorialPermissionArgs);
 
 } else if (argv._[0] === listEditorialPermission.name || argv._[0] === listEditorialPermission.alias) {
 	_displayCommand(listEditorialPermission.name);
@@ -14621,10 +14260,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		listEditorialPermissionArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, listEditorialPermissionArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listEditorialPermissionArgs);
 
 } else if (argv._[0] === listEditorialRole.name || argv._[0] === listEditorialRole.alias) {
 	_displayCommand(listEditorialRole.name);
@@ -14638,10 +14274,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		listEditorialRoleArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, listEditorialRoleArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listEditorialRoleArgs);
 
 } else if (argv._[0] === createEditorialRole.name || argv._[0] === createEditorialRole.alias) {
 	_displayCommand(createEditorialRole.name);
@@ -14656,10 +14289,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createEditorialRoleArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createEditorialRoleArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createEditorialRoleArgs);
 
 } else if (argv._[0] === setEditorialRole.name || argv._[0] === setEditorialRole.alias) {
 	_displayCommand(setEditorialRole.name);
@@ -14687,10 +14317,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		setEditorialRoleArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, setEditorialRoleArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(setEditorialRoleArgs);
 
 } else if (argv._[0] === deleteEditorialRole.name || argv._[0] === deleteEditorialRole.alias) {
 	_displayCommand(deleteEditorialRole.name);
@@ -14703,10 +14330,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		deleteEditorialRoleArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, deleteEditorialRoleArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deleteEditorialRoleArgs);
 
 } else if (argv._[0] === transferEditorialRole.name || argv._[0] === transferEditorialRole.alias) {
 	_displayCommand(transferEditorialRole.name);
@@ -14718,10 +14342,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--destination', argv.destination
 	];
 
-	spawnCmd = childProcess.spawnSync(npmCmd, transferEditorialRoleArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(transferEditorialRoleArgs);
 
 } else if (argv._[0] === shareType.name || argv._[0] === shareType.alias) {
 	_displayCommand(shareType.name);
@@ -14740,10 +14361,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareTypeArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, shareTypeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(shareTypeArgs);
 
 } else if (argv._[0] === unshareType.name || argv._[0] === unshareType.alias) {
 	_displayCommand(unshareType.name);
@@ -14761,10 +14379,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareTypeArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, unshareTypeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(unshareTypeArgs);
 
 } else if (argv._[0] === downloadType.name || argv._[0] === downloadType.alias) {
 	_displayCommand(downloadType.name);
@@ -14779,10 +14394,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadTypeArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadTypeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadTypeArgs);
 
 } else if (argv._[0] === updateType.name || argv._[0] === updateType.alias) {
 	_displayCommand(updateType.name);
@@ -14804,10 +14416,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		updateTypeArgs.push(...['--server'], serverVal);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, updateTypeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(updateTypeArgs);
 
 } else if (argv._[0] === describeType.name || argv._[0] === describeType.alias) {
 	_displayCommand(describeType.name);
@@ -14826,10 +14435,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		describeTypeArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, describeTypeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeTypeArgs);
 
 } else if (argv._[0] === describeWorkflow.name || argv._[0] === describeWorkflow.alias) {
 	_displayCommand(describeWorkflow.name);
@@ -14844,10 +14450,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeWorkflowArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeWorkflowArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeWorkflowArgs);
 
 }
 /**
@@ -14867,10 +14470,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createWordTemplateArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createWordTemplateArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createWordTemplateArgs);
 
 }
 else if (argv._[0] === createContentItem.name || argv._[0] === createContentItem.alias) {
@@ -14885,10 +14485,7 @@ else if (argv._[0] === createContentItem.name || argv._[0] === createContentItem
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createContentItemArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createContentItemArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createContentItemArgs);
 
 } */
 else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
@@ -14907,10 +14504,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadTypeArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadTypeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadTypeArgs);
 
 } else if (argv._[0] === copyType.name || argv._[0] === copyType.alias) {
 	_displayCommand(copyType.name);
@@ -14933,10 +14527,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		copyTypeArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, copyTypeArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(copyTypeArgs);
 
 } else if (argv._[0] === createCollection.name || argv._[0] === createCollection.alias) {
 	_displayCommand(createCollection.name);
@@ -14952,10 +14543,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createCollectionArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createCollectionArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createCollectionArgs);
 
 } else if (argv._[0] === controlCollection.name || argv._[0] === controlCollection.alias) {
 	_displayCommand(controlCollection.name);
@@ -14981,10 +14569,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlCollectionArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, controlCollectionArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(controlCollectionArgs);
 
 } else if (argv._[0] === describeCollection.name || argv._[0] === describeCollection.alias) {
 	_displayCommand(describeCollection.name);
@@ -14998,10 +14583,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeCollectionArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeCollectionArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeCollectionArgs);
 
 } else if (argv._[0] === createChannel.name || argv._[0] === createChannel.alias) {
 	_displayCommand(createChannel.name);
@@ -15025,10 +14607,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createChannelArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createChannelArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createChannelArgs);
 
 } else if (argv._[0] === shareChannel.name || argv._[0] === shareChannel.alias) {
 	_displayCommand(shareChannel.name);
@@ -15047,10 +14626,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareChannelArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, shareChannelArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(shareChannelArgs);
 
 } else if (argv._[0] === unshareChannel.name || argv._[0] === unshareChannel.alias) {
 	_displayCommand(unshareChannel.name);
@@ -15068,10 +14644,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareChannelArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, unshareChannelArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(unshareChannelArgs);
 
 } else if (argv._[0] === describeChannel.name || argv._[0] === describeChannel.alias) {
 	_displayCommand(describeChannel.name);
@@ -15086,10 +14659,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeChannelArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeChannelArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeChannelArgs);
 
 } else if (argv._[0] === createLocalizationPolicy.name || argv._[0] === createLocalizationPolicy.alias) {
 	_displayCommand(createLocalizationPolicy.name);
@@ -15109,10 +14679,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createLocalizationPolicyArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createLocalizationPolicyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createLocalizationPolicyArgs);
 
 } else if (argv._[0] === describeLocalizationPolicy.name || argv._[0] === describeLocalizationPolicy.alias) {
 	_displayCommand(describeLocalizationPolicy.name);
@@ -15125,10 +14692,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeLocalizationPolicyArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeLocalizationPolicyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeLocalizationPolicyArgs);
 
 } else if (argv._[0] === downloadLocalizationPolicy.name || argv._[0] === downloadLocalizationPolicy.alias) {
 	_displayCommand(downloadLocalizationPolicy.name);
@@ -15141,10 +14705,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadLocalizationPolicyArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadLocalizationPolicyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadLocalizationPolicyArgs);
 
 } else if (argv._[0] === uploadLocalizationPolicy.name || argv._[0] === uploadLocalizationPolicy.alias) {
 	_displayCommand(uploadLocalizationPolicy.name);
@@ -15162,10 +14723,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadLocalizationPolicyArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadLocalizationPolicyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadLocalizationPolicyArgs);
 
 } else if (argv._[0] === createTranslationJob.name || argv._[0] === createTranslationJob.alias) {
 	_displayCommand(createTranslationJob.name);
@@ -15208,10 +14766,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createTranslationJobArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createTranslationJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createTranslationJobArgs);
 
 } else if (argv._[0] === downloadTranslationJob.name || argv._[0] === downloadTranslationJob.alias) {
 	_displayCommand(downloadTranslationJob.name);
@@ -15223,10 +14778,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadTranslationJobArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadTranslationJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadTranslationJobArgs);
 
 } else if (argv._[0] === uploadTranslationJob.name || argv._[0] === uploadTranslationJob.alias) {
 	_displayCommand(uploadTranslationJob.name);
@@ -15245,10 +14797,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadTranslationJobArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadTranslationJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadTranslationJobArgs);
 
 } else if (argv._[0] === listTranslationJobs.name || argv._[0] === listTranslationJobs.alias) {
 	_displayCommand(listTranslationJobs.name);
@@ -15275,10 +14824,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		listTranslationJobsArgs.push(...['--server'], serverVal);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, listTranslationJobsArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listTranslationJobsArgs);
 
 } else if (argv._[0] === describeTranslationJob.name || argv._[0] === describeTranslationJob.alias) {
 	_displayCommand(describeTranslationJob.name);
@@ -15291,10 +14837,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeTranslationJobArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, describeTranslationJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeTranslationJobArgs);
 
 } else if (argv._[0] === submitTranslationJob.name || argv._[0] === submitTranslationJob.alias) {
 	_displayCommand(submitTranslationJob.name);
@@ -15305,10 +14848,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--connection', argv.connection
 	];
 
-	spawnCmd = childProcess.spawnSync(npmCmd, submitTranslationJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(submitTranslationJobArgs);
 
 } else if (argv._[0] === refreshTranslationJob.name || argv._[0] === refreshTranslationJob.alias) {
 	_displayCommand(refreshTranslationJob.name);
@@ -15321,10 +14861,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		refreshTranslationJobArgs.push(...['--server'], serverVal);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, refreshTranslationJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(refreshTranslationJobArgs);
 
 } else if (argv._[0] === ingestTranslationJob.name || argv._[0] === ingestTranslationJob.alias) {
 	_displayCommand(ingestTranslationJob.name);
@@ -15337,10 +14874,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		ingestTranslationJobArgs.push(...['--server'], serverVal);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, ingestTranslationJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(ingestTranslationJobArgs);
 
 } else if (argv._[0] === registerTranslationConnector.name || argv._[0] === registerTranslationConnector.alias) {
 	_displayCommand(registerTranslationConnector.name);
@@ -15356,10 +14890,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.fields) {
 		registerTranslationConnectorArgs.push(...['--fields'], argv.fields);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, registerTranslationConnectorArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(registerTranslationConnectorArgs);
 
 } else if (argv._[0] === createTranslationConnector.name || argv._[0] === createTranslationConnector.alias) {
 	_displayCommand(createTranslationConnector.name);
@@ -15370,10 +14901,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--source', argv.from ? argv.from : 'mockTranslationConnector'
 	];
 
-	spawnCmd = childProcess.spawnSync(npmCmd, createTranslationConnectorArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createTranslationConnectorArgs);
 
 } else if (argv._[0] === startTranslationConnector.name || argv._[0] === startTranslationConnector.alias) {
 	_displayCommand(startTranslationConnector.name);
@@ -15388,10 +14916,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.debug) {
 		startTranslationConnectorArgs.push(...['--debug']);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, startTranslationConnectorArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(startTranslationConnectorArgs);
 
 } else if (argv._[0] === createFolder.name || argv._[0] === createFolder.alias) {
 	_displayCommand(createFolder.name);
@@ -15403,10 +14928,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createFolderArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createFolderArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createFolderArgs);
 
 } else if (argv._[0] === copyFolder.name || argv._[0] === copyFolder.alias) {
 	_displayCommand(copyFolder.name);
@@ -15421,10 +14943,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		copyFolderArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, copyFolderArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(copyFolderArgs);
 
 } else if (argv._[0] === shareFolder.name || argv._[0] === shareFolder.alias) {
 	_displayCommand(shareFolder.name);
@@ -15443,10 +14962,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareFolderArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, shareFolderArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(shareFolderArgs);
 
 } else if (argv._[0] === unshareFolder.name || argv._[0] === unshareFolder.alias) {
 	_displayCommand(unshareFolder.name);
@@ -15464,10 +14980,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareFolderArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, unshareFolderArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(unshareFolderArgs);
 
 } else if (argv._[0] === listFolder.name || argv._[0] === listFolder.alias) {
 	_displayCommand(listFolder.name);
@@ -15482,10 +14995,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		listFolderArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, listFolderArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listFolderArgs);
 
 } else if (argv._[0] === downloadFolder.name || argv._[0] === downloadFolder.alias) {
 	_displayCommand(downloadFolder.name);
@@ -15503,10 +15013,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadFolderArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadFolderArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadFolderArgs);
 
 } else if (argv._[0] === uploadFolder.name || argv._[0] === uploadFolder.alias) {
 	_displayCommand(uploadFolder.name);
@@ -15521,10 +15028,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadFolderArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadFolderArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadFolderArgs);
 
 } else if (argv._[0] === deleteFolder.name || argv._[0] === deleteFolder.alias) {
 	_displayCommand(deleteFolder.name);
@@ -15539,10 +15043,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.permanent) {
 		deleteFolderArgs.push(...['--permanent', argv.permanent]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, deleteFolderArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deleteFolderArgs);
 
 } else if (argv._[0] === copyFile.name || argv._[0] === copyFile.alias) {
 	_displayCommand(copyFile.name);
@@ -15557,10 +15058,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		copyFileArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, copyFileArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(copyFileArgs);
 
 } else if (argv._[0] === uploadFile.name || argv._[0] === uploadFile.alias) {
 	_displayCommand(uploadFile.name);
@@ -15578,10 +15076,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadFileArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadFileArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadFileArgs);
 
 } else if (argv._[0] === downloadFile.name || argv._[0] === downloadFile.alias) {
 	_displayCommand(downloadFile.name);
@@ -15599,10 +15094,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadFileArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadFileArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadFileArgs);
 
 } else if (argv._[0] === deleteFile.name || argv._[0] === deleteFile.alias) {
 	_displayCommand(deleteFile.name);
@@ -15617,10 +15109,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.permanent) {
 		deleteFileArgs.push(...['--permanent', argv.permanent]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, deleteFileArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deleteFileArgs);
 
 } else if (argv._[0] === describeFile.name || argv._[0] === describeFile.alias) {
 	_displayCommand(describeFile.name);
@@ -15633,10 +15122,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		describeFileArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, describeFileArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeFileArgs);
 
 } else if (argv._[0] === listTrash.name || argv._[0] === listTrash.alias) {
 	_displayCommand(listTrash.name);
@@ -15648,10 +15134,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		listTrashArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, listTrashArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listTrashArgs);
 
 } else if (argv._[0] === deleteTrash.name) {
 	_displayCommand(deleteTrash.name);
@@ -15667,10 +15150,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		deleteTrashArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, deleteTrashArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deleteTrashArgs);
 
 } else if (argv._[0] === restoreTrash.name || argv._[0] === restoreTrash.alias) {
 	_displayCommand(restoreTrash.name);
@@ -15686,10 +15166,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		restoreTrashArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, restoreTrashArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(restoreTrashArgs);
 
 } else if (argv._[0] === emptyTrash.name) {
 	_displayCommand(emptyTrash.name);
@@ -15702,10 +15179,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		emptyTrashArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, emptyTrashArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(emptyTrashArgs);
 
 } else if (argv._[0] === downloadRecommendation.name || argv._[0] === downloadRecommendation.alias) {
 	_displayCommand(downloadRecommendation.name);
@@ -15727,10 +15201,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		downloadRecommendationArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadRecommendationArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadRecommendationArgs);
 
 } else if (argv._[0] === uploadRecommendation.name || argv._[0] === uploadRecommendation.alias) {
 	_displayCommand(uploadRecommendation.name);
@@ -15745,10 +15216,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		uploadRecommendationArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, uploadRecommendationArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(uploadRecommendationArgs);
 
 } else if (argv._[0] === controlRecommendation.name || argv._[0] === controlRecommendation.alias) {
 	_displayCommand(controlRecommendation.name);
@@ -15767,10 +15235,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		controlRecommendationArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, controlRecommendationArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(controlRecommendationArgs);
 
 } else if (argv._[0] === listScheduledJobs.name || argv._[0] === listScheduledJobs.alias) {
 	_displayCommand(listScheduledJobs.name);
@@ -15786,10 +15251,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		listScheduledJobsArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, listScheduledJobsArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listScheduledJobsArgs);
 
 } else if (argv._[0] === describeScheduledJob.name || argv._[0] === describeScheduledJob.alias) {
 	_displayCommand(describeScheduledJob.name);
@@ -15803,10 +15265,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		describeScheduledJobArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, describeScheduledJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(describeScheduledJobArgs);
 
 } else if (argv._[0] === listPublishingJobs.name || argv._[0] === listPublishingJobs.alias) {
 	_displayCommand(listPublishingJobs.name);
@@ -15826,10 +15285,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		listPublishingJobsArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, listPublishingJobsArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listPublishingJobsArgs);
 
 } else if (argv._[0] === downloadJobLog.name || argv._[0] === downloadJobLog.alias) {
 	_displayCommand(downloadJobLog.name);
@@ -15843,10 +15299,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		downloadJobLogArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, downloadJobLogArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(downloadJobLogArgs);
 
 } else if (argv._[0] === updateRenditionJob.name || argv._[0] === updateRenditionJob.alias) {
 	_displayCommand(updateRenditionJob.name);
@@ -15863,10 +15316,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		updateRenditionJobArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, updateRenditionJobArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(updateRenditionJobArgs);
 
 } else if (argv._[0] === createEncryptionKey.name || argv._[0] === createEncryptionKey.alias) {
 	_displayCommand(createEncryptionKey.name);
@@ -15875,10 +15325,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--projectDir', cwd,
 		'--file', argv.file
 	];
-	spawnCmd = childProcess.spawnSync(npmCmd, createEncryptionKeyArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createEncryptionKeyArgs);
 
 } else if (argv._[0] === registerServer.name || argv._[0] === registerServer.alias) {
 	_displayCommand(registerServer.name, ['password']);
@@ -15921,10 +15368,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.timeout) {
 		registerServerArgs.push(...['--timeout'], argv.timeout);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, registerServerArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(registerServerArgs);
 
 } else if (argv._[0] === configProperties.name || argv._[0] === configProperties.alias) {
 	_displayCommand(configProperties.name);
@@ -15935,10 +15379,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--value', argv.value
 	];
 
-	spawnCmd = childProcess.spawnSync(npmCmd, configPropertiesArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(configPropertiesArgs);
 
 } else if (argv._[0] === setOAuthToken.name || argv._[0] === setOAuthToken.alias) {
 	_displayCommand(setOAuthToken.name);
@@ -15952,10 +15393,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		setOAuthTokenArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, setOAuthTokenArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(setOAuthTokenArgs);
 
 } else if (argv._[0] === refreshOAuthToken.name || argv._[0] === refreshOAuthToken.alias) {
 	_displayCommand(refreshOAuthToken.name);
@@ -15968,10 +15406,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		refreshOAuthTokenArgs.push(...['--server', argv.server]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, refreshOAuthTokenArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(refreshOAuthTokenArgs);
 
 } else if (argv._[0] === develop.name || argv._[0] === develop.alias) {
 	_displayCommand(develop.name);
@@ -15988,10 +15423,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.debug) {
 		developArgs.push(...['--debug']);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, developArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(developArgs);
 } else if (argv._[0] === syncServer.name || argv._[0] === syncServer.alias) {
 	_displayCommand(syncServer.name);
 	let syncServerArgs = ['run', '-s', syncServer.name, '--prefix', appRoot,
@@ -16027,10 +15459,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (!isNaN(argv.days)) {
 		syncServerArgs.push(...['--days', argv.days]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, syncServerArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(syncServerArgs);
 } else if (argv._[0] === webhookServer.name || argv._[0] === webhookServer.alias) {
 	_displayCommand(webhookServer.name);
 	let webhookServerArgs = ['run', '-s', webhookServer.name, '--prefix', appRoot,
@@ -16046,10 +15475,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		webhookServerArgs.push(...['--port', argv.port]);
 	}
 
-	spawnCmd = childProcess.spawnSync(npmCmd, webhookServerArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(webhookServerArgs);
 
 } else if (argv._[0] === compilationServer.name || argv._[0] === compilationServer.alias) {
 	_displayCommand(compilationServer.name);
@@ -16081,10 +15507,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.shellscript) {
 		compilationServerArgs.push(...['--shellscript', argv.shellscript]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, compilationServerArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(compilationServerArgs);
 } else if (argv._[0] === createGroup.name || argv._[0] === createGroup.alias) {
 	_displayCommand(createGroup.name);
 	let createGroupArgs = ['run', '-s', createGroup.name, '--prefix', appRoot,
@@ -16098,10 +15521,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createGroupArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createGroupArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(createGroupArgs);
 } else if (argv._[0] === deleteGroup.name || argv._[0] === deleteGroup.alias) {
 	_displayCommand(deleteGroup.name);
 	let deleteGroupArgs = ['run', '-s', deleteGroup.name, '--prefix', appRoot,
@@ -16113,10 +15533,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		deleteGroupArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, deleteGroupArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(deleteGroupArgs);
 } else if (argv._[0] === addMemberToGroup.name || argv._[0] === addMemberToGroup.alias) {
 	_displayCommand(addMemberToGroup.name);
 	let addMemberToGroupArgs = ['run', '-s', addMemberToGroup.name, '--prefix', appRoot,
@@ -16135,10 +15552,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		addMemberToGroupArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, addMemberToGroupArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(addMemberToGroupArgs);
 } else if (argv._[0] === removeMemberFromGroup.name || argv._[0] === removeMemberFromGroup.alias) {
 	_displayCommand(removeMemberFromGroup.name);
 	let removeMemberFromGroupArgs = ['run', '-s', removeMemberFromGroup.name, '--prefix', appRoot,
@@ -16151,10 +15565,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		removeMemberFromGroupArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, removeMemberFromGroupArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(removeMemberFromGroupArgs);
 } else if (argv._[0] === listGroups.name || argv._[0] === listGroups.alias) {
 	_displayCommand(listGroups.name);
 	let listGroupsArgs = ['run', '-s', listGroups.name, '--prefix', appRoot,
@@ -16165,10 +15576,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		listGroupsArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, listGroupsArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listGroupsArgs);
 } else if (argv._[0] === listUsers.name || argv._[0] === listUsers.alias) {
 	_displayCommand(listUsers.name);
 	let listUsersArgs = ['run', '-s', listUsers.name, '--prefix', appRoot,
@@ -16182,10 +15590,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		listUsersArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, listUsersArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(listUsersArgs);
 } else if (argv._[0] === executeGet.name || argv._[0] === executeGet.alias) {
 	_displayCommand(executeGet.name);
 	let executeGetArgs = ['run', '-s', executeGet.name, '--prefix', appRoot,
@@ -16198,10 +15603,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		executeGetArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, executeGetArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(executeGetArgs);
 } else if (argv._[0] === executePost.name || argv._[0] === executePost.alias) {
 	_displayCommand(executePost.name);
 	let executePostArgs = ['run', '-s', executePost.name, '--prefix', appRoot,
@@ -16221,10 +15623,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		executePostArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, executePostArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(executePostArgs);
 
 } else if (argv._[0] === executePut.name || argv._[0] === executePut.alias) {
 	_displayCommand(executePut.name);
@@ -16242,10 +15641,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		executePutArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, executePutArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(executePutArgs);
 
 } else if (argv._[0] === executePatch.name || argv._[0] === executePatch.alias) {
 	_displayCommand(executePatch.name);
@@ -16263,10 +15659,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		executePatchArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, executePatchArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(executePatchArgs);
 
 } else if (argv._[0] === executeDelete.name || argv._[0] === executeDelete.alias) {
 	_displayCommand(executeDelete.name);
@@ -16279,10 +15672,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		executeDeleteArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, executeDeleteArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(executeDeleteArgs);
 } else if (argv._[0] === setLoggerLevel.name || argv._[0] === setLoggerLevel.alias) {
 	_displayCommand(setLoggerLevel.name);
 	let setLoggerLevelArgs = ['run', '-s', setLoggerLevel.name, '--prefix', appRoot,
@@ -16291,10 +15681,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--level', argv.level
 	];
 
-	spawnCmd = childProcess.spawnSync(npmCmd, setLoggerLevelArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
+	spawnCmd = childProcessSpawnSync(setLoggerLevelArgs);
 } else {
 	if (process.shim) {
 		window.changeT(window.currentTab, `❌ Instance ${window.currentTab}`)

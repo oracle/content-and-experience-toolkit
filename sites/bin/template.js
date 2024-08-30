@@ -2899,6 +2899,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 			if (fs.existsSync(themeGulpFile)) {
 				// Run 'gulp' under the theme directory
 				var themeBuild = childProcess.spawnSync(npmCmd, ['run', 'gulp', themeGulpFile], {
+					shell: (process.platform === 'win32'),
 					stdio: 'inherit'
 				});
 				if (themeBuild.status) {
@@ -2978,6 +2979,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 						console.info(' - optimize component ' + comps[i]);
 						// Run 'gulp' under the theme directory
 						var componentBuild = childProcess.spawnSync(npmCmd, ['run', 'gulp', componentsGulpFile], {
+							shell: (process.platform === 'win32'),
 							stdio: 'inherit'
 						});
 						if (componentBuild.status) {

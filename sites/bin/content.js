@@ -2411,6 +2411,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 									var scriptPath = '"' + publishContentFilePath.substring(0, publishContentFilePath.lastIndexOf(path.sep)) + '"' +
 										publishContentFilePath.substring(publishContentFilePath.lastIndexOf(path.sep));
 									var publishCmd = childProcess.execSync(scriptPath, {
+										shell: (process.platform === 'win32'),
 										stdio: 'inherit'
 									});
 
@@ -4631,6 +4632,7 @@ module.exports.transferSiteContent = function (argv, done) {
 				var scriptPath = '"' + downloadContentFilePath.substring(0, downloadContentFilePath.lastIndexOf(path.sep)) + '"' +
 					downloadContentFilePath.substring(downloadContentFilePath.lastIndexOf(path.sep));
 				var downloadCmd = childProcess.execSync(scriptPath, {
+					shell: (process.platform === 'win32'),
 					stdio: 'inherit'
 				});
 
@@ -4639,6 +4641,7 @@ module.exports.transferSiteContent = function (argv, done) {
 				scriptPath = '"' + uploadContentFilePath.substring(0, uploadContentFilePath.lastIndexOf(path.sep)) + '"' +
 					uploadContentFilePath.substring(uploadContentFilePath.lastIndexOf(path.sep));
 				var uploadCmd = childProcess.execSync(scriptPath, {
+					shell: (process.platform === 'win32'),
 					stdio: 'inherit'
 				});
 
@@ -4907,6 +4910,7 @@ module.exports.transferContent = function (argv, done) {
 				var scriptPath = '"' + downloadContentFilePath.substring(0, downloadContentFilePath.lastIndexOf(path.sep)) + '"' +
 					downloadContentFilePath.substring(downloadContentFilePath.lastIndexOf(path.sep));
 				var downloadCmd = childProcess.execSync(scriptPath, {
+					shell: (process.platform === 'win32'),
 					stdio: 'inherit'
 				});
 
@@ -4915,6 +4919,7 @@ module.exports.transferContent = function (argv, done) {
 				scriptPath = '"' + uploadContentFilePath.substring(0, uploadContentFilePath.lastIndexOf(path.sep)) + '"' +
 					uploadContentFilePath.substring(uploadContentFilePath.lastIndexOf(path.sep));
 				var uploadCmd = childProcess.execSync(scriptPath, {
+					shell: (process.platform === 'win32'),
 					stdio: 'inherit'
 				});
 

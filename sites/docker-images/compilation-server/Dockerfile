@@ -106,7 +106,7 @@ RUN mv content-and-experience-toolkit-master/sites  ${CEC_TOOLKIT_DIR_NAME} \
 # -----------------
 RUN cd ${CEC_TOOLKIT_DIR_NAME} \
   && pwd \
-  && export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+  && export PUPPETEER_SKIP_DOWNLOAD=true \
   && node --version \
   && npm install \
   && export PATH=${PATH}:${CEC_TOOLKIT_BIN_DIR_NAME} \
@@ -127,7 +127,7 @@ RUN rm ${CEC_COMPILATION_HOME}/${CEC_TOOLKIT_ZIP}
 # ----------------------------------------------
 RUN pwd \
   && export PATH=${PATH}:${CEC_TOOLKIT_BIN_DIR_NAME} \
-  && export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+  && export PUPPETEER_SKIP_DOWNLOAD=true \
   && cd ${CEC_COMPILATION_USER_DIR} \
   && mkdir ${CEC_DIR_NAME} \
   && cd ${CEC_DIR_NAME} \
