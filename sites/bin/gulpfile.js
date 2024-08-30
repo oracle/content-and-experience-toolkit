@@ -163,6 +163,7 @@ gulp.task('install-src', function (done) {
 	console.log('Install dependencies from package.json:');
 	var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', projectDir, projectDir, '--no-bin-links'], {
 		projectDir,
+		shell: (process.platform === 'win32'),
 		stdio: 'inherit'
 	});
 	var dependenciesInstalled = true;
@@ -196,6 +197,7 @@ gulp.task('install-src', function (done) {
 	];
 	var seedCmd = childProcess.spawnSync(npmCmd, seedArgs, {
 		projectDir,
+		shell: (process.platform === 'win32'),
 		stdio: 'inherit'
 	});
 
@@ -225,6 +227,7 @@ gulp.task('develop', function (done) {
 	var args = argv.debug ? ['run', '--node-options', '--inspect', 'start', '--prefix', cecDir] : ['run', 'start', '--prefix', cecDir];
 	var spawnCmd = childProcess.spawnSync(npmCmd, args, {
 		projectDir,
+		shell: (process.platform === 'win32'),
 		stdio: 'inherit'
 	});
 	done();
@@ -358,6 +361,7 @@ gulp.task('sync-server', function (done) {
 
 				spawnCmd = childProcess.spawnSync(npmCmd, args, {
 					projectDir,
+					shell: (process.platform === 'win32'),
 					stdio: 'inherit'
 				});
 
@@ -373,12 +377,14 @@ gulp.task('sync-server', function (done) {
 
 		spawnCmd = childProcess.spawnSync(npmCmd, args, {
 			projectDir,
+			shell: (process.platform === 'win32'),
 			stdio: 'inherit'
 		});
 	} else {
 		// none
 		spawnCmd = childProcess.spawnSync(npmCmd, args, {
 			projectDir,
+			shell: (process.platform === 'win32'),
 			stdio: 'inherit'
 		});
 	}
@@ -413,6 +419,7 @@ gulp.task('webhook-server', function (done) {
 
 	spawnCmd = childProcess.spawnSync(npmCmd, args, {
 		projectDir,
+		shell: (process.platform === 'win32'),
 		stdio: 'inherit'
 	});
 
@@ -508,6 +515,7 @@ gulp.task('compilation-server', function (done) {
 
 	childProcess.spawnSync(npmCmd, args, {
 		projectDir,
+		shell: (process.platform === 'win32'),
 		stdio: 'inherit'
 	});
 

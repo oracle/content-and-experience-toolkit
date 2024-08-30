@@ -12,7 +12,7 @@ Templates and resources for development platforms.
 
 - [Asset Sync](sites/doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCM servers
 
-NOTE: this project previously contained a sub-project called "react-starter-sites". That project is no longer supported, and has been archived in [react-starter-sites](https://github.com/oracle/react-starter-sites-archive).
+NOTE: This project previously contained a sub-project called "react-starter-sites". That project is no longer supported, and has been archived in [react-starter-sites](https://github.com/oracle/react-starter-sites-archive).
 
 ## Getting Started
 
@@ -35,6 +35,12 @@ Released under the Universal Permissive License v1.0 as shown at
 
 
 ## Release History
+
+### New in Release 24.8.1
+
+**Updated**
+- Updated the versions of dependencies
+- Updated process spawning on Windows due to [Node.js changes](https://nodejs.org/en/blog/vulnerability/april-2024-security-releases-2).
 
 ### New in Release 24.3.1
 

@@ -3312,6 +3312,7 @@ module.exports.createTranslationConnector = function (argv, done) {
 			console.log(' - install connector');
 			var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', connectorSrcPath, connectorSrcPath], {
 				projectDir,
+				shell: (process.platform === 'win32'),
 				stdio: 'inherit'
 			});
 
@@ -3360,6 +3361,7 @@ module.exports.startTranslationConnector = function (argv, done) {
 
 	var spawnCmd = childProcess.spawnSync(npmCmd, args, {
 		projectDir,
+		shell: (process.platform === 'win32'),
 		stdio: 'inherit'
 	});
 	done();

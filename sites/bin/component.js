@@ -381,6 +381,7 @@ var optimizeComponent = function (componentName) {
 	if (fs.existsSync(compGulpFile)) {
 		// Run 'gulp' under the components directory
 		var compBuild = childProcess.spawnSync(npmCmd, ['run', 'gulp', compGulpFile], {
+			shell: (process.platform === 'win32'),
 			stdio: 'inherit'
 		});
 		return compBuild.status;

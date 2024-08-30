@@ -25,6 +25,7 @@ var buildTemplate = function (templateName) {
 		console.log();
 		console.log('Executing: ' + 'cec export-template ' + templateName + ' --optimize');
 		var exportTemplate = childProcess.spawnSync(cecCmd, ['export-template', templateName, '--optimize'], {
+			shell: (process.platform === 'win32'),
 			stdio: 'inherit'
 		});
 		if (exportTemplate.status) {
