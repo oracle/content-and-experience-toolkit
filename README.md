@@ -28,13 +28,19 @@ Please consult the [security guide](./SECURITY.md) for our responsible security 
 
 ## License
 
-Copyright (c) 2019, 2024 Oracle and/or its affiliates.
+Copyright (c) 2019, 2025 Oracle and/or its affiliates.
 
 Released under the Universal Permissive License v1.0 as shown at
 <https://oss.oracle.com/licenses/upl/>.
 
 
 ## Release History
+
+### New in Release 25.3.1
+
+**Updated**
+- Updated the versions of dependencies
+- Updated the required version of Node.js to 18
 
 ### New in Release 24.8.1
 

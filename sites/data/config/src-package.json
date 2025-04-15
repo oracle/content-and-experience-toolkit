@@ -25,18 +25,18 @@
 		"node": ">=16.18.1"
 	},
 	"dependencies": {
-		"chai": "4.3.7",
+		"chai": "4.5.0",
 		"del": "6.1.1",
 		"gulp": "4.0.2",
 		"gulp-replace": "1.1.4",
 		"lodash": "4.17.21",
 		"marked": "4.3.0",
-		"mocha": "10.1.0",
+		"mocha": "10.7.3",
 		"mocha-junit-reporter": "2.2.1",
 		"mustache": "4.2.0",
 		"preact": "10.19.3",
-		"preact-render-to-string": "5.2.6",
-		"puppeteer": "22.13.0",
+		"preact-render-to-string": "6.5.7",
+		"puppeteer": "22.14.0",
 		"react": "18.2.0",
 		"react-dom": "18.2.0",
 		"requirejs": "2.3.7"
