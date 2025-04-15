@@ -1,6 +1,6 @@
 {
   "name": "cec",
-  "version": "24.8.1",
+  "version": "25.3.1",
   "description": "CLI for cec",
   "license": "UPL-1.0",
   "main": "cec.js",
@@ -12,7 +12,7 @@
     "cec-compile-site": "cecCompileSite.sh"
   },
   "dependencies": {
-    "yargs": "13.2.4"
+    "yargs": "13.3.0"
   },
   "author": "Oracle"
 }
