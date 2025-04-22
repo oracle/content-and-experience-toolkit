@@ -31,7 +31,7 @@ steps:
   - type: Command
     name: "Install dependencies & cyclonedx-node-npm package in sites"
     command: |
-      cd sites && npm install && npm install --save-dev @cyclonedx/cyclonedx-npm
+      cd sites && npm install && npm install --save-dev @cyclonedx/cyclonedx-npm@1.19.3
   - type: Command
     name: "Run cyclonedx-node-npm package in sites"
     command: |
