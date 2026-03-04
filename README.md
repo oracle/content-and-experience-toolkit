@@ -1,5 +1,7 @@
 # Oracle Content Management Toolkit
 
+NOTE: Oracle Content Management Cloud Services reached "End of Life" status and has been discontinued as of January 1, 2026.  This project is no longer supported or maintained.
+
 Templates and resources for development platforms.
 
 [sites](sites/) – Work with tools to create, test, and package your own site templates, themes, components and content layouts.
